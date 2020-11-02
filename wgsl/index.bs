@@ -515,26 +515,20 @@ and how to use variables with it.
       <td>Invocations in the same [=shader stage=]
       <td>[=Module scope=]
       <td>[=Host-shareable=]
-      <td>The [=store type=] of a variable in the `uniform` storage class
-          must be a `block`-decorated [=host-shareable=] structure type.
-          See also [[#memory-layouts]].
-          <br>Used with `uniform-buffer` WebGPU GPUBindingType.
+      <td>For [=uniform buffer=] variables
   <tr><td>storage
       <td>Readable.<br>
           Also writable if the variable is not read-only.
       <td>Invocations in the same [=shader stage=]
       <td>[=Module scope=]
       <td>[=Host-shareable=]
-      <td>The [=store type=] of a variable in the `storage` storage class
-          must be a `block`-decorated [=host-shareable=] structure type.
-          See also [[#memory-layouts]].
-          <br>Used with `storage-buffer` or `readonly-storage-buffer` WebGPU GPUBindingType.
+      <td>For [=storage buffer=] variables
   <tr><td>handle
       <td>Read-only
       <td>Invocations in the same shader stage
       <td>[=Module scope=]
       <td>Opaque representation of handle to a sampler or texture
-      <td>Used with one of the sampler or texture WebGPU GPUBindingType values.<br>
+      <td>Used for sampler and texture variables<br>
           The token `handle` is reserved: it is never used in a [SHORTNAME] program.
 </table>
 
@@ -585,6 +579,10 @@ The [=store type=] of a buffer variable must be [=host-shareable=], with fully e
 Each buffer variable must be declared in either the `uniform` or `storage` storage classes.
 The memory layout of a type is significant only when referring to a value in those storage classes.
 This affects evaluation of a variable in one of those storage classes, or of a pointer into one of those storage classes.
+
+The <dfn noexport>uniform buffer layout</dfn> is **STUB**
+
+The <dfn noexport>storage buffer layout</dfn> is **STUB**
 
 TODO: *This is a stub*: Collectively, the <dfn noexport>stride</dfn> and <dfn noexport>offset</dfn> attributes are called *layout attributes*.
 
@@ -712,7 +710,7 @@ type.
 
 ### Read-only Storage Texture Types ### {#texture-ro}
 
-A <dfn noexport>read-only texture</dfn> is a texture from which individual texels
+A <dfn noexport>read-only storage texture</dfn> is a texture from which individual texels
 may be read, without the use of a sampler.
 See [[#texture-builtin-functions]].
 
@@ -753,7 +751,7 @@ For example:
 
 ### Write-only Storage Texture Types ### {#texture-wo}
 
-A <dfn noexport>write-only texture</dfn> is a texture to which individual texels
+A <dfn noexport>write-only storage texture</dfn> is a texture to which individual texels
 may be written.
 See [[#texture-builtin-functions]].
 
@@ -1130,6 +1128,21 @@ Variables at module scope are restricted as follows:
 * If the [=store type=] is a texture type or a sampler type, then the variable declaration must not
     have a storage class decoration.  The storage class will always be `handle`.
 
+Variables in the `in` and `out` storage classes are pipeline inputs and outputs. See [[#pipeline-inputs-outputs]].
+
+A variable in the `uniform` storage class is a <dfn noexport>uniform buffer</dfn> variable.
+Its [=store type=] must be a `block`-decorated [=host-shareable=] structure type,
+satisfying the [=uniform buffer layout=] rules.
+
+A variable in the `storage` storage class is a <dfn noexport>storage buffer</dfn> variable.
+Its [=store type=] must be a `block`-decorated [=host-shareable=] structure type,
+satisfying the [=storage buffer layout=] rules.
+
+As described in [[#resource-interface]],
+uniform buffers, storage buffers, textures, and samplers form the
+[=resource interface of a shader=].
+Such variables are declared with [=set=] and [=binding=] decorations.
+
 <div class='example' heading="Module scope variable declarations">
   <xmp>
     var<in> twist: f32;
@@ -1146,9 +1159,10 @@ Variables at module scope are restricted as follows:
     [[block]] struct PositionsBuffer {
       [[offset(0)]] pos: [[stride(8)]] array<vec2<f32>>;
     };
-    # TODO(dneto): add set and binding
+    [[set(0), binding(0)]]
     var<storage> pbuf: PositionsBuffer;  # A storage buffer
 
+    [[set(0), binding(1)]]
     var filter_params: sampler;   # Textures and samplers are always in "handle" storage.
   </xmp>
 </div>
@@ -2965,7 +2979,7 @@ ISSUE: Can we query upper bounds on workgroup size dimensions?  Is it independen
 ## Shader Interface ## {#shader-interface}
 
 The shader interface is the set of objects
-through which the shader accesses data external to the shader stage,
+through which the shader accesses data external to the [=shader stage=],
 either for reading or writing.
 The interface includes:
 
@@ -3060,15 +3074,76 @@ Issue:
 #### Input-output Locations TODO #### {#input-output-locations}
 TODO: *Stub*. Location-sizing of types, non-overlap among variables referenced within an entry point static call tree.
 
-### Resource interface TODO ### {#resource-interface}
+### Resource interface ### {#resource-interface}
 
-TODO: *Stub* The resource interface of a shader stage is the set of module-scope
-variables statically accessed by functions
-in the shader and which declare textures, samplers,
-and buffers (the latter are variables in `storage` or `uniform` storage class).
-This is where we state the requirement for: set and binding attributes.
-Possibly move the content of the "Notes" column for the `storage`, `uniform`, and
-`handle` rows from [[#storage-class]] to this section.
+A <dfn noexport>resource</dfn> is an object,
+other than a [[#pipeline-inputs-outputs|pipeline input or output]],
+which provides access to data external to a [=shader stage=].
+Resources are shared by all invocations of the shader.
+
+There are four kinds of resources:
+
+* [=uniform buffers=]
+* [=storage buffers=]
+* textures
+* samplers
+
+The <dfn noexport>resource interface of a shader</dfn> is the set of module-scope
+resource variables [=statically accessed=] by
+[=functions in a shader stage|functions in the shader stage=].
+
+Each resource variable must be declared with both <dfn noexport>`set`</dfn>
+and <dfn noexport>`binding`</dfn> attributes.
+Together with the shader's stage, these identify the binding address
+of the resource on the shader's pipeline.
+See [[WebGPU#pipeline-layout|WebGPU &sect; GPUPipelineLayout]].
+
+Bindings must not alias within a shader stage:
+two different variables in the resource interface of a given
+shader must not have the same set and binding values, as a pair.
+
+<table class='data'>
+  <caption>Resource variable attributes</caption>
+  <thead>
+    <tr><th>Decoraton<th>Operand<th>Description
+  </thead>
+
+  <tr><td>`set`
+      <td>u32 literal
+      <td>Bind group index
+  <tr><td>`binding`
+      <td>u32 literal
+      <td>Binding number index
+</table>
+
+WebGPU requires that a shader's resource interface match the [[WebGPU#pipeline-layout|layout of the pipeline]]
+using the shader.
+
+<table class='data'>
+  <caption>WebGPU binding type compatibility</caption>
+  <thead>
+    <tr><th>WGSL resource
+        <th>WebGPU [[WebGPU#enumdef-gpubindingtype|GPUBindingType]]
+  </thead>
+  <tr><td>[=uniform buffer=]
+      <td>[[WebGPU#dom-gpubindingtype-uniform-buffer|uniform-buffer]]
+  <tr><td>[=storage buffer=] with `access(read_write)` attribute
+      <td>[[WebGPU#dom-gpubindingtype-storage-buffer|storage-buffer]]
+  <tr><td>[=storage buffer=] with `access(read)` attribute
+      <td>[[WebGPU#dom-gpubindingtype-readonly-storage-buffer|readonly-storage-buffer]]
+  <tr><td>sampler
+      <td>[[WebGPU#dom-gpubindingtype-sampler|sampler]] or
+          [[WebGPU#dom-gpubindingtype-comparison-sampler|comparison-sampler]]
+  <tr><td>sampled texture
+      <td>[[WebGPU#dom-gpubindingtype-sampled-texture|sampled-texture]] or
+          [[WebGPU#dom-gpubindingtype-multisampled-texture|multisampled-texture]]
+  <tr><td>[=read-only storage texture=]
+      <td>[[WebGPU#dom-gpubindingtype-readonly-storage-texture|readonly-storage-texture]]
+  <tr><td>[=write-only storage texture=]
+      <td>[[WebGPU#dom-gpubindingtype-writeonly-storage-texture|writeonly-storage-texture]]
+</table>
+
+TODO: Describe other interface matching requirements, such as minimum buffer binding size.
 
 ## Pipeline compatibility TODO ## {#pipeline-compatibility}
 
