@@ -2027,17 +2027,18 @@ declaration of the identifier as a type alias or structure type.
 
 # Variable and const # {#variables}
 
-TODO: *Stub* (describe what a constant is): A constant is a name for a value, declared via a `const` declaration.
-What types are permitted?  Storable, plus pointer to store type.
+A <dfn dfn noexport>constant</dfn> is a name for a value.
+A <dfn dfn noexport>constant declaration</dfn>:
+* Determines the constant’s name and type.
+* Has an *initializer*, except for certain constant declarations at module scope. See [[#module-constants]].
 
-TODO(dneto): A const may not be of type pointer-to-handle. A function parameter may not have type pointer-to-handle.
-Otherwise we'd have a need to make a pointer-to-handle type expression. But we've reserved the [=storage classes/handle=] keyword.
-When translating from SPIR-V, you must trace through
-the OpCopyObject (or no-index OpAccessChain) instructions that might be between
-the pointer-to-array and the pointer-to-struct.
+While the constant is in scope, its identifer denotes the initialized value.  See [[#const-identifier-expr]].
 
 A <dfn dfn noexport>variable</dfn> is a named reference to storage that can contain a value of a
-particular storable type.
+particular [=storable=] type.
+
+Note: Some kinds of values, such as pointers, are not storable. A variable cannot contain a pointer,
+but a constant may have a pointer value.
 
 Two types are associated with a variable: its <dfn noexport>store type</dfn> (the type of value
 that may be placed in the referenced storage) and its <dfn noexport>reference type</dfn> (the type
@@ -2046,7 +2047,7 @@ then its reference type is pointer-to-*T*-in-*S*.
 
 A <dfn dfn noexport>variable declaration</dfn>:
 
-* Determines the variable’s name, storage class, and store type (and hence its reference type).
+* Determines the variable’s name, [=storage class=], and store type (and hence its reference type).
 * Ensures the execution environment allocates storage for a value of the store type, for the lifetime of the variable.
 * Optionally have an *initializer* expression, if the variable is in the [=storage classes/private=] or [=storage classes/function=] storage classes.
     If present, the initializer's type must match the store type of the variable.
@@ -2221,7 +2222,7 @@ literal_or_ident
 
 ## Module Constants ## {#module-constants}
 
-A *module constant* declares a name for a value, outside of all function declarations.
+A <dfn noexport>module constant</dfn> declares a name for a value, outside of all function declarations.
 The name is available for use after the end of the declaration,
 until the end of the [SHORTNAME] program.
 
@@ -2321,7 +2322,7 @@ numeric types.
 
 A variable or constant declared in a declaration statement in a function body is in <dfn noexport>function scope</dfn>.
 The name is available for use immediately after its declaration statement,
-and until the end of the brace-delimited list of statements immediately enclosing the declaration.
+until the end of the brace-delimited list of statements immediately enclosing the declaration.
 
 A variable declared in function scope is always in the [=storage classes/function=] storage class.
 The variable storage decoration is optional.
@@ -3608,7 +3609,7 @@ Issue: Which index is used when it's out of bounds?
 
 TODO: *Stub*. Call to function returning non-void, is an expression.
 
-## Variable Identifier Expression b# {#var-identifier-expr}
+## Variable Identifier Expression ## {#var-identifier-expr}
 
 <table class='data'>
   <caption>Getting a pointer from a variable name</caption>
@@ -3626,10 +3627,41 @@ TODO: *Stub*. Call to function returning non-void, is an expression.
            The expression |v| must be in scope of the variable declaration.
 </table>
 
-## Const Identifier Expression  ## {#const-identifier-expr}
+    <div class='example wgsl' heading='Reading and writing a variable'>
+      <xmp highlight='rust'>
+        fn f() loop_example() -> void {
+            // Declare variable in 'function' storage class, for containing an integer.
+            // The value 0 is placed there.
+            var i: i32 = 0;
+            loop {
+                // In an expression 'i' denotes the pointer to the storage for variable 'i'.
+                // The initializer expression requires us to apply the Load Rule,
+                // yielding the contents of the storage for variable 'i'.
+                // Compare that result to the value 10.  Make 'finished' denote
+                // true when the value that was stored in variable 'i' equals 10.
+                const finished: bool = (i == 10);
+                if (finished) { break; }
+
+                // Step 1.  Evaluate the right hand side.
+                //    a. We must apply the Load Rule to get the current contents of
+                //       the variable 'i'.
+                //    b. Add 1 to the value resulting from Step 1a, yielding the
+                //       value for the whole right hand side.
+                // Step 2.  Evaluate the left hand side. It is the pointer to the storage
+                //       for variable i.
+                // The assignment assigns places the value from the right hand side
+                // (the sum of the current value of variable 'i', plus 1), into the
+                // storage for variable 'i'.
+                i = i + 1;
+            }
+        }
+      </xmp>
+    </div>
+
+## Constant Identifier Expression ## {#const-identifier-expr}
 
 <table class='data'>
-  <caption>Getting the value of a const declaration</caption>
+  <caption>Getting the value of a constant</caption>
   <thead>
     <tr><th>Precondition<th>Conclusion<th>Description
   </thead>
@@ -3640,12 +3672,55 @@ TODO: *Stub*. Call to function returning non-void, is an expression.
        <td class="nowrap">
           |c| : |T|
        <td>Result is the value computed for the initializer when the `const` declaration
-           was executed.
-           For a const declaration at module scope, that occurs before the shader begins execution.
-           For a const declaration inside a function, that occurs each time control reaches
+           was executed.<br>
+           The expression |c| must be in scope of the const declaration.<br>
+           For a const declaration inside a function, the intializer is computed each time control reaches
            the declaration.<br>
-           The expression |c| must be in scope of the const declaration.
+           For a const declaration at module scope, the intializer value is determined before shader begins execution.
+           If the const declaration has a `constant_id` attribute, then the initializer value
+           may be controlled by settings specified to pipeline creation as described in [[#module-constants]].
+           <br>
 </table>
+
+    <div class='example wgsl' heading='Constant initializer evaluated when executing the declaration'>
+      <xmp highlight='rust'>
+        fn f() loop_example() -> void {
+            var i: i32 = 0;
+            loop {
+                if (i==10) { break; }
+
+                // 'twice_i' denotes 0 on the first iteration, 2 on the second iteration,
+                // all the way until 18 on the last iteration.
+                const twice_i: i32 = i + i;
+
+                i = i + 1;
+            }
+        }
+      </xmp>
+    </div>
+
+
+Note: The value denoted by the identifier does not change for as long as it is in scope. This is why it is *constant*.
+However, a constant might be a pointer value, and when that pointer is on the [=left-hand side=] of an assignment
+statement, then the storage *referenced by the pointer* is overwritten.
+The constant itself still points to the same storage locations, i.e. it is the same pointer value,
+even if the contents
+of the underlying storage may have changed.
+
+    <div class='example wgsl' heading='Storing through a constant of pointer type'>
+      <xmp highlight='rust'>
+        fn f() -> void {
+            var a: i32 = 20;
+            // 'a_ref' points to the storage for variable 'a'.
+            const a_ref: ptr<function,i32> = a;
+
+            // Store value 30 into the storage locations pointed to by 'a_ref'.
+            // This updates the contents of 'a' to hold 30.
+            a_ref = 30;
+            // 'a_ref' still points to the storage locations for variable 'a'.
+        }
+      </xmp>
+    </div>
 
 ## Pointer Loading Expression  ## {#pointer-load-expr}
 
