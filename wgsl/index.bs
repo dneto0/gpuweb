@@ -2059,19 +2059,27 @@ and third clauses and in the body of the `for` statement.
 
 ## Literal Expressions ## {#literal-expressions}
 
-A <dfn noexport>literal expression</dfn> is an expression denoting a scalar boolean or numeric value,
+A <dfn noexport>literal expression</dfn> is an expression denoting a [=scalar=] value,
 where the value can be determined by inspecting only the tokens themselves.
 
 <pre class='def'>
 const_literal
+  : simple_literal
+  | minus_literal
+
+simple_literal
   : TRUE
   | FALSE
   | UINT_LITERAL
-  | MINUS? (INT_LITERAL | FLOAT_LITERAL)
+  | INT_LITERAL
+  | FLOAT_LITERAL
+
+minus_literal
+  : MINUS (INT_LITERAL | FLOAT_LITERAL)
 </pre>
 
 <table class='data'>
-  <caption>`const_literal` type and value rules</caption>
+  <caption>Literal type and value rules</caption>
   <thead>
     <tr><th>Precondition<th>Conclusion<th>Value
   </thead>
@@ -3290,7 +3298,6 @@ TODO: *Stub*: how to write each of the abstract pointer operations
 primary_expression
   : IDENT argument_expression_list?
   | type_decl argument_expression_list
-  | const_literal
   | paren_rhs_statement
   | BITCAST LESS_THAN type_decl GREATER_THAN paren_rhs_statement
       OpBitcast
@@ -3305,9 +3312,29 @@ postfix_expression
 
 unary_expression
   : singular_expression
-  | MINUS unary_expression
+  | (MINUS MINUS)* minus_or_literal_expression
+  | BANG unary_expression
+      OpLogicalNot
+  | TILDE unary_expression
+      OpNot
+
+minus_or_literal_expression
+  : const_literal
+  | MINUS unary_expression_excluding_minus_and_literal
       OpSNegate
       OpFNegate
+</pre>
+
+Note: Adjacent pairs of the unary minus operator (`MINUS MINUS`) have no effect.
+The grammar rule permits expressions like `- - - - n`, or `- - n`, both of which have the same
+effect as `n`.
+
+Note: Both productions in the `minus_or_literal_expression` rule might begin with a `MINUS` token.
+One more token of lookahead is used to distinguish the two alternatives.
+
+<pre class='def'>
+unary_expression_excluding_minus_and_literal
+  : singular_expression
   | BANG unary_expression
       OpLogicalNot
   | TILDE unary_expression
