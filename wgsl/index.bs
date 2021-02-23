@@ -193,6 +193,52 @@ negatable_literal
   : FLOAT_LITERAL
 </pre>
 
+### Mathematical value of numeric tokens ### {#mathematical-value-of-numeric-tokens}
+
+This section describes how tokens for integers and floating point numbers map to
+mathematical values, assuming infinite precision calculations.
+See [[#literal-expressions]] for an explanation of how these ideal values are handled
+when considering the finite representations available to WGSL [=types=].
+
+The mathematical value of an `INT_LITERAL` token is as follows:
+
+* `0` has value zero.
+* [=nonzero-digit=] has the value formed by interpreting the digit as a decimal digit.
+* [=nonzero-digit=] [=digits=] has the value formed by interpreting
+    the whole sequence of digits as a decimal number, with the most significant digit on the left.
+* `HEX_PREFIX` [=hex-digits=] has the value formed by interpreting
+    the [=hex-digits=] sequence a hexadecimal number, with the most significant hex digit on the left.
+
+The mathematical value of a `UINT_LITERAL` token is the same as the value of the `INT_LITERAL` that would
+be formed by copying the `UINT_LITERAL` but omitting the trailing `u`.
+
+The mathematical value of a `DECIMAL_FLOAT` is as follows:
+* Split the token into two parts: a significand part, followed immediately by an optional exponent part:
+    * The exponent part extends from the occurence of the letter `e` or `E`, if one exists, until the end of the token.
+    * The significand part is formed by removing the exponent part (if any) from the token.
+* The value *SP* of the significand part is the real number formed
+    by interpreting the significand as a base 10 number
+    with an optional decimal point separating the whole part (on the left) from the fractional part.
+* The value *EP* of the exponent part is as follows:
+    * *EP* = 1 if there is no exponent part. This case applies when the token does not have an `e` or `E`.
+    * *EP* = 10<sup>N</sup> when the exponent is of the form `(e|E)+`[=digits=], and the decimal value of the digit sequence is *N*.
+    * *EP* = 10<sup>-N</sup> when the exponent is of the form `(e|E)-`[=digits=], and the decimal value of the digit sequence is *N*.
+* The value of the decimal float is the product of the significand part and the exponent part:  *SP &times; EP*.
+
+The mathematical value of a `HEX_FLOAT` is as follows:
+* Split the token into three parts: a `HEX_PREFIX`, a significand part, and a binary exponent part:
+    * The `HEX_PREFIX` is the initial `0x` or `0X`.
+    * The binary exponent part begins at the occurence of the letter `p` or `P`.
+    * The significand part is the remaining character sequence between the `HEX_PREFIX` and the binary exponent part.
+* The value *SP* of the significand part is the real number formed
+    by interpreting the significand as a base 16 number
+    with an optional hexadecimal point (`.`) separating the whole part (on the left) from the fractional part.
+* The value *EP* of the exponent part is as follows:
+    * *EP* = 2<sup>N</sup> when the exponent is of the form `(p|P)+`[=digits=], and the decimal value of the digit sequence is *N*.
+    * *EP* = 2<sup>-N</sup> when the exponent is of the form `(p|P)-`[=digits=], and the decimal value of the digit sequence is *N*.
+* The value of the hexadecimal float is the product of the significand part and the exponent part:  *SP &times; EP*.
+
+
 ## Keywords TODO ## {#keywords}
 
 TODO: *Stub*
@@ -239,7 +285,7 @@ Note: For the syntax of declaring types in [SHORTNAME] please see the [[#grammar
 TODO(dneto): This note is probably editorially obsolete.
 
 Programs calculate values. Each value in [SHORTNAME] belongs to exactly one *type*.
-A type is a set of (mathematical) values.
+A <dfn noexport>type</dfn> is a set of (mathematical) values.
 
 We distinguish between the concept of a type and the syntax in [SHORTNAME] to denote that type.
 In many cases the spelling of a type in this document is the same as its [SHORTNAME] syntax.
@@ -2032,7 +2078,11 @@ and third clauses and in the body of the `for` statement.
   <tr><td><td>*FLOAT_LITERAL* : f32<td>OpConstant %float *literal*
 </table>
 
-TODO: Explain how a literal token is converted to a value of matching type.
+TODO: Explain how the mathematical value of a literal token is converted to a value of the associated concrete type type.
+Overflow is an error for UINT_LITERAL.
+Overflow and underflow are errors for INT_LITERAL.
+For FLOAT_LITERAL, describe mapping of infinities and NaNs, normal and subnormal. Fall back on [[#floating-point-conversion]] rules where we can.
+
 
 ## Type Constructor Expressions TODO ## {#type-constructor-expr}
 
