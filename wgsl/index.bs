@@ -170,6 +170,10 @@ In the following tables:
       <td>`HEX_FLOAT_WITH_PERIOD | HEX_FLOAT_WITHOUT_PERIOD`
 </table>
 
+Note: The hexadecimal floating point form allows the programmer to specify the exact
+binary representation of a floating point value, including infinity and NaN cases.
+See [[#literal-expressions]].
+
 <table class='data'>
   <thead>
     <tr><th>Token<th>Definition
@@ -181,17 +185,52 @@ In the following tables:
       <td>`0u |` [=nonzero-digit=] [=digits=]`? u | HEX_PREFIX` [=hex-digits=] `u`
 </table>
 
-<pre class='def'>
-const_literal
-  : MINUS? negatable_literal
-  | UINT_LITERAL
-  | TRUE
-  | FALSE
+### Mathematical value of numeric tokens ### {#mathematical-value-of-numeric-tokens}
 
-negatable_literal
-  : INT_LITERAL
-  : FLOAT_LITERAL
-</pre>
+This section describes how tokens for integers and floating point numbers map to
+mathematical values, assuming infinite precision calculations.
+It defines a function <dfn noexport>IdealValue</dfn> mapping certain tokens to mathematical numbers.
+
+See [[#literal-expressions]] for an explanation of how these ideal values are handled
+when considering the finite representations available to WGSL [=types=].
+
+If *Tok* is an `INT_LITERAL` token, then *IdealValue(Tok)*, is as follows:
+* `0` has value zero.
+* [=nonzero-digit=] has the value formed by interpreting the digit as a decimal digit.
+* [=nonzero-digit=] [=digits=] has the value formed by interpreting
+    the whole sequence of digits as a decimal number, with the most significant digit on the left.
+* `HEX_PREFIX` [=hex-digits=] has the value formed by interpreting
+    the [=hex-digits=] sequence as a hexadecimal number, with the most significant hex digit on the left.
+
+If *Tok* is a `UINT_LITERAL` token, then *IdealValue(Tok)*, is
+the same as *IdealValue(Tok')* where *Tok'* is formed from *Tok* by removing the trailing `u` character.
+
+If *Tok* is a `DECIMAL_FLOAT` token, then *IdealValue(Tok)* is as follows:
+* Split the token into two parts: a significand part, followed immediately by an optional exponent part:
+    * The exponent part extends from the occurence of the letter `e` or `E`, if one exists, until the end of the token.
+    * The significand part is formed by removing the exponent part (if any) from the token.
+* The value *SP* of the significand part is the real number formed
+    by interpreting the significand as a base 10 number
+    with an optional decimal point separating the whole part (on the left) from the fractional part.
+* The value *EP* of the exponent part is as follows:
+    * *EP* = 1 if there is no exponent part. This case applies when the token does not have an `e` or `E`.
+    * *EP* = 10<sup>N</sup> when the exponent is of the form `(e|E)+`[=digits=], and the decimal value of the digit sequence is *N*.
+    * *EP* = 10<sup>-N</sup> when the exponent is of the form `(e|E)-`[=digits=], and the decimal value of the digit sequence is *N*.
+* The value of the decimal float is the product of the significand part and the exponent part:  *SP &times; EP*.
+
+If *Tok* is a `HEX_FLOAT_LITERAL` token, then *IdealValue(Tok)* is as follows:
+* Split the token into three parts: a `HEX_PREFIX`, a significand part, and a binary exponent part:
+    * The `HEX_PREFIX` is the initial `0x` or `0X`.
+    * The binary exponent part begins at the occurence of the letter `p` or `P`.
+    * The significand part is the remaining character sequence between the `HEX_PREFIX` and the binary exponent part.
+* The value *SP* of the significand part is the real number formed
+    by interpreting the significand as a base 16 number
+    with an optional hexadecimal point (`.`) separating the whole part (on the left) from the fractional part.
+* The value *EP* of the exponent part is as follows:
+    * *EP* = 2<sup>N</sup> when the exponent is of the form `(p|P)+`[=digits=], and the decimal value of the digit sequence is *N*.
+    * *EP* = 2<sup>-N</sup> when the exponent is of the form `(p|P)-`[=digits=], and the decimal value of the digit sequence is *N*.
+* The value of the hexadecimal float is the product of the significand part and the exponent part:  *SP &times; EP*.
+
 
 ## Keywords TODO ## {#keywords}
 
@@ -239,7 +278,7 @@ Note: For the syntax of declaring types in [SHORTNAME] please see the [[#grammar
 TODO(dneto): This note is probably editorially obsolete.
 
 Programs calculate values. Each value in [SHORTNAME] belongs to exactly one *type*.
-A type is a set of (mathematical) values.
+A <dfn noexport>type</dfn> is a set of (mathematical) values.
 
 We distinguish between the concept of a type and the syntax in [SHORTNAME] to denote that type.
 In many cases the spelling of a type in this document is the same as its [SHORTNAME] syntax.
@@ -2018,21 +2057,83 @@ and third clauses and in the body of the `for` statement.
 
 # Expressions TODO # {#expressions}
 
-## Literal Expressions TODO ## {#literal-expressions}
+## Literal Expressions ## {#literal-expressions}
+
+A <dfn noexport>literal expression</dfn> is an expression denoting a scalar boolean or numeric value,
+where the value can be determined by inspecting only the tokens themselves.
+
+<pre class='def'>
+const_literal
+  : TRUE
+  | FALSE
+  | UINT_LITERAL
+  | MINUS? (INT_LITERAL | FLOAT_LITERAL)
+</pre>
 
 <table class='data'>
-  <caption>Scalar literal type rules</caption>
+  <caption>`const_literal` type and value rules</caption>
   <thead>
-    <tr><th>Precondition<th>Conclusion<th>Notes
+    <tr><th>Precondition<th>Conclusion<th>Value
   </thead>
-  <tr><td><td>`true` : bool<td>OpConstantTrue %bool
-  <tr><td><td>`false` : bool<td>OpConstantFalse %bool
-  <tr><td><td>*INT_LITERAL* : i32<td>OpConstant %int *literal*
-  <tr><td><td>*UINT_LITERAL* : u32<td>OpConstant %uint *literal*
-  <tr><td><td>*FLOAT_LITERAL* : f32<td>OpConstant %float *literal*
+  <tr><td><td>`true` : bool
+          <td>Evaluates to the true Boolean value.<br>OpConstantTrue %bool
+  <tr><td><td>`false` : bool
+          <td>Evaluates to the false Boolean value.<br>OpConstantTrue %bool
+  <tr algorithm="uint literal value">
+          <td>|e| is a `UINT_LITERAL` token
+          <td>|e| : u32
+          <td>Evaluates to [=IdealValue=](|e|) if that value is in [=u32=].
+              <br>Otherwise, results in a static error.
+              <br>OpConstant %uint |e|
+  <tr algorithm="int literal value">
+          <td>|e| is an `INT_LITERAL` token
+          <td>|e| : i32
+          <td>Evaluates to [=IdealValue=](|e|) if that value is in [=i32=].
+              <br>Otherwise, results in a static error.
+              <br>OpConstant %int |e|
+  <tr algorithm="negated int literal value">
+          <td>|e| is an `INT_LITERAL` token
+          <td>`-`|e| : i32
+          <td>Evaluates to -[=IdealValue=](e) if that value is in [=i32=].
+              <br>Otherwise, results in a static error.
+              <br>OpConstant %int -|e|
+  <tr algorithm="decimal float literal value">
+          <td>|e| is a `DECIMAL_FLOAT_LITERAL` token
+          <td>|e| : f32
+          <td>Evaluates to [=IdealValue=](|e|) converted to [=f32=], following the rules
+              in [[#floating-point-conversion]].
+              <br>OpConstant %float |e|
+  <tr algorithm="negated decimal float literal value">
+          <td>|e| is a `DECIMAL_FLOAT_LITERAL` token
+          <td>`-`|e| : f32
+          <td>Evaluates to -[=IdealValue=](|e|) converted to [=f32=], following the rules
+              in [[#floating-point-conversion]].
+              <br>OpConstant %float -|e|
+  <tr algorithm="hex float literal value">
+          <td>|e| is a `HEX_FLOAT_LITERAL` token
+          <td>|e| : f32
+          <td>Compute |X| = [=IdealValue=](|e|). If |X| is zero, the result is zero.<br>
+              Otherwise |X| = 2<sup>|k|</sup> &times; |Fraction| where 1 &le; |Fraction| &lt; 2.<br>
+              If |k| = 128 and 1 + 2<sup>-23</sup> &le; |Fraction|, then the result is a NaN in [=f32=]. (Some f32 signifcand bits are non-zero.)<br>
+              If |k| = 128 and 1 + 2<sup>-23</sup> &gt; |Fraction|, then the result is the Infinity in [=f32=]. (All f32 significand bits are zero.)<br>
+              If |k| > 128, then the result is Infinity.<br>
+              Otherwise, the result is [=IdealValue=](|e|) converted to [=f32=],
+              following the rules in [[#floating-point-conversion]].
+              <br>OpConstant %float |e|
+  <tr algorithm="negated hex float literal value">
+          <td>|e| is a `HEX_FLOAT_LITERAL` token
+          <td>`-`|e| : f32
+          <td>The result is computed as in the non-negated `HEX_FLOAT_LITERAL` case, but
+              with the sign bit set to 1.
+              <br>OpConstant %float -|e|
 </table>
 
-TODO: Explain how a literal token is converted to a value of matching type.
+Note: Floating point numbers have two zeroes.
+The negative floating point zero has a 1 sign bit, zero for its exponent bits, and zero for its fractional bits.
+One of the ways to write negative zero in [SHORTNAME] is `-0.0`.
+The non-negative floating point zero has a 0 sign bit, zero for its exponent bits, and zero for its fractional bits.
+One of the ways to write non-negative zero in [SHORTNAME] is `0.0`.
+
 
 ## Type Constructor Expressions TODO ## {#type-constructor-expr}
 
@@ -2779,12 +2880,22 @@ Issue: Which index is used when it's out of bounds?
   <thead>
     <tr><th>Precondition<th>Conclusion<th>Notes
   </thead>
-  <tr><td>*e* : *T*, *T* is *SignedIntegral*<td>`-e` : *T*
-      <td>Signed integer negation.
-      <br>OpSNegate. If *e* is a `const_literal`, then the negation can be folded into the OpConstant.
-  <tr><td>*e* : *T*, *T* is *Floating*<td>`-e` : *T*
-      <td>Floating point negation.
-      <br>OpFNegate. If *e* is a `const_literal`, then the negation can be folded into the OpConstant.
+  <tr algorithm="int negation">
+          <td>|e| : |T|,<br>
+              |T| is *SignedIntegral*,<br>
+              |e| is not an `INT_LITERAL` token
+          <td>`-e` : |T|
+      <td>Signed integer negation.<br>
+          See [[#literal-expressions]] for the literal case.<br>
+          OpSNegate.
+  <tr algorithm="float negation">
+          <td>|e| : |T|,<br>
+              |T| is *Floating*
+              |e| is not a `FLOAT_LITERAL` token
+          <td>`-e` : |T|
+      <td>Floating point negation.<br>
+          See [[#literal-expressions]] for the literal case.<br>
+          OpFNegate.
 </table>
 
 <table class='data'>
