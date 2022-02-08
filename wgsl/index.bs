@@ -159,6 +159,14 @@ that run on the GPU.
  * Features and semantics are exactly the ones of [[!SPIR-V]]
  * Each item in this spec *must* provide the mapping to [[!SPIR-V]] for the construct
 
+TODO(state-of-spec): needs revisiting. Drifted from this over time. Suggest keeping only some tie-ins with SPIR-V.  
+Complex ones, like buffer declaration should be removed, or made less prescriptive.
+<!--
+ high performance: near peak performance on each particular target
+ high degree of portability to a broad range of targets
+ suitable language for humans, and as a compilation target from other shader languages
+-->
+
 ## Technical Overview ## {#technical-overview}
 
 WebGPU issues a unit of work to the GPU in the form of a [[WebGPU#gpu-command|GPU command]].
@@ -178,6 +186,8 @@ A shader comprises:
     (For a more rigorous definition, see "[=functions in a shader stage=]".)
 * The set of variables and constants [=statically accessed=] by all those functions.
 * The set of types used to define or analyze all those functions, variables, and constants.
+
+TODO(state-of-spec): Say something about how some named values are computed prior to execution: constants, overrides.
 
 When executing a shader stage, the implementation:
 * Computes the values of constants declared at [=module scope|module-scope=].
@@ -233,7 +243,7 @@ commonly used for graphics rendering, and commonly provided by GPUs.
 The work of a shader stage is partitioned into one or more <dfn noexport>invocations</dfn>,
 each of which executes the entry point, but under slightly different conditions.
 Invocations in a shader stage share access to certain variables:
-* All invocations in the stage share the resources in the shader interface.
+* All invocations in the stage share the resources in the [[#shader-interface|shader interface]].
 * In a [=compute shader stage|compute shader=], invocations in the same
      [=compute shader stage/workgroup=] share
      variables in the [=address spaces/workgroup=] [=address space=].
@@ -247,7 +257,8 @@ of variables in the [=address spaces/private=] and [=address spaces/function=] a
 Invocations within a shader stage execute concurrently, and may often execute in parallel.
 The shader author is responsible for ensuring the dynamic behaviour of the invocations
 in a shader stage:
-* Meet the uniformity requirements of certain primitive operations, including texture sampling and control barriers.
+* Meet the uniformity requirements of certain [[#collective-operations|collective operations]],
+    including texture sampling and control barriers.
 * Coordinate potentially conflicting accesses to shared variables, to avoid race conditions.
 
 WGSL sometimes permits several possible behaviours for a given feature.
@@ -272,6 +283,8 @@ The <dfn noexport>truncate</dfn> function is defined over real numbers |x|:
 The <dfn noexport>roundUp</dfn> function is defined for positive integers |k| and |n| as:
 
 * roundUp(|k|, |n|) = &lceil;|n| &div; |k|&rceil; &times; |k|
+
+TODO(state-of-spec): swap order of roundUp arguments?
 
 The <dfn noexport>transpose</dfn> of an |n|-column |m|-row matrix |A| is the |m|-column |n|-row matrix
 |A|<sup>T</sup> formed by copying the rows of |A| as the columns of |A|<sup>T</sup>:
@@ -301,7 +314,7 @@ The events are:
         [[WebGPU#dom-gpudevice-createcomputepipeline|WebGPU createComputePipeline]] method
         or the
         [[WebGPU#dom-gpudevice-createrenderpipeline|WebGPU createRenderPipeline]] method
-        is invoked.
+        is called.
         These methods use one or more previously created shader modules, together with other
         configuration information.
 3. <dfn noexport>Shader execution start</dfn>
@@ -310,8 +323,8 @@ The events are:
         and invokes the [=shader stage=] [=entry point=] function.
 4. <dfn noexport>Shader execution end</dfn>
     * This occurs when all work in the shader completes:
-        * all its [=invocations=] terminate
-        * and all accesses to [=resources=] complete
+        * all its [=invocations=] terminate, and
+        * all accesses to [=resources=] complete, and
         * outputs, if any, are passed to downstream pipeline stages.
 
 The events are ordered due to:
@@ -367,6 +380,8 @@ A WGSL program is text.
 This specification does not prescribe a particular encoding for that text.
 However, UTF-8 is always a valid encoding for a WGSL program.
 
+TODO(state-of-spec): Register text/wgsl as UTF-8. https://github.com/gpuweb/gpuweb/issues/1682
+
 Note: The intent of promoting UTF-8 like this is to simplify interchange of WGSL programs
 and to encourage interoperability among tools.
 
@@ -406,8 +421,8 @@ To parse a WGSL program:
 3. Parse the token sequence, attempting to match the [=syntax/translation_unit=] grammar rule.
 
 A [=shader-creation error=] results if:
-* the entire source text cannot be converted into a finite sequence of valid tokens, or
-* the [=syntax/translation_unit=] grammar rule does not match the entire token sequence.
+* The entire source text cannot be converted into a finite sequence of valid tokens, or
+* The [=syntax/translation_unit=] grammar rule does not match the entire token sequence.
 
 ## Comments ## {#comments}
 
@@ -535,7 +550,8 @@ an identifier:
     | `/([a-zA-Z_][0-9a-zA-Z][0-9a-zA-Z_]*)|([a-zA-Z][0-9a-zA-Z_]*)/`
 </div>
 
-Note: The [=return type=] for some [=built-in functions=] are structure types whose name cannot be used WGSL source.
+Note: The [=return type=] for some [=built-in functions=] are structure types whose name
+cannot be used in WGSL source.
 Those structure types are described as if they were [=predeclared=] with a name starting with two underscores.
 The result value can be saved into newly declared `let` or `var` using type inferencing, or immediately have one of its members
 immediately extracted by name.  See example usages in the description of `frexp` and `modf`.
@@ -547,6 +563,12 @@ WGSL provides a unified syntax for applying attributes.
 Attributes are used for a variety of purposes such as specifying the interface with the API.
 Generally speaking, from the language's point-of-view, attributes can be
 ignored for the purposes of type and semantic checking.
+
+TODO(state-of-spec): attribute modifies a function return type; not types anymore.
+
+TODO(state-of-spec): what is an "object". Hinted at in the "declaration and scope" section, but not defined.
+
+TODO(state-of-spec): tighten the "generally speaking" phrasing.
 
 An attribute must not be specified more than once per object or type.
 
@@ -644,7 +666,7 @@ An attribute must not be specified more than once per object or type.
     That is, if the data and control flow match for two `position` outputs in
     different entry points, then the result values are guaranteed to be the
     same.
-    There is no affect on a `position` [=built-in input value=].
+    There is no effect on a `position` [=built-in input value=].
 
     Note: this attribute maps to the `Invariant` decoration in SPIR-V, the
     `precise` qualifier in HLSL, and the `invariant` qualifier in GLSL.
@@ -737,10 +759,18 @@ the identifier will denote the object of the non-[=module scope|module-scope=] d
 that use, or the module-scope declaration if no other declaration is in scope.
 We say the identifier use <dfn noexport>resolves</dfn> to that declaration.
 
+TODO(state-of-spec): There are some places where an identifier may be in scope but does not resolve to a declaration.
+Simplify and fix the "or as part of a directive" phrasing.
+Example: name of a texel format as part of a texture type declaration; access mode token when
+naming a type or the access mode of a variable; attribute parameters (statge, interpoltion kind, builtin value); enable directive name; when used to name a member of a structure (either in a structure declaration, or a structure member access expression).
+Are there other cases we've removed from being keywords?
+
 Where a declaration appears determines its scope.
 Generally, the scope is a span of text beginning immediately after the end of
 the declaration.
 Declarations at [=module scope=] are the exception, described below.
+
+TODO(state-of-spec): Awkward split between scopes of module-scope and non-module-scope decls.
 
 A declaration must not introduce a name when that identifier is
 already in scope with the same end of scope as another instance of that name.
@@ -858,21 +888,25 @@ A type is either [=predeclared=], or created in WGSL source via a [=declaration=
 We distinguish between the *concept* of a type and the *syntax* in WGSL to denote that type.
 In many cases the spelling of a type in this specification is the same as its WGSL syntax.
 For example:
-* the set of 32-bit unsigned integer values is spelled `u32` in this specification,
+* The set of 32-bit unsigned integer values is spelled `u32` in this specification,
     and also in a WGSL program.
-* the spelling is different for structure types, or types containing structures.
+* The spelling is different for structure types, or types containing structures.
 
 Some WGSL types are only used for analyzing a source program and
 for determining the program's runtime behaviour.
-This specification will describe such types, but they do not appear in WGSL source text.
+This specification describes such types, but they do not appear in WGSL source text.
 
 Note: WGSL [=reference types=] are not written in WGSL programs. See [[#memory-view-types]].
+
+TODO(state-of-spec): types for literals will also be like this: used for analysis but not mentioned in WGSL source.
 
 ## Type Checking ## {#type-checking-section}
 
 A WGSL value is computed by evaluating an expression.
 An <dfn noexport>expression</dfn> is a segment of source text
 parsed as one of the WGSL grammar rules whose name ends with "`_expression`".
+See [[#expression-grammar]].
+
 An expression *E* can contain <dfn noexport>subexpressions</dfn> which are expressions properly contained
 in the outer expression *E*.
 
@@ -890,7 +924,7 @@ The rules of WGSL are designed so that the static type of an expression depends 
 Statements often use expressions, and may place requirements on the static types of those expressions.
 For example:
 * The condition expression of an `if` statement must be of type [=bool=].
-* In a `let` declaration, the initializer must evaluate to the declared type of the constant.
+* In a `let` declaration, the initializer must evaluate to the declared type of the constant, if specified.
 
 <dfn noexport>Type checking</dfn> a successfully parsed WGSL program is the process of mapping
 each expression to its static type,
@@ -956,7 +990,7 @@ with one row per type rule.
 
 The <dfn noexport>semantics of an expression</dfn> is the effect of evaluating that expression,
 and is primarily the production of a result value.
-The *Description* column of the type rule that applies to an expression will specify the expression's semantics.
+The *Description* column of the type rule that applies to an expression specifies the expression's semantics.
 The semantics usually depends on the values of the type rule parameters, including
 the assumed values of any subexpressions.
 Sometimes the semantics of an expression includes effects other than producing
@@ -1033,9 +1067,10 @@ result vector is formed by operating on each component independently.
 <div class='example wgsl function-scope component-wise addition' heading='Component-wise addition'>
   <xmp highlight='rust'>
     let x : vec3<f32> = a + b; // a and b are vec3<f32>
-    // x[0] = a[0] + b[0]
-    // x[1] = a[1] + b[1]
-    // x[2] = a[2] + b[2]
+    // After this declaration:
+    //   x[0] == a[0] + b[0]
+    //   x[1] == a[1] + b[1]
+    //   x[2] == a[2] + b[2]
   </xmp>
 </div>
 
@@ -1077,6 +1112,8 @@ An <dfn noexport>atomic type</dfn> encapsulates a [=scalar=] type such that:
 * atomic objects provide certain guarantees to concurrent observers, and
 * the only valid operations on atomic objects are the [[#atomic-builtin-functions|atomic builtin functions]].
 
+TODO(state-of-spec): Consistently use "built-in" instead of "builtin", except for the attribute name.
+
 <table class='data'>
   <thead>
     <tr><th>Type<th>Description
@@ -1109,6 +1146,8 @@ causality is implied.
 Note that variables in [=address spaces/workgroup=] space are shared within a
 [=compute shader stage/workgroup=], but are not shared between different
 workgroups.
+
+TODO(state-of-spec): SPIR-V mappings are incomplete. Change them to notes?
 
 <div class='example wgsl storage atomic' heading='Mapping atomics in a storage variable to SPIR-V'>
   <xmp>
@@ -1272,6 +1311,9 @@ A <dfn noexport>structure</dfn> is a grouping of named member values.
           Two members of the same structure type must not have the same name.
 </table>
 
+Structure types are distinguished by name: each structure type declaration creates
+a new structure type.
+
 A structure member type must be one of:
 * a [=scalar=] type
 * a vector type
@@ -1322,7 +1364,7 @@ WGSL defines the following attributes that can be applied to structure members:
  * [=attribute/align=]
  * [=attribute/size=]
 
-Note: Layout attributes may be required if the structure type is used
+Note: Layout attributes (align and size) may be required if the structure type is used
 to define a [=uniform buffer=] or a [=storage buffer=]. See [[#memory-layouts]].
 
 <div class='example wgsl global-scope' heading='Structure WGSL'>
@@ -1333,6 +1375,8 @@ to define a [=uniform buffer=] or a [=storage buffer=]. See [[#memory-layouts]].
     }
   </xmp>
 </div>
+
+TODO(state-of-spec): SPIR-V example is invalid: can't intermix member name with member decoration.
 
 <div class='example spirv' heading='Structure SPIR-V'>
   <xmp>
@@ -1470,11 +1514,15 @@ in size. An operation affecting memory interacts with a set of one or more
 memory locations.
 
 Two sets of memory locations <dfn noexport>overlap</dfn> if the intersection of
-their sets of memory locations is non-empty. Each variable declaration has a
+their sets of memory locations is non-empty.
+Each variable declaration has a
 set of memory locations that does not overlap with the sets of memory locations of
-any other variable declaration. Memory operations on structures and arrays may
+any other variable declaration.
+Memory operations on structures and arrays may
 access padding between elements, but must not access padding at the end of the
 structure or array.
+
+TODO(state-of-spec):  the statement about variable overlap is already covered later. Delete it.
 
 ### Memory Access Mode ### {#memory-access-mode}
 
@@ -1537,7 +1585,7 @@ A type is <dfn noexport>IO-shareable</dfn> if it is one of:
 
 The following kinds of values must be of IO-shareable type:
 
-* Values read from or written to built-in values.
+* Values read from or written to [[#builtin-values|built-in values]].
 * Values accepted as inputs from an upstream pipeline stage.
 * Values written as output for downstream processing in the pipeline, or to an output attachment.
 
@@ -1553,6 +1601,8 @@ When used for this purpose, the type must be additionally decorated with layout 
 as described in [[#memory-layouts]].
 We will see in [[#module-scope-variables]] that the [=store type=] of [=uniform buffer=] and [=storage buffer=]
 variables must be host-shareable.
+
+TODO(state-of-spec): clean up the "must be additionally decorated"; it's optionally.
 
 A type is <dfn noexport>host-shareable</dfn> if it is one of:
 
@@ -1631,6 +1681,8 @@ and how to use variables with it.
       <td>For [=sampler=] and texture variables.<br>
 </table>
 
+TODO(state-of-spec): We could make the address space names unreserved. They are only used in non-scope places (as type parameters).
+
 Note: The token `handle` is reserved: it is never used in a WGSL program.
 
 Note: A texture variable holds an opaque handle which is used to access the underlying
@@ -1675,7 +1727,7 @@ in a pipeline, or between different pipelines.
 
 Because buffer data are shared without reformatting or translation,
 buffer producers and consumers must agree on the <dfn noexport>memory layout</dfn>,
-which is the description of how the bytes in a buffer are organized into typed WGSL values.
+which defines how the bytes in a buffer are organized into typed WGSL values.
 
 The [=store type=] of a buffer variable must be [=host-shareable=], with fully elaborated memory layout, as described below.
 
@@ -1685,10 +1737,12 @@ The memory layout of a type is significant only when evaluating an expression wi
 * a variable in the [=address spaces/uniform=] or [=address spaces/storage=] address space, or
 * a pointer into the [=address spaces/uniform=] or [=address spaces/storage=] address space.
 
+TODO(state-of-spec): Bring references into the above.
+
 An 8-bit byte is the most basic unit of [=host-shareable=] memory.
 The terms defined in this section express counts of 8-bit bytes.
 
-We will use the following notation:
+This section uses the following notation:
 * <dfn noexport>AlignOf</dfn>(|T|) is the [=alignment=] of host-shareable type |T|.
 * <dfn noexport>AlignOfMember</dfn>(|S|, |i|) is the alignment of the |i|'th member of the host-shareable structure |S|.
 * <dfn noexport>SizeOf</dfn>(|T|) is the [=byte-size=] of host-shareable type |T|.
@@ -1795,6 +1849,7 @@ following table:
           where N<sub>runtime</sub> is the runtime-determined number of elements of |T|
 </table>
 
+TODO(state-of-spec): Does WGSL define how N_runtime is specified?
 
 #### Structure Member Layout ####  {#structure-member-layout}
 
@@ -2209,7 +2264,7 @@ When writing a [=variable declaration=] or a [=pointer type=] in WGSL source:
 
 ### Originating Variable ### {#originating-variable-section}
 
-In WGSL a reference value always corresponds to the memory view
+In WGSL a [=reference type|reference=] value always corresponds to the [=memory view=]
 for some or all of the memory locations for some variable.
 This defines the <dfn noexport>originating variable</dfn> for the reference value.
 
@@ -2220,6 +2275,11 @@ Note: The originating variable is a dynamic concept.
 The originating variable for a formal parameter of a function depends on the
 [=call site|call sites=] for the function.
 Different call sites may supply pointers into different originating variables.
+
+TODO(state-of-spec): logical inconsistency to define an invalid memory references, because we just
+said every view corresponds to an originating variable.
+
+TODO(state-of-spec): zero value for an atomic is not defined. Need to accomodate atomics.
 
 If a reference or pointer access is out of bounds, an <dfn noexport>invalid
 memory reference</dfn> is produced.
@@ -2596,7 +2656,7 @@ A texture has the following features:
 :: The number of dimensions in the grid coordinates, and how the coordinates are interpreted.
     The number of dimensions is 1, 2, or 3.
     Most textures use cartesian coordinates.
-    Cube textures have six square faces, and are sampled with
+    <dfn noexport>Cube textures</dfn> have six square faces, and are sampled with
     a three dimensional coordinate interpreted as a direction vector from the origin toward
     the cube centered on the origin.
 : size
@@ -2610,9 +2670,9 @@ A texture has the following features:
     to select the mip levels from which to read texel data.  These are then combined via
     filtering to produce the sampled value.
 : arrayed
-:: whether the texture is arrayed
+:: Specifies whether the texture is arrayed. This is true or false.
 : <dfn noexport>array size</dfn>
-:: the number of homogeneous grids, if the texture is arrayed
+:: The number of homogeneous grids, if the texture is arrayed.
 
 A texture's representation is typically optimized for rendering operations.
 To achieve this, many details are hidden from the programmer, including data layouts, data types, and
@@ -2640,7 +2700,7 @@ Note: The handle stored by a texture variable cannot be changed by the shader.
 That is, the variable is read-only, even if the underlying texture to which it provides
 access may be mutable (e.g. a write-only storage texture).
 
-A sampler is an opaque handle that controls how [=texel|texels=] are accessed
+A <dfn noexport>sampler</dfn> is an opaque handle that controls how [=texel|texels=] are accessed
 from a sampled texture.
 
 A WGSL sampler maps to a [[WebGPU#gpusampler|WebGPU GPUSampler]].
@@ -2659,12 +2719,14 @@ Texel access is controlled via several properties of the sampler:
     Multiple filter modes can be set independently.
     See [[WebGPU#enumdef-gpufiltermode|WebGPU GPUFilterMode]].
 : LOD clamp
-:: Controls the min and max levels of details that are accessed.
+:: Controls the minimum and maximum levels of detail that are accessed.
 : comparison
-:: Controls the type of comparison done for [=syntax/sampler_comparison|comparison sampler=].
+:: Controls the type of comparison done for a [=syntax/sampler_comparison|comparison sampler=].
     See [[WebGPU#enumdef-gpucomparefunction|WebGPU GPUCompareFunction]].
 : max anisotropy
 :: Controls the maximum anisotropy value used by the sampler.
+
+TODO(state-of-spec): what does it mean for filtering mode to be set independently?
 
 Samplers cannot be created in WGSL programs and their state (e.g. the
 properties listed above) are immutable within a shader and can only be set by
@@ -2763,6 +2825,8 @@ The last column in the table below uses the format-specific
   <tr><td>rgba32float<td>32float<td>r, g, b, a<td>vec4&lt;f32&gt;(CTF(r), CTF(g), CTF(b), CTF(a))
 </table>
 
+TODO(state-of-spec): in CTF descriptions use 32-bit suffixed literals.
+
 The following table lists the correspondence between WGSL texel formats and
 SPIR-V [=image formats=].
 
@@ -2792,6 +2856,7 @@ SPIR-V [=image formats=].
 </table>
 
 ### Sampled Texture Types ### {#sampled-texture-type}
+TODO(state-of-spec): Texture types need prose to describe them.  Move the SPIR-V mappings?
 
 <pre class='def'>
 `texture_1d<type>`
@@ -2838,9 +2903,11 @@ which handle these different representations opaquely.
 
 See [`GPUExternalTexture`](https://gpuweb.github.io/gpuweb/#gpu-external-texture) for details.
 
+TODO(state-of-spec): fix the link
+
 ### Storage Texture Types ### {#texture-storage}
 
-A <dfn noexport>storage texture</dfn> supports accessing a single texel without the use of a sampler.
+A <dfn noexport>storage texture</dfn> supports accessing a single texel without the use of a [=sampler=].
 
 * A <dfn noexport>write-only storage texture</dfn>
      supports writing a single texel, with automatic conversion of the shader value to a
@@ -2918,11 +2985,11 @@ For example:
 
 ### Sampler Type ### {#sampler-type}
 
-A <dfn>sampler</dfn> mediates access to a sampled texture or a depth texture, by performing a combination of:
-* coordinate transformation.
-* optionally modifying mip-level selection.
-* for a sampled texture, optionally filtering retrieved texel values.
-* for a depth texture, determining the comparison function applied to the retrieved texel.
+A [=sampler=] mediates access to a sampled texture or a depth texture, by performing a combination of:
+* Coordinate transformation.
+* Optionally modifying mip-level selection.
+* For a sampled texture, optionally filtering retrieved texel values.
+* For a depth texture, determining the comparison function applied to the retrieved texel.
 
 <table class='data'>
   <thead>
@@ -2934,7 +3001,7 @@ A <dfn>sampler</dfn> mediates access to a sampled texture or a depth texture, by
   <tr algorithm="comparison sampler type">
     <td>sampler_comparison
     <td>Comparison sampler.
-        Mediates access to a depth texture.</td>
+        Mediates comparison accesses to a depth or depth-and-stencil texture.</td>
 </table>
 
 Samplers are parameterized when created in the WebGPU API.
@@ -3079,6 +3146,8 @@ The declaration must appear at [=module scope=], and its [=scope=] is the entire
 
 ## Type Declaration Grammar ## {#type-declarations}
 
+TODO(state-of-spec): This really type-specifier.
+
 <div class='syntax' noexport='true'>
   <dfn for=syntax>type_decl</dfn> :
 
@@ -3127,6 +3196,9 @@ The declaration must appear at [=module scope=], and its [=scope=] is the entire
 
 When the type declaration is an [=identifier=], then the expression must be in scope of a
 [=declaration=] of the identifier as a type alias or structure type.
+
+TODO(state-of-spec): This really type-specifier.  "When a type is named by identifier, that
+use of the identifier must resolve to the declaration of a type alias or structure type."
 
 <div class='example' heading="Type Declarations">
   <xmp>
@@ -3221,7 +3293,7 @@ The value of a <dfn noexport>pipeline-overridable</dfn> constant is fixed at
 pipeline-creation time.
 The value is the one specified by the WebGPU pipeline-creation method, if
 specified, and otherwise is the value of its initializer expression.
-When an [=identifier=] use [=resolves=] to a override-declaration, the identifier denotes that value.
+When an [=identifier=] use [=resolves=] to an override-declaration, the identifier denotes that value.
 `override`-declarations must meet the following restrictions:
 
   * The declaration must only occur at [=module scope=].
@@ -3233,7 +3305,7 @@ When an [=identifier=] use [=resolves=] to a override-declaration, the identifie
       * evaluate to the declared type if it is present.
       * be composed only [=syntax/const_expression|const_expressions=] or
           expressions where all identifiers [=resolve=] to overridable constants.
-  * If the declaration has the [=attribute/id=] applied, the literal operand is
+  * If the declaration has an [=attribute/id=] attribute, the literal operand is
       known as the <dfn noexport>pipeline constant ID</dfn>, and must be an
       integer value between 0 and 65535.
   * Pipeline constant IDs must be unique within the WGSL program: Two `override`-declarations
@@ -3294,7 +3366,7 @@ See [[#var-identifier-expr]].
 
 See [[#module-scope-variables]] and [[#function-scope-variables]] for rules about where
 a variable in a particular address space can be declared,
-and when the address space decoration is required, optional, or forbidden.
+and when the address space specifier is required, optional, or forbidden.
 
 The access mode always has a default, and except for variables in the [=address spaces/storage=] address space,
 must not be written in WGSL source text. See [[#access-mode-defaults]].
@@ -3326,6 +3398,8 @@ When a variable is created, its memory contains an initial value as follows:
 * Variables in other address spaces are [=resources=]
     set by bindings in the [=draw command=] or [=dispatch command=].
 
+TODO(state-of-spec): initial value for an atomic is zero.
+
 Consider the following snippet of WGSL:
 <div class='example wgsl function-scope' heading='Variable initial values'>
   <xmp highlight='rust'>
@@ -3347,7 +3421,8 @@ Consider the following snippet of WGSL:
     let y = x * x + x + 1;
   </xmp>
 </div>
-Because `x` is a variable, all accesses to it turn into load and store operations.
+Because `x` is a variable, all accesses to it turn into load and store operations on the
+memory locations allocated for the variable.
 If this snippet was compiled to SPIR-V, it would be represented as
 <div class='example spirv' heading='Sample translation for reading a variable multiple times'>
   <xmp highlight='asm'>
@@ -3360,7 +3435,7 @@ If this snippet was compiled to SPIR-V, it would be represented as
   </xmp>
 </div>
 However, it is expected that either the browser or the driver optimizes this intermediate representation
-such that the redundant loads are eliminated.
+such that the redundant memory accesses are eliminated.
 
 ## Module Scope Variables ## {#module-scope-variables}
 
@@ -3458,6 +3533,8 @@ program.
 This is true regardless of the value of the constant, whether that value
 is the one from the constant's declaration or from a pipeline override.
 
+TODO(state-of-spec):  Redundant paragraph? We've defined statically accessed elsewhere, yes?
+
 <div class='example' heading='Constants'>
   <xmp>
     -1
@@ -3492,7 +3569,7 @@ and until the end of the brace-delimited list of statements immediately enclosin
 A function-scope [=let declaration|let-declared=] constant must be of
 [=constructible=] type, or of [=pointer type=].
 
-For a variable declared in function scope:
+For a [=variable=] declared in function scope:
 * The variable is always in the [=address spaces/function=] address space.
 * The address space decoration is optional.
 * The [=store type=] must be a [=constructible=] type.
@@ -3514,7 +3591,7 @@ For a variable declared in function scope:
 A variable or constant declared in the first clause of a `for` statement is available for use in the second
 and third clauses and in the body of the `for` statement.
 
-An instance of a function scope variable is a [=dynamic context=].
+An instance of a function scope variable forms part of an invocation's [=dynamic context=].
 Each variable that is [=in scope=] for some invocation has an overlapping
 [=lifetime=] and, therefore, has non-overlapping memory.
 Variables with non-overlapping lifetimes may reuse the memory of previous
@@ -3602,6 +3679,8 @@ Expressions specify how values are computed.
 </table>
 
 ## Type Constructor Expressions ## {#type-constructor-expr}
+
+TODO(state-of-spec): pending cleanups in https://github.com/gpuweb/gpuweb/pull/2539
 
 Type constructor expressions explicitly create a value of a given [=constructible=] type.
 Type constructor expressions explicitly create a value of a given type.
@@ -3825,6 +3904,8 @@ See also [[#zero-value-expr]] and [[#conversion-expr]].
     <td class="nowrap">|S|`(`|e1|,...,|eN|`)`: |S|
     <td>Construction of a structure from members.
 </table>
+
+TODO(state-of-spec): notation consistency for structure members:  T_1 vs. M_1 vs. T1.
 
 ## Zero Value Expressions ## {#zero-value-expr}
 
@@ -4322,6 +4403,8 @@ Note: This means accesses to different components of a vector by different
 invocations must be synchronized if at least one access is a [=write access=].
 See [[#sync-builtin-functions]].
 
+TODO(state-of-spec): missing access modes in this table.
+
 <table class='data'>
   <caption>Getting a reference to a component from a reference to a vector</caption>
   <thead>
@@ -4400,6 +4483,8 @@ See [[#sync-builtin-functions]].
            (OpCompositeExtract)
 </table>
 
+TODO(state-of-spec): missing access modes in this table.
+
 <table class='data'>
   <caption>Getting a reference to a column vector from a reference to a matrix</caption>
   <thead>
@@ -4441,6 +4526,8 @@ See [[#sync-builtin-functions]].
            may be returned.<br>
            (OpCompositeExtract)
 </table>
+
+TODO(state-of-spec): missing access modes in this table.
 
 <table class='data'>
   <caption>Getting a reference to an array element from a reference to an array</caption>
@@ -4497,6 +4584,10 @@ See [[#sync-builtin-functions]].
        <td>The result is the value of the member with name |M| from the structure value |e|.<br>
            (OpCompositeExtract, using the member index)
 </table>
+
+TODO(state-of-spec): missing access modes in this table.
+
+TODO(state-of-spec): Fix the dup of `ref<S,S>`
 
 <table class='data'>
   <caption>Getting a reference to a structure member from a reference to a structure</caption>
@@ -4994,6 +5085,8 @@ See [[#function-call-statement]].
 
 ## Variable Identifier Expression ## {#var-identifier-expr}
 
+TODO(state-of-spec): missing access modes in this table.
+
 <table class='data'>
   <caption>Getting a reference from a variable name</caption>
   <thead>
@@ -5273,8 +5366,12 @@ The <dfn noexport>indirection</dfn> operator converts a pointer to its correspon
 
 # Statements # {#statements}
 
-Statements are program fragments that control its execution.
-Statements are generally executed in sequential order; however,
+A <dfn noexport>statement</dfn> is a unit of execution.
+A statement must only appear in the [=function body|body of a function=].
+A function body is itself a [=compound statement=].
+
+Statements are generally executed in the order presented in the source text.
+However,
 [[#control-flow|control flow statements]] may cause a program to execute in
 non-sequential order.
 
@@ -5464,7 +5561,8 @@ An [=statement/assignment=] is a <dfn noexport>compound assignment</dfn> when th
 </div>
 
 The type requirements, semantics, and behavior of each statement is defined as if
-the compound assignment expands as in the following table, except that the reference expression |e1| is evaluated only once.
+the compound assignment expands as in the following table,
+except that the reference expression |e1| is evaluated only once, before |e2| is evaluated.
 
 <table class='data'>
   <thead>
@@ -5533,7 +5631,7 @@ first a [=read access=] gets the old value, and then a [=write access=] stores t
   </xmp>
 </div>
 
-Note: A compound assignment can rewritten as different WGSL code that uses a [=simple assignment=] instead.
+Note: A compound assignment can be rewritten as different WGSL code that uses a [=simple assignment=] instead.
 The idea is to use a pointer to hold the result of evaluating the reference once.
 
 <p class="note" algorithm="translation compound assignment not vector component">For example,
@@ -5690,6 +5788,9 @@ A `fallthrough` statement must not appear as the last statement in the last clau
 When a [=declaration=] appears in a case body, its [=identifier=] is [=in scope=] from
 the start of the next statement until the end of the case body.
 
+TODO(state-of-spec): Clean up scope rule? What if the declaration is nested inside a statement
+inside the case body.
+
 Note: Identifiers declared in a case body are not [=in scope=] of case bodies
 which are reachable via a `fallthrough` statement.
 
@@ -5702,8 +5803,8 @@ which are reachable via a `fallthrough` statement.
     | [=syntax/loop=] [=syntax/brace_left=] [=syntax/statement=] * [=syntax/continuing_statement=] ? [=syntax/brace_right=]
 </div>
 
-A <dfn noexport dfn-for="statement">loop</dfn> statement repeatedly executes a <dfn noexport>loop body</dfn>;
-the loop body is specified as a [=compound statement=].
+A <dfn noexport dfn-for="statement">loop</dfn> statement repeatedly executes a <dfn noexport>loop body</dfn>.
+The loop body is specified as a brace-enclosed list of statements.
 Each execution of the loop body is called an <dfn noexport>iteration</dfn>.
 
 The [=identifier=] of a [=declaration=] in a loop is [=in scope=] from the start of the
@@ -5711,14 +5812,15 @@ next statement until the end of the loop body.
 The declaration is executed each time it is reached, so each new iteration
 creates a new instance of the variable or constant, and re-initializes it.
 
-This repetition can be interrupted by a [=statement/break=], [=statement/return=], or
-[=statement/discard=] statement.
+TODO(state-of-spec): Clean up scope rule? Like case statement.
+
+The repetition of loop iterations is interrupted when a [=statement/break=], [=statement/return=], or
+[=statement/discard=] statement is executed.
 
 Optionally, the last statement in the loop body may be a
 [=statement/continuing=] statement.
 
-Note: The loop statement is one of the biggest differences from other shader
-languages.
+Note: The loop statement is one of the key differences from other shader languages.
 
 This design directly expresses loop idioms commonly found in compiled code.
 In particular, placing the loop update statements at the end of the loop body
@@ -5836,7 +5938,6 @@ The <dfn dfn-for="statement">for</dfn> statement takes the form
 `for (initializer; condition; update_part) { body }` and is syntactic sugar on top of a [=statement/loop=] statement with the same `body`.
 Additionally:
 * If `initializer` is non-empty, it is executed inside an additional [=scope=] before the first [=iteration=].
-    The scope of a declaration in the initializer extends to the end of the loop body.
 * If `condition` is non-empty, it is checked at the beginning of the loop body and if unsatisfied then a [[#break-statement]] is executed.
 * If `update_part` is non-empty, it becomes a [=statement/continuing=] statement at the end of the loop body.
 
@@ -6042,9 +6143,13 @@ the evaluation of the [=call site=] of the current function invocation.
 If the function does not have a [=return type=], then the [=statement/return=] statement is
 optional. If the return statement is provided for such a function, it must not
 supply a value.
-Otherwise the expression must be present, and is called the <dfn>return value</dfn>.
-In this case the call site of this function invocation evaluates to the return value.
+
+If the function does have a return type, the return statement must include an expression,
+and the expression is called the <dfn>return value</dfn>.
+In this case the [=call site=] of this function invocation evaluates to the return value.
 The type of the return value must match the return type of the function.
+
+TODO(state-of-spec): ignore attributes when matching return type.
 
 ### Discard Statement ### {#discard-statement}
 
@@ -6066,6 +6171,8 @@ immediate termination of the invocation.
 
 After a `discard` statement is executed, control flow is non-uniform for the
 duration of the entry point.
+
+TODO(state-of-spec): cross-link uniform control flow
 
 <div class='example wgsl' heading='Using the discard statement to throw away a fragment'>
   <xmp>
@@ -6107,6 +6214,8 @@ A function call statement executes a [=function call=].
 Note: If the function [=return value|returns a value=], that value is ignored.
 
 ## Statements Grammar Summary ## {#statements-summary}
+
+TODO(state-of-spec): Move this grammar summary to after Statements Behavior Analysis
 
 <div class='syntax' noexport='true'>
   <dfn for=syntax>statement</dfn> :
@@ -6179,6 +6288,9 @@ Like functions, expression behaviors are always one of {}, {Next}, {Discard}, or
 
 Note: There is currently no valid program with an expression that does not have Next in its [=behavior=].
 The reason is that only functions without a return type can have such a [=behavior=], and there is no compound expression in which such a function can be called.
+
+
+TODO(state-of-spec): Table is wide.
 
 <table class='data'>
   <caption>Rules for analyzing and validating the behaviors of statements</caption>
@@ -6707,12 +6819,12 @@ The location of a function call is referred to as a <dfn noexport>call site</dfn
 Call sites are a [=dynamic context=].
 As such, the same textual location may represent multiple call sites.
 
-## Restrictions on functions ## {#function-restriction}
+## Restrictions On Functions ## {#function-restriction}
 
 * A [=vertex=] shader must return the `position` [=built-in output value=].
     See [[#builtin-values]].
 * An entry point must never be the target of a [=function call=].
-* If a function has a return type, it must be a [=constructible=] type.
+* If a function has a [=return type=], that type must be [=constructible=].
 * A [=formal parameter|function parameter=] must one the following types:
     * a constructible type
     * a pointer type
@@ -6920,6 +7032,8 @@ The <dfn dfn>entry point IO type</dfn>s include the following:
   - User-defined IO. See [[#user-defined-inputs-outputs]]
   - Structures containing only built-in values and user-defined IO.
     The structure must not contain a nested structure.
+
+TODO(state-of-spec): entry point IO types are not really "types". https://github.com/gpuweb/gpuweb/issues/2442
 
 A <dfn noexport>pipeline input</dfn> is data provided to the shader stage from upstream in the pipeline.
 A pipeline input is denoted by the arguments of the entry point.
@@ -7337,9 +7451,8 @@ Expression nesting defines data dependencies which must be satisfied to
 complete evaluation.
 That is, a nested expression must be evaluated before the enclosing expression
 can be evaluated.
-The order of evaluation for operands of an expression is left-to-right in
-WGSL.
-For example, `foo() + bar()` must evaluate `foo()` before `bar()`.
+[=Subexpressions=] within an expression are evaluated in left-to-right order.
+For example, evaluating `foo() + bar()` must evaluate `foo()` before `bar()`.
 See [[#expressions]].
 
 Statements in a WGSL program are executed in control flow order.
@@ -7794,7 +7907,7 @@ of operation of the following built-in functions:
 * [[#texturesamplebias|textureSampleBias]], and
 * [[#texturesamplecompare|textureSampleCompare]].
 
-For these, the derivatives help determine the mip levels of texels to be sampled, or in the case of
+For these, the derivatives help determine the [=mip levels=] of [=texels=] to be sampled, or in the case of
 `textureSampleCompare`, sampled and compared against a reference value.
 
 Partial derivatives of *invocation-specified* values are computed by the
@@ -7820,8 +7933,8 @@ the following exceptions:
 * Implementations may ignore the sign of a zero.
     That is, a zero with a positive sign may behave like a zero a with a negative sign, and vice versa.
 * No rounding mode is specified.
-* Implementations may flush denormalized value on the input and/or output of
-    any operation listed in [[#floating-point-accuracy]].
+* A denormalized value on the input or output of any operation listed in [[#floating-point-accuracy]]
+    may be replaced by zero. That is, denormals may be flushed to zero.
     * Other operations are required to preserve denormalized numbers.
 * The accuracy of operations is given in [[#floating-point-accuracy]].
 
@@ -7886,6 +7999,10 @@ value with the same sign.
   <tr><td>`x >= y`<td>Correct result
 </table>
 
+TODO(state-of-spec): Accuracy of matrix builtins: determinant, transpose.
+
+TODO(state-of-spec): Accuracy of derivatives.
+
 <table class='data'>
   <caption>Accuracy of built-in functions</caption>
   <thead>
@@ -7939,7 +8056,7 @@ value with the same sign.
 </table>
 
 <dfn noexport>Reassociation</dfn> is the reordering of operations in an
-expression such that the answer is the same if computed exactly. For example:
+expression such that the answer would be the same if all expressions were computed exactly. For example:
 * `(a + b) + c` reassociates to `a + (b + c)`
 * `(a - b) + c` reassociates to `(a + c) - b`
 * `(a * b) / c` reassociates to `(a / c) * b`
@@ -8015,6 +8132,8 @@ In general, WGSL follows the [[!VulkanMemoryModel|Vulkan Memory Model]].
 The remainder of this section describes how WGSL programs map to the
 Vulkan Memory Model.
 
+TODO(state-of-spec): Sharpen "in general"
+
 Note: The Vulkan Memory Model is a textual version of a [formal Alloy
 model](https://github.com/KhronosGroup/Vulkan-MemoryModel/blob/master/alloy/spirv.als).
 
@@ -8036,7 +8155,7 @@ A [=read access=] occurs when an invocation executes one of the following:
 * Any atomic built-in function except [[#atomic-store|atomicStore]]
 
 A [=write access=] occurs when an invocation executes one of the following:
-* An [=statement/assignment=] statement
+* The write action of an [=statement/assignment=] statement
 * A [[#texturestore|textureStore]] built-in function
 * Any atomic built-in function except [[#atomic-load|atomicLoad]]
     * [[#atomic-rmw|atomicCompareExchangeWeak]] only performs a write if the
@@ -9030,6 +9149,9 @@ See [[#function-calls]].
 </table>
 
 ## Array Built-in Functions ## {#array-builtin-functions}
+
+TODO(state-of-spec): Add access mode to ptr type.
+
 <table class='data'>
   <thead>
     <tr><th>Parameterization<th>Overload<th>Description
@@ -10402,12 +10524,6 @@ If an out-of-bounds access occurs, the built-in function may do any of the follo
 * not be executed
 * store `value` to some in bounds texel
 
-**TODO:**
-
-<pre class='def'>
-TODO(dsinclair): Need gather operations
-</pre>
-
 ## Atomic Built-in Functions ## {#atomic-builtin-functions}
 
 Atomic built-in functions can be used to read/write/read-modify-write atomic
@@ -10427,6 +10543,8 @@ functions `must` be either [=address spaces/storage=] or [=address spaces/workgr
 [=address spaces/workgroup=] atomics have a **Workgroup**
 [=memory scope=] in SPIR-V, while [=address spaces/storage=] atomics have a
 **QueueFamily** memory scope in SPIR-V.
+
+TODO(state-of-spec): Update "SC" to "S" in atomics.
 
 The access mode `A` in all atomic built-in functions must be [=access/read_write=].
 
@@ -10501,7 +10619,7 @@ struct __atomic_compare_exchange_result<T> {
 ```
 
 Note: A value cannot be explicitly declared with the type
-`__atomic_compare_exchange_result`, but a value may infer the type.
+`__atomic_compare_exchange_result`, but a value declaration may infer the type.
 
 Performs the following steps atomically:
 
@@ -10647,9 +10765,11 @@ All synchronization functions have a `Workgroup` [=execution scope=].
 All synchronization functions must only be used in the [=compute=] shader
 stage.
 
-storageBarrier affects memory and atomic operations in the [=address spaces/storage=] address space.
+TODO(state-of-spec): Rephrase to make this less dense?
 
-workgroupBarrier affects memory and atomic operations in the [=address spaces/workgroup=] address space.
+The storageBarrier function affects memory and atomic operations in the [=address spaces/storage=] address space.
+
+The workgroupBarrier function affects memory and atomic operations in the [=address spaces/workgroup=] address space.
 
 <div class='example spirv barrier mapping' heading="Mapping workgroupBarrier to SPIR-V">
   <xmp>
