@@ -1,4 +1,4 @@
-all: index.html grammar/grammar.js
+all: index.html grammar/grammar.js lalr
 
 
 GHC=https://github.com/gpuweb/gpuweb/blob
@@ -15,3 +15,10 @@ grammar/grammar.js: index.bs extract-grammar.py
 online:
 	curl https://api.csswg.org/bikeshed/ -F file=@index.bs -F output=err
 	curl https://api.csswg.org/bikeshed/ -F file=@index.bs -F force=1 > index.html
+
+grammar/src/grammar.json : grammar/grammar.js
+
+.PHONY: lalr
+lalr: grammar/src/grammar.json
+	#cat $<
+	python3 lalr.py grammar/src/grammar.json
