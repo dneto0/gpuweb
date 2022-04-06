@@ -5,6 +5,7 @@ Verify the WGSL grammar is LL(1) and LALR(1)
 
 import argparse
 import inspect
+import json
 import os
 import re
 import subprocess
@@ -18,6 +19,12 @@ class Rule:
     def iterate(fn):
         pass
 
+def json_hook(dct):
+    """Translate a JSON Dict"""
+    if "type" in dct:
+        print("TYPE: "+str(dct["type"]))
+        return dct
+
 
 def main():
     argparser = argparse.ArgumentParser(description=inspect.getdoc(sys.modules[__name__]))
@@ -25,8 +32,8 @@ def main():
                            help='file holding the JSON form of the grammar')
     args = argparser.parse_args()
     with open(args.json_file) as infile:
-        json_lines = infile.readlines()
-    print("".join(json_lines))
+        json_text = "".join(infile.readlines())
+    json.loads(json_text, object_hook=json_hook)
     sys.exit(0)
 
 
