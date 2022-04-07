@@ -15,6 +15,9 @@ class Rule:
     def __init__(self):
         self.name = self.__class__.__name__
 
+    def is_token(self):
+        return False
+
     # Runs a given function 'fn' on this node and its descendants.
     # The fn(self,True) is called on entry and fn(self,False) on exit.
     def traverse(self,fn):
@@ -39,15 +42,23 @@ class Rule:
         return " ".join(parts)
 
 class ContainerRule(Rule):
+    """A ContainerRule is a rule with children"""
     def __init__(self,children):
         super().__init__()
         self.children = children
 
 class LeafRule(Rule):
+    """A LeafRule is a rule without children"""
     def __init__(self,content):
         super().__init__()
         self.content = content
 
+class Token(LeafRule):
+    """A Token represents a non-empty contiguous sequence of code points"""
+    def __init__(self,content):
+        super().__init__(content)
+    def is_token(self):
+        return True
 
 class Choice(ContainerRule):
     def __init__(self,children):
@@ -61,25 +72,19 @@ class Repeat1(ContainerRule):
     def __init__(self,children):
         super().__init__(children)
 
-
+class Symbol(LeafRule):
+    def __init__(self,content):
+        super().__init__(content)
 
 class Empty(LeafRule):
     def __init__(self):
         super().__init__(None)
 
-class String(LeafRule):
+class String(Token):
     def __init__(self,content):
         super().__init__(content)
 
-class Pattern(LeafRule):
-    def __init__(self,content):
-        super().__init__(content)
-
-class Symbol(LeafRule):
-    def __init__(self,content):
-        super().__init__(content)
-
-class Token(LeafRule):
+class Pattern(Token):
     def __init__(self,content):
         super().__init__(content)
 
@@ -97,7 +102,8 @@ def json_hook(dct):
         if  dct["type"] == "SEQ":
             result = Seq(dct["members"])
         if  dct["type"] == "TOKEN":
-            result = Token(dct["content"])
+            # Return the content itself. Don't wrap it.
+            result = dct["content"]
         if  dct["type"] == "PATTERN":
             result = Pattern(dct["value"])
         if  dct["type"] == "REPEAT1":
