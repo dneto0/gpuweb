@@ -34,6 +34,10 @@ class Rule:
                 if on_entry:
                     if isinstance(obj, Symbol):
                         parts.append(obj.content)
+                    elif isinstance(obj, String):
+                        parts.append("'{}'".format(obj.content))
+                    elif isinstance(obj, Pattern):
+                        parts.append("/{}/".format(obj.content))
                     else:
                         parts.extend(["(",obj.name, str(obj.content),")"])
             else:
