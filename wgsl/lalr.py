@@ -38,6 +38,10 @@ class Rule:
                         parts.append("'{}'".format(obj.content))
                     elif isinstance(obj, Pattern):
                         parts.append("/{}/".format(obj.content))
+                    elif isinstance(obj, Empty):
+                        parts.append("\u03b5") # Epsilon
+                    elif isinstance(obj, EndOfText):
+                        parts.append(obj.name)
                     else:
                         parts.extend(["(",obj.name, str(obj.content),")"])
             else:
@@ -84,6 +88,10 @@ class Symbol(LeafRule):
         super().__init__(content)
 
 class Empty(LeafRule):
+    def __init__(self):
+        super().__init__(None)
+
+class EndOfText(LeafRule):
     def __init__(self):
         super().__init__(None)
 
