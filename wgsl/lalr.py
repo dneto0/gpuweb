@@ -39,7 +39,7 @@ class Rule:
                     elif isinstance(obj, Pattern):
                         parts.append("/{}/".format(obj.content))
                     elif isinstance(obj, Empty):
-                        parts.append("\u03b5") # Epsilon
+                        parts.append(u"\u03b5") # Epsilon
                     elif isinstance(obj, EndOfText):
                         parts.append(obj.name)
                     else:
@@ -58,7 +58,7 @@ class ContainerRule(Rule):
         super().__init__()
         self.children = children
 
-    """Emulate an indexable sequence"""
+    # Emulate an indexable sequence by adding certain standard methods:
     def __len__(self):
         return self.children.__len__()
 
@@ -131,8 +131,10 @@ class Pattern(Token):
 
 def json_hook(dct):
     """
-    Translates a JSON dictionary into a corresponding grammar node, based on the 'type' field.
-    Returns 'dct' itself when 'dct' has no type entry or has an unrecognized type entry.
+    Translates a JSON dictionary into a corresponding grammar node, based on
+    the 'type' entry.
+    Returns 'dct' itself when 'dct' has no type entry or has an unrecognized
+    type entry.
 
     Args:
       dct: A JSON dictionary
@@ -210,7 +212,8 @@ def canonicalize_grammar(rules):
                     Records a new rule with the given key and value.
 
                     Args:
-                        key: A Symbol whose name is the key into the result dictionary
+                        key: A Symbol whose name is the key into the result
+                            dictionary
                         values: A list of alternatives
 
                     Returns: The key's Symbol
@@ -231,7 +234,9 @@ def canonicalize_grammar(rules):
                         #   value.i -> X value.i
                         #   value.i -> epsilon
                         x = item[0]
-                        parts.append(add_rule(item_key, Seq([x,item_key]), Empty()))
+                        parts.append(add_rule(item_key,
+                                              Seq([x,item_key]),
+                                              Empty()))
                         made_a_new_one = True
                     elif isinstance(item,Choice):
                         # Sub-Choices expand in place.
@@ -243,11 +248,13 @@ def canonicalize_grammar(rules):
                         seq_parts = []
                         for j in range(len(item)):
                             seq_item = item[j]
-                            seq_item_key = Symbol("{}.{}={}".format(key,str(i),str(j)))
+                            seq_item_key = Symbol(
+                                    "{}.{}={}".format(key,str(i),str(j)))
                             if isinstance(seq_item,LeafRule):
                                 seq_parts.append(seq_item)
                             else:
-                                seq_parts.append(add_rule(seq_item_key,seq_item))
+                                seq_parts.append(
+                                        add_rule(seq_item_key,seq_item))
                                 made_a_new_seq_part = True
                         if made_a_new_seq_part:
                             parts.append(Seq(seq_parts))
@@ -270,8 +277,11 @@ def dump_grammar(rules):
 
 
 def main():
-    argparser = argparse.ArgumentParser(description=inspect.getdoc(sys.modules[__name__]))
-    argparser.add_argument('json_file',nargs='?',default='grammar/src/grammar.json',
+    argparser = argparse.ArgumentParser(
+            description=inspect.getdoc(sys.modules[__name__]))
+    argparser.add_argument('json_file',
+                           nargs='?',
+                           default='grammar/src/grammar.json',
                            help='file holding the JSON form of the grammar')
     args = argparser.parse_args()
     with open(args.json_file) as infile:
