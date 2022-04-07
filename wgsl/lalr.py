@@ -32,7 +32,10 @@ class Rule:
         def f(parts,obj,on_entry):
             if "content" in dir(obj):
                 if on_entry:
-                    parts.extend(["(",obj.name, str(obj.content),")"])
+                    if isinstance(obj, Symbol):
+                        parts.append(obj.content)
+                    else:
+                        parts.extend(["(",obj.name, str(obj.content),")"])
             else:
                 if on_entry:
                     parts.extend(["(",obj.name])
