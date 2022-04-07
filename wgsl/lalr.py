@@ -65,14 +65,14 @@ class ContainerRule(Rule):
     def __length_hint__(self):
         return self.children.__length_hint__()
 
-    def __get_item__(self,key):
-        return self.children.__get_item__(key)
+    def __getitem__(self,key):
+        return self.children.__getitem__(key)
 
-    def __set_item__(self,key,value):
-        self.children.__set_item__(key,value)
+    def __setitem__(self,key,value):
+        self.children.__setitem__(key,value)
 
-    def __del_item__(self,key):
-        self.children.__set_item__(key)
+    def __delitem__(self,key):
+        self.children.__setitem__(key)
 
     def __missing__(self,key):
         return self.children.__missing__(key)
@@ -174,14 +174,14 @@ def canonicalize_grammar(rules):
             value:
                 a LeafRule node, or
                 a Choice of alternative right-hand sides
-        A right-hand-side is a Seq of LeafRule nodes
+        A right-hand-side is a Seq of LeafRule nodes, or the Empty node
     """
 
     # First ensure right-hand sides of containers are lists.
     result = {}
     for key, value in rules.items():
         if isinstance(value,ContainerRule):
-            if isinstance(value, Choice):
+            if isinstance(value,Choice):
                 # Choice nodes expand to themselves
                 result[key] = value
             else:
@@ -189,7 +189,84 @@ def canonicalize_grammar(rules):
         else:
             result[key] = value
 
+    # Now iteratively simplify rules.
+    # Replace a complex sub-component with a new rule.
+    # Repeat until settling.
+    keep_going = True
+    while keep_going:
+        keep_going = False
+        rules = dict(result)
+
+        for key, value in rules.items():
+            #print("{} --> {}".format(str(key),str(value)))
+            if isinstance(value,LeafRule):
+                result[key] = value
+            else:
+                # The value is a Choice
+                made_a_new_one = False
+                parts = []
+                def add_rule(key,*values):
+                    """
+                    Records a new rule with the given key and value.
+
+                    Args:
+                        key: A Symbol whose name is the key into the result dictionary
+                        values: A list of alternatives
+
+                    Returns: The key's Symbol
+                    """
+                    rhs = Choice(list(values))
+                    result[key.content] = rhs
+                    #print("   {} --> {}".format(str(key),format(rhs)))
+                    return key
+                for i in range(len(value)):
+                    item = value[i]
+                    item_key = Symbol("{}.{}".format(key,str(i)))
+                    if isinstance(item,LeafRule):
+                        parts.append(item)
+                    elif isinstance(item,Repeat1):
+                        #   value[i] -> X+
+                        # becomes
+                        #   value[i] -> value.i
+                        #   value.i -> X value.i
+                        #   value.i -> epsilon
+                        x = item[0]
+                        parts.append(add_rule(item_key, Seq([x,item_key]), Empty()))
+                        made_a_new_one = True
+                    elif isinstance(item,Choice):
+                        # Sub-Choices expand in place.
+                        parts.extend(item)
+                        made_a_new_one = True
+                    elif isinstance(item,Seq):
+                        # Expand non-leaf elements
+                        made_a_new_seq_part = False
+                        seq_parts = []
+                        for j in range(len(item)):
+                            seq_item = item[j]
+                            seq_item_key = Symbol("{}.{}={}".format(key,str(i),str(j)))
+                            if isinstance(seq_item,LeafRule):
+                                seq_parts.append(seq_item)
+                            else:
+                                seq_parts.append(add_rule(seq_item_key,seq_item))
+                                made_a_new_seq_part = True
+                        if made_a_new_seq_part:
+                            parts.append(Seq(seq_parts))
+                            made_a_new_one = True
+                if made_a_new_one:
+                    rhs = Choice(parts)
+                    result[key] = rhs
+                    keep_going = True
+                else:
+                    result[key] = value
+
+    dump_grammar(result)
     return result
+
+
+def dump_grammar(rules):
+    # Each non-terminal
+    for key, value in rules.items():
+        print("{}: {}".format(key,str(value)))
 
 
 def main():
@@ -201,15 +278,13 @@ def main():
         json_text = "".join(infile.readlines())
     g = json.loads(json_text, object_hook=json_hook)
 
-    # Agument the grammar.
+    # Agument the grammar.  The start node is followed by an end-of-text marker.
     rules = g["rules"]
     rules["translation_unit"] = Seq([rules["translation_unit"], EndOfText()])
 
     rules = canonicalize_grammar(rules)
 
-    # Each non-terminal
-    for key, value in rules.items():
-        print("{}: {}".format(key,str(value)))
+    dump_grammar(rules)
     sys.exit(0)
 
 
