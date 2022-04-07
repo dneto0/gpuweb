@@ -13,88 +13,81 @@ import sys
 
 class Rule:
     def __init__(self):
-        self.name = "<rule superclass>"
+        self.name = self.__class__.__name__
 
-    def children(self):
+    # Runs a given function 'fn' on this node and its descendants.
+    # The fn(self,True) is called on entry and fn(self,False) on exit.
+    def traverse(self,fn):
+        fn(self,True)
         if "children" in dir(self):
-            return self.children
-        return []
+            for c in self.children:
+                c.traverse(fn)
+        fn(self,False)
 
-    # Apply fn over all my children
-    def preorder(self,fn):
-        fn(self)
-        for c in self.children():
-            fn(c)
+    def __str__(self):
+        parts = []
+        def f(parts,obj,on_entry):
+            if "content" in dir(obj):
+                if on_entry:
+                    parts.extend(["(",obj.name, str(obj.content),")"])
+            else:
+                if on_entry:
+                    parts.extend(["(",obj.name])
+                else:
+                    parts.append(")")
+        self.traverse(lambda obj, on_entry: f(parts,obj,on_entry))
+        return " ".join(parts)
 
-class Empty(Rule):
+class ContainerRule(Rule):
+    def __init__(self,children):
+        super().__init__()
+        self.children = children
+
+class LeafRule(Rule):
+    def __init__(self,content):
+        super().__init__()
+        self.content = content
+
+
+class Choice(ContainerRule):
+    def __init__(self,children):
+        super().__init__(children)
+
+class Seq(ContainerRule):
+    def __init__(self,children):
+        super().__init__(children)
+
+class Repeat1(ContainerRule):
+    def __init__(self,children):
+        super().__init__(children)
+
+
+
+class Empty(LeafRule):
     def __init__(self):
-        self.name = "Empty"
-        self.children = []
+        super().__init__(None)
 
-    def __str__(self):
-        return "Empty"
-
-class Choice:
-    def __init__(self,children):
-        self.name = "Choice"
-        self.children = children
-
-    def __str__(self):
-        return "Choice(...)"
-
-class Seq:
-    def __init__(self,children):
-        self.name = "Seq"
-        self.children = children
-
-    def __str__(self):
-        return "Seq(...)"
-
-class Repeat1:
-    def __init__(self,children):
-        self.name = "Repeat1"
-        self.children = children
-
-    def __str__(self):
-        return "Repeat1(...)"
-
-class String:
+class String(LeafRule):
     def __init__(self,content):
-        self.name = "String"
-        self.content = content
+        super().__init__(content)
 
-    def __str__(self):
-        return "String({})".format(str(self.content))
-
-class Pattern:
+class Pattern(LeafRule):
     def __init__(self,content):
-        self.name = "Pattern"
-        self.content = content
+        super().__init__(content)
 
-    def __str__(self):
-        return "Pattern({})".format(str(self.content))
-
-class Symbol:
+class Symbol(LeafRule):
     def __init__(self,content):
-        self.name = "Symbol"
-        self.content = content
+        super().__init__(content)
 
-    def __str__(self):
-        return "Symbol({})".format(str(self.content))
-
-class Token:
+class Token(LeafRule):
     def __init__(self,content):
-        self.name = "Token"
-        self.content = content
+        super().__init__(content)
 
-    def __str__(self):
-        return "Token({})".format(str(self.content))
 
 def json_hook(dct):
     """Translate a JSON Dict"""
     result = dct
     if "type" in dct:
-        print("TYPE: "+str(dct["type"]))
         if  dct["type"] == "STRING":
             result = String(dct["value"])
         if  dct["type"] == "BLANK":
@@ -108,10 +101,9 @@ def json_hook(dct):
         if  dct["type"] == "PATTERN":
             result = Pattern(dct["value"])
         if  dct["type"] == "REPEAT1":
-            result = Repeat1(dct["content"])
+            result = Repeat1([dct["content"]])
         if  dct["type"] == "SYMBOL":
             result = Symbol(dct["name"])
-    #print(str(result)+"\n")
     return result
 
 
@@ -123,8 +115,9 @@ def main():
     with open(args.json_file) as infile:
         json_text = "".join(infile.readlines())
     g = json.loads(json_text, object_hook=json_hook)
-    #print(str(g))
-    print(str(g["rules"]))
+    rules = g["rules"]
+    for key, value in rules.items():
+        print("{}: {}".format(key,str(value)))
     sys.exit(0)
 
 
