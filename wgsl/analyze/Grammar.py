@@ -273,12 +273,13 @@ def json_hook(grammar,memo,tokens_only,dct):
                 result = memoize(memo,dct["name"],Symbol(dct["name"]))
     return result
 
-def canonicalize_grammar(grammar,rules):
+def canonicalize_grammar(rules,empty):
     """
     Computes the Canonical Form of a Grammar.
 
     Args:
-        rules: A Grammar
+        rules: A dictionary mapping rule names to Rule objects
+        empty: the unique Empty object to use
 
     Returns:
         A Grammar matching the same language, but in Canonical Form.
@@ -339,7 +340,7 @@ def canonicalize_grammar(grammar,rules):
                         x = item[0]
                         parts.append(add_rule(item_key,
                                               Seq([x,item_key]),
-                                              grammar.empty))
+                                              empty))
                         made_a_new_one = True
                     elif isinstance(item,Choice):
                         # Sub-Choices expand in place.
@@ -680,7 +681,7 @@ class Grammar:
         self.rules['language'] = Seq([Symbol(start_symbol), self.end_of_text])
 
     def canonicalize(self):
-        self.rules = canonicalize_grammar(self,self.rules)
+        self.rules = canonicalize_grammar(self.rules,self.empty)
 
     def compute_first(self):
         compute_first_sets(self, self.rules)
