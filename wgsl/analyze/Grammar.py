@@ -69,11 +69,18 @@ import json
 #    Terminals and Nonterminals.  In these expressions, a Nonterminal is
 #    represented by a Symbol for its name.
 #
-#  Grammar: a dictionary mapping over Python strings mapping:
+#  GrammarDict: a dictionary mapping over Python strings mapping:
 #    A Terminal name to its definition.
 #    A Nonterminal name to its Productions.
 #
-#  Canonical Form: a Grammar the Productions for Nonterminals are:
+#  Grammar:
+#    A Python object of class Grammar, including members:
+#      .rules: a GrammarDict
+#      .empty: the unique Empty object
+#      .end_of_text: the unique EndOfText object
+#      .start_symbol: the Python string name of the start symbol
+#
+#  Canonical Form: a GrammarDict where the Productions for Nonterminals are:
 #    A Choice over:
 #       Terminals,
 #       Symbols, or
@@ -275,14 +282,14 @@ def json_hook(grammar,memo,tokens_only,dct):
 
 def canonicalize_grammar(rules,empty):
     """
-    Computes the Canonical Form of a Grammar.
+    Computes the Canonical Form of a GrammarDict
 
     Args:
         rules: A dictionary mapping rule names to Rule objects
         empty: the unique Empty object to use
 
     Returns:
-        A Grammar matching the same language, but in Canonical Form.
+        A GrammarDict matching the same language, but in Canonical Form.
     """
 
     # First ensure right-hand sides of containers are Choice nodes.
@@ -379,7 +386,7 @@ def compute_first_sets(grammar,rules):
     Populates the `first` attribute of each node.
 
     Args:
-        rules: a Grammar in Canonical Form
+        rules: a GrammarDict in Canonical Form
     """
 
     names_of_non_terminals = []
@@ -482,7 +489,7 @@ def without_empty(s):
 def derives_empty(rules,phrase):
     """
     Args:
-        args: a Grammar in Canonical form, with First sets computed
+        args: a GrammarDict in Canonical form, with First sets computed
         phrase: a sequence of rules
 
     Returns:
@@ -500,7 +507,6 @@ def first(grammar,phrase):
 
     Args:
         grammar: a Grammar
-        rules: a Grammar in Canonical Form, with First sets computed
         phrase: a sequence of terminals and non-terminals
 
     Returns:
