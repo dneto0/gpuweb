@@ -482,6 +482,7 @@ def derives_empty(rules,phrase):
     """
     Args:
         args: a Grammar in Canonical form, with First sets computed
+        phrase: a sequence of rules
 
     Returns:
         True if the phrase derives the empty string.
@@ -492,7 +493,7 @@ def derives_empty(rules,phrase):
     return all([lookup(i).derives_empty() for i in phrase])
 
 
-def first(grammar,rules,phrase):
+def first(grammar,phrase):
     """
     Computes the First set for a Phrase, in the given grammar
 
@@ -505,7 +506,7 @@ def first(grammar,rules,phrase):
         The First set for the phrase
     """
     def lookup(rule):
-        return rules[rule.content] if isinstance(rule,Symbol) else rule
+        return grammar.rules[rule.content] if isinstance(rule,Symbol) else rule
 
     # Map names of nonterminals to the nonterminals themselves
     phrase = [lookup(i) for i in phrase]
@@ -516,7 +517,7 @@ def first(grammar,rules,phrase):
         result = result.union(we)
         if not item.derives_empty():
             break
-    if derives_empty(rules,phrase):
+    if derives_empty(grammar.rules,phrase):
         result.add(grammar.empty)
     return result
 
@@ -562,7 +563,7 @@ def compute_follow_sets(grammar, rules, start_symbol):
             # then everything in First(beta) except Empty is
             # added to Follow(B)
             beta = seq[bi+1:len(seq)]
-            first_beta = first(grammar,rules, beta)
+            first_beta = first(grammar, beta)
             new_items = without_empty(first_beta) - b.follow
             if len(new_items) > 0:
                 keep_going = True
