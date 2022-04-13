@@ -522,19 +522,19 @@ def first(grammar,phrase):
     return result
 
 
-def compute_follow_sets(grammar, rules, start_symbol):
+def compute_follow_sets(grammar):
     """
     Computes the Follow set for each node in the grammar.
     Assumes First sets have been computed.
     Populates the `follow` attribute of each node.
 
     Args:
-        rules: a Grammar in Canonical Form, with First sets populated
+        grammar: a Grammar in Canonical Form, with First sets populated
     """
-    rules[start_symbol].follow = set({grammar.end_of_text})
+    grammar.rules[grammar.start_symbol].follow = set({grammar.end_of_text})
 
     def lookup(rule):
-        return rules[rule.content] if isinstance(rule,Symbol) else rule
+        return grammar.rules[rule.content] if isinstance(rule,Symbol) else rule
 
     def process_seq(key,seq,keep_going):
         """
@@ -571,8 +571,8 @@ def compute_follow_sets(grammar, rules, start_symbol):
 
             # If A -> alpha B, or A -> alpha B beta, where First(B)
             # contains epsilon, then add Follow(A) to Follow(B)
-            if derives_empty(rules,beta):
-                new_items = rules[key].follow - b.follow
+            if derives_empty(grammar.rules,beta):
+                new_items = grammar.rules[key].follow - b.follow
                 if len(new_items) > 0:
                     keep_going = True
                     b.follow = b.follow.union(new_items)
@@ -584,7 +584,7 @@ def compute_follow_sets(grammar, rules, start_symbol):
     keep_going = True
     while keep_going:
         keep_going = False
-        for key, rule in rules.items():
+        for key, rule in grammar.rules.items():
             if rule.is_terminal() or rule.is_symbol():
                 continue
             # We only care about sequences
@@ -686,7 +686,7 @@ class Grammar:
         compute_first_sets(self, self.rules)
 
     def compute_follow(self):
-        compute_follow_sets(self, self.rules, self.start_symbol)
+        compute_follow_sets(self)
 
     def dump(self):
         """
