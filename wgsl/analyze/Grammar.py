@@ -36,6 +36,7 @@
 Represent and process a grammar:
 - Canonicalize
 - Compute First and Follow sets
+- Compute LL(1) parser table and associated conflicts
 - TODO: Determine lookahead required for an LALR(1) parser
 - TODO: Verify the language is LALR(1) with context-sensitive lookahead
 """
@@ -232,6 +233,31 @@ class Empty(LeafRule):
 class EndOfText(LeafRule):
     def __init__(self):
         super().__init__(None)
+
+class Action:
+    """
+    A parser action
+    """
+    def __init(self):
+        pass
+
+class Reduce(Action):
+    """
+    A Reduce parser action
+    Reduce('lhs',rhs) replaces the sequence of symbols in the RHS with
+    the non-terminal named 'lhs'.
+
+    Args:
+      non_terminal: the name of the non_terminal being reduced
+      rhs: a Rule: either a terminal, or a Seq of terminals and symbols
+    """
+    def __init__(self,non_terminal,rhs):
+        # The name of the non-terminal, as a Python string
+        self.non_terminal = non_terminal
+        self.rhs = rhs
+
+    def __str__(self):
+        return "{} -> {}".format(self.non_terminal, str(self.rhs))
 
 
 def json_hook(grammar,memo,tokens_only,dct):
@@ -723,3 +749,50 @@ class Grammar:
         for key in sorted(self.rules):
             parts.append("{}: {}\n".format(key,pretty_str(self.rules[key])))
         return "".join(parts)
+
+    def LL1(self):
+        """
+        Constructs an LL(1) parser table, or raises an error if it can't.
+
+        Args:
+            self: Grammar in canonical form with First and Follow
+            sets computed.
+
+        Returns: a 2-tuple:
+            an LL(1) parser table
+                Key is tuple (lhs,rhs) where lhs is the name of the nonterminal
+                and rhs is the Rule for the right-hands side being reduced:
+                It may be a Symbol, a Token, or a Sequence of Symbols and Tokens
+            a list of conflicts
+        """
+
+        conflicts = []
+        table = dict()
+        def add(lhs,terminal,action):
+            action_key = (lhs,terminal)
+            if action_key in table:
+                # Record the conflict, and only keep the original.
+                prev = table[action_key]
+                conflicts.append((lhs,terminal,prev,action))
+            else:
+                table[action_key] = action
+
+        for lhs, rule in self.rules.items():
+            if rule.is_nonterminal():
+                # Top-level terminals are Choice nodes.
+                if not isinstance(rule,Choice):
+                    raise RuntimeException("expected Choice node for "+
+                       +"'{}' rule, got: {}".format(lhs,rule))
+                # For each terminal A -> alpha, 
+                for rhs in rule:
+                    # For each terminal x in First(alpha), add
+                    # A -> alpha to M[A,x]
+                    phrase = rhs if rhs.is_nonterminal() else [rhs]
+                    for x in first(self,phrase):
+                        if isinstance(x,Empty):
+                            for f in rule.follow:
+                                add(lhs,f,Reduce(lhs,rhs))
+                        else:
+                            add(lhs,x,Reduce(lhs,rhs))
+        return (table,conflicts)
+
