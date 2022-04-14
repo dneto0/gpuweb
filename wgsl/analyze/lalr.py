@@ -56,15 +56,32 @@ def main():
     argparser.add_argument('-v', '--verbose',
                            help='increase output verbosity',
                            action="store_true")
+    argparser.add_argument('-ll1',
+                           help='compute LL(1) parser table and associated conflicts',
+                           action="store_true")
     args = argparser.parse_args()
     with open(args.json_file) as infile:
         json_text = "".join(infile.readlines())
 
     g = Grammar.Load(json_text, 'translation_unit')
-    if args.verbose:
-        g.dump()
+
+    if args.ll1:
+        (table,conflicts) = g.LL1()
+
+        for key, reduction in table.items():
+            (non_terminal,token) = key
+            print("{} {}: {}".format(non_terminal,str(token),str(reduction)))
+
+        for (lhs,terminal,action,action2) in conflicts:
+            print("conflict: {}->{}: {}  {}".format(lhs,terminal,action,action2))
+        if len(conflicts) > 0:
+            sys.exit(1)
     else:
-        print(g.pretty_str())
+        if args.verbose:
+            g.dump()
+        else:
+            print(g.pretty_str())
+
     sys.exit(0)
 
 
