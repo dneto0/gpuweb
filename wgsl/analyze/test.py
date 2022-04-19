@@ -36,7 +36,7 @@ Unit tests for Grammar.py
 """
 
 import unittest
-from Grammar import Grammar
+import Grammar
 
 # Like Aho, Sethi, Ullman Example 4.17, but with E changed
 DRAGON_BOOK_EXAMPLE_4_17 = """
@@ -418,7 +418,7 @@ def strset(s):
 
 class DragonBook(unittest.TestCase):
     def setUp(self):
-        self.g = Grammar.Load(DRAGON_BOOK_EXAMPLE_4_17,'E')
+        self.g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_17,'E')
 
     # Check First sets
     def test_E_first(self):
@@ -466,7 +466,7 @@ class DragonBook(unittest.TestCase):
 class SimpleWgsl_First(unittest.TestCase):
 
     def setUp(self):
-        self.g = Grammar.Load(SIMPLE_WGSL,'translation_unit')
+        self.g = Grammar.Grammar.Load(SIMPLE_WGSL,'translation_unit')
 
     def test_token_string(self):
         r = self.g.find('at')
@@ -517,7 +517,7 @@ class SimpleWgsl_First(unittest.TestCase):
 class SimpleWgsl_Follow(unittest.TestCase):
 
     def setUp(self):
-        self.g = Grammar.Load(SIMPLE_WGSL,'translation_unit')
+        self.g = Grammar.Grammar.Load(SIMPLE_WGSL,'translation_unit')
 
     def test_token_string(self):
         r = self.g.find('at')
@@ -556,6 +556,117 @@ class SimpleWgsl_Follow(unittest.TestCase):
         r = self.g.find('translation_unit')
         self.assertEqual("EndOfText",strset(r.follow))
 
+
+class Item_Basics(unittest.TestCase):
+
+    def make_item(self,*args):
+        return Grammar.Item(*args)
+
+    def test_Item_OfEmpty_Good(self):
+        it = Grammar.Item(Grammar.Empty(),0)
+        self.assertEqual(it.items, [])
+
+    def test_Item_OfEmpty_PosTooSmall(self):
+        self.assertRaises(RuntimeError, self.make_item, Grammar.Empty(), -1)
+
+    def test_Item_OfEmpty_PosTooBig(self):
+        self.assertRaises(RuntimeError, self.make_item, Grammar.Empty(), 1)
+
+    def test_Item_OfFixed_Pos0(self):
+        t = Grammar.Fixed('x')
+        it = Grammar.Item(t,0)
+        self.assertEqual(it.rule, t)
+        self.assertEqual(it.position, 0)
+        self.assertEqual(it.items, [t])
+
+    def test_Item_OfFixed_Pos1(self):
+        t = Grammar.Fixed('x')
+        it = Grammar.Item(t,1)
+        self.assertEqual(it.rule, t)
+        self.assertEqual(it.position, 1)
+        self.assertEqual(it.items, [t])
+
+    def test_Item_OfFixed_PosTooSmall(self):
+        self.assertRaises(RuntimeError, self.make_item, Grammar.Fixed('x'), -1)
+
+    def test_Item_OfFixed_PosTooBig(self):
+        self.assertRaises(RuntimeError, self.make_item, Grammar.Fixed('x'), 2)
+
+    def test_Item_OfPattern_Pos0(self):
+        t = Grammar.Pattern('[a-z]+')
+        it = Grammar.Item(t,0)
+        self.assertEqual(it.rule, t)
+        self.assertEqual(it.position, 0)
+        self.assertEqual(it.items, [t])
+
+    def test_Item_OfPattern_Pos1(self):
+        t = Grammar.Pattern('[a-z]+')
+        it = Grammar.Item(t,1)
+        self.assertEqual(it.rule, t)
+        self.assertEqual(it.position, 1)
+        self.assertEqual(it.items, [t])
+
+    def test_Item_OfPattern_PosTooSmall(self):
+        self.assertRaises(RuntimeError, self.make_item, Grammar.Pattern('[a-z]+'), -1)
+
+    def test_Item_OfPattern_PosTooBig(self):
+        self.assertRaises(RuntimeError, self.make_item, Grammar.Pattern('[a-z]+'), 2)
+
+    def test_Item_OfSymbol_Pos0(self):
+        t = Grammar.Symbol('x')
+        it = Grammar.Item(t,0)
+        self.assertEqual(it.rule, t)
+        self.assertEqual(it.position, 0)
+        self.assertEqual(it.items, [t])
+
+    def test_Item_OfSymbol_Pos1(self):
+        t = Grammar.Symbol('x')
+        it = Grammar.Item(t,1)
+        self.assertEqual(it.rule, t)
+        self.assertEqual(it.position, 1)
+        self.assertEqual(it.items, [t])
+
+    def test_Item_OfSymbol_PosTooSmall(self):
+        self.assertRaises(RuntimeError, self.make_item, Grammar.Symbol('x'), -1)
+
+    def test_Item_OfSymbol_PosTooBig(self):
+        self.assertRaises(RuntimeError, self.make_item, Grammar.Symbol('x'), 2)
+
+    def example_seq(self):
+        return Grammar.Seq([Grammar.Fixed('x'), Grammar.Symbol('blah')])
+
+    def test_Item_OfSeq_Pos0(self):
+        t = self.example_seq()
+        it = Grammar.Item(t,0)
+        self.assertEqual(it.rule, t)
+        self.assertEqual(it.position, 0)
+        self.assertEqual(it.items, [i for i in t])
+
+    def test_Item_OfSeq_Pos1(self):
+        t = self.example_seq()
+        it = Grammar.Item(t,1)
+        self.assertEqual(it.rule, t)
+        self.assertEqual(it.position, 1)
+        self.assertEqual(it.items, [i for i in t])
+
+    def test_Item_OfSeq_Pos2(self):
+        t = self.example_seq()
+        it = Grammar.Item(t,2)
+        self.assertEqual(it.rule, t)
+        self.assertEqual(it.position, 2)
+        self.assertEqual(it.items, [i for i in t])
+
+    def test_Item_OfSeq_PosTooSmall(self):
+        self.assertRaises(RuntimeError, self.make_item, self.example_seq(), -1)
+
+    def test_Item_OfSeq_PosTooBig(self):
+        self.assertRaises(RuntimeError, self.make_item, self.example_seq(), 3)
+
+    def test_Item_OfChoice(self):
+        self.assertRaises(RuntimeError, self.make_item, Grammar.Choice([]), 0)
+
+    def test_Item_OfRepeat1(self):
+        self.assertRaises(RuntimeError, self.make_item, Grammar.Repeat1([]), 0)
 
 if __name__ == '__main__':
     unittest.main()
