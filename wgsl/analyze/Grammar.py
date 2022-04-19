@@ -48,10 +48,10 @@ import json
 #  Token: A non-empty sequence of code points. Parsing considers tokens to
 #    be indivisibl.
 #
-#  Empty: A unique item representing the empty string. Sometimes shown as
+#  Empty: A unique object representing the empty string. Sometimes shown as
 #    epsilon.
 #
-#  EndOfText: A unique item representing the end of input. No more text may
+#  EndOfText: A unique object representing the end of input. No more text may
 #    appear after it.
 #
 #  Fixed: A Token with fixed spelling.
@@ -59,16 +59,22 @@ import json
 #  Pattern: A Token matching a particular regular expression.
 #    We always assume patterns never map to the empty string.
 #
-#  Terminal: One of: Token, Empty, EndOfText
+#  Terminal: One of: Token, EndOfText
 #
-#  Nonterminal: A grammar item which can expand to phrases, as defined by
+#  Nonterminal: A grammar object which can expand to phrases, as defined by
 #    production rules.
 #
 #  Symbol: A name for a Terminal or Nonterminal.
 #
 #  Production: An expression of Choice, Sequence, Repeat1 expressions over
-#    Terminals and Nonterminals.  In these expressions, a Nonterminal is
+#    Terminals, Nonterminals, and Empty.  In these expressions, a Nonterminal is
 #    represented by a Symbol for its name.
+#
+#  Flat: A Production is "Flat" if it is one of:
+#      - a Terminal
+#      - a Symbol
+#      - Empty
+#      - a Sequence over Terminals and Symbols
 #
 #  GrammarDict: a dictionary mapping over Python strings mapping:
 #    A Terminal name to its definition.
@@ -82,20 +88,17 @@ import json
 #      .start_symbol: the Python string name of the start symbol
 #
 #  Canonical Form: a GrammarDict where the Productions for Nonterminals are:
-#    A Choice over:
-#       Terminals,
-#       Symbols, or
-#       Seq expressions over Terminals and Symbols
+#    A Choice over Flat Productions
 #
-#  Phrase: A sequence of Terminals and Nonterminals.
-#    It might have length 0, i.e. no items at all.
+#  Phrase: A sequence of Terminals and Nonterminals, or a single Empty
+#    It might have length 0, i.e. no objects at all.
 #
 #  Sentence: A sequence of Tokens. (Each Sentence is a Phrase.)
 #
 #  Language: The set of Sentences which may be derived from the start
 #    symbol of a Grammar.
 #
-#  First(X):  Where X is a Phrase, First(X) is the set of Terminals that
+#  First(X):  Where X is a Phrase, First(X) is the set over Terminals or Empty that
 #    begin the Phrases that may be derived from X.
 
 class Rule:
@@ -105,8 +108,11 @@ class Rule:
         self.follow = set()
         self.known_to_derive_empty = False
 
+    def is_empty(self):
+        return isinstance(self, Empty)
+
     def is_terminal(self):
-        return isinstance(self, (Empty, EndOfText, Token))
+        return isinstance(self, (EndOfText, Token))
 
     def is_nonterminal(self):
         return isinstance(self, ContainerRule)
@@ -114,12 +120,26 @@ class Rule:
     def is_symbol(self):
         return isinstance(self, Symbol)
 
+    def max_position(self):
+        """
+        Returns the maximum position value for an Item using for this rule.
+        """
+        if self.is_empty():
+            # TODO(dneto): Should this raise an error?
+            return 0
+        if self.is_terminal() or self.is_symbol():
+            # Before or after the object
+            return 1
+        if isinstance(self,Seq):
+            # Before the first through after the last sub-object
+            return len(self)
+
     def derives_empty(self):
-        """Returns True if this item is known to generate the empty string"""
+        """Returns True if this object is known to generate the empty string"""
         if self.known_to_derive_empty:
             return True
         for item in self.first:
-            if isinstance(item,Empty):
+            if item.is_empty():
                 self.known_to_derive_empty = True
                 return True
         return False
@@ -145,7 +165,7 @@ class Rule:
                         parts.append("'{}'".format(obj.content))
                     elif isinstance(obj, Pattern):
                         parts.append("/{}/".format(obj.content))
-                    elif isinstance(obj, Empty):
+                    elif obj.is_empty():
                         parts.append(u"\u03b5") # Epsilon
                         #parts.append(u"epsilon") # Epsilon
                     elif isinstance(obj, EndOfText):
@@ -258,6 +278,28 @@ class Reduce(Action):
 
     def __str__(self):
         return "{} -> {}".format(self.non_terminal, str(self.rhs))
+
+class Item():
+    """
+    An SLR Item is a Flat Production, with a single position marker.
+    If there are N objects in the production, the marked position
+    is an integer between 0 and N inclusive, indicating the number
+    of objects that precede the marked position.
+    """
+    def __init__(self,rule,position):
+        self.rule = obj
+        self.position = position
+        if (position < 0) or (position > self.rule.max_position()):
+            raise RuntimeError("invalid position {} for production: {}".format(position, str(rule)))
+
+        # self.items is the sub-objects, as a list
+        if obj.is_terminal():
+            self.items = [obj]
+        if obj.is_empty():
+            self.items = []
+        if obj.is_container():
+            self.items = [i for i in obj]
+        raise RuntimeError("invalid item object: {}".format(str(rule)))
 
 
 def json_hook(grammar,memo,tokens_only,dct):
@@ -419,7 +461,7 @@ def compute_first_sets(grammar,rules):
     grammar.end_of_text.first = set({grammar.end_of_text})
     grammar.empty.first = set({grammar.empty})
     for key, rule in rules.items():
-        if rule.is_terminal():
+        if rule.is_terminal() or rule.is_empty():
             # If X is a terminal, then First(X) is {X}
             rule.first = set({rule})
         elif rule.is_symbol():
@@ -428,7 +470,7 @@ def compute_first_sets(grammar,rules):
             # rule is a Choice node
             for rhs in rule:
                 # If X -> empty is a production, then add Empty
-                if isinstance(rhs,Empty):
+                if rhs.is_empty():
                     rule.first = set({rhs})
             names_of_non_terminals.append(key)
 
@@ -456,6 +498,8 @@ def compute_first_sets(grammar,rules):
 
         if rule.is_symbol():
             return rules[rule.content].first
+        if rule.is_empty():
+            return rule.first
         if rule.is_terminal():
             return rule.first
         if isinstance(rule,Choice):
@@ -507,7 +551,7 @@ def without_empty(s):
     """
     result = set()
     for i in s:
-        if not isinstance(i,Empty):
+        if not i.is_empty():
             result.add(i)
     return result
 
@@ -589,7 +633,7 @@ def compute_follow_sets(grammar):
         for bi in range(0,len(seq)):
             b = seq[bi]
             # We only care about nonterminals in the sequence
-            if b.is_terminal():
+            if b.is_terminal() or b.is_empty():
                 continue
 
             # If there is a production A -> alpha B beta
@@ -618,7 +662,7 @@ def compute_follow_sets(grammar):
     while keep_going:
         keep_going = False
         for key, rule in grammar.rules.items():
-            if rule.is_terminal() or rule.is_symbol():
+            if rule.is_terminal() or rule.is_symbol() or rule.is_empty():
                 continue
             # We only care about sequences
             for seq in filter(lambda i: isinstance(i,Seq), rule):
@@ -735,7 +779,7 @@ class Grammar:
         """
         def pretty_str(rule):
             """Returns a pretty string for a node"""
-            if rule.is_terminal():
+            if rule.is_terminal() or rule.is_empty():
                 return str(rule)
             if rule.is_symbol():
                 return rule.content
@@ -789,7 +833,7 @@ class Grammar:
                     # A -> alpha to M[A,x]
                     phrase = rhs if rhs.is_nonterminal() else [rhs]
                     for x in first(self,phrase):
-                        if isinstance(x,Empty):
+                        if x.is_empty():
                             for f in rule.follow:
                                 add(lhs,f,Reduce(lhs,rhs))
                         else:
