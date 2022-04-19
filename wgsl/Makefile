@@ -1,4 +1,4 @@
-all: index.html grammar/grammar.js
+all: index.html grammar/grammar.js test
 
 
 GHC=https://github.com/gpuweb/gpuweb/blob
@@ -18,6 +18,8 @@ online:
 
 grammar/src/grammar.json : grammar/grammar.js
 
+.PHONY: test
+test: analyze_test
 
 ANALYZE_SCRIPT=analyze/lalr.py
 
