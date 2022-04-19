@@ -43,6 +43,8 @@ Represent and process a grammar:
 
 import json
 
+EPSILON = u"\u03b5"
+
 # Definitions:
 #
 #  Token: A non-empty sequence of code points. Parsing considers tokens to
@@ -120,20 +122,6 @@ class Rule:
     def is_symbol(self):
         return isinstance(self, Symbol)
 
-    def max_position(self):
-        """
-        Returns the maximum position value for an Item using for this rule.
-        """
-        if self.is_empty():
-            # TODO(dneto): Should this raise an error?
-            return 0
-        if self.is_terminal() or self.is_symbol():
-            # Before or after the object
-            return 1
-        if isinstance(self,Seq):
-            # Before the first through after the last sub-object
-            return len(self)
-
     def derives_empty(self):
         """Returns True if this object is known to generate the empty string"""
         if self.known_to_derive_empty:
@@ -166,8 +154,7 @@ class Rule:
                     elif isinstance(obj, Pattern):
                         parts.append("/{}/".format(obj.content))
                     elif obj.is_empty():
-                        parts.append(u"\u03b5") # Epsilon
-                        #parts.append(u"epsilon") # Epsilon
+                        parts.append(EPSILON)
                     elif isinstance(obj, EndOfText):
                         parts.append(obj.name)
                     else:
@@ -279,6 +266,7 @@ class Reduce(Action):
     def __str__(self):
         return "{} -> {}".format(self.non_terminal, str(self.rhs))
 
+
 class Item():
     """
     An SLR Item is a Flat Production, with a single position marker.
@@ -287,20 +275,23 @@ class Item():
     of objects that precede the marked position.
     """
     def __init__(self,rule,position):
-        self.rule = obj
-        self.position = position
-        if (position < 0) or (position > self.rule.max_position()):
-            raise RuntimeError("invalid position {} for production: {}".format(position, str(rule)))
+        self.rule = rule
 
         # self.items is the sub-objects, as a list
-        if obj.is_terminal():
-            self.items = [obj]
-        if obj.is_empty():
+        if rule.is_terminal():
+            self.items = [rule]
+        elif rule.is_symbol():
+            self.items = [rule]
+        elif rule.is_empty():
             self.items = []
-        if obj.is_container():
-            self.items = [i for i in obj]
-        raise RuntimeError("invalid item object: {}".format(str(rule)))
+        elif isinstance(rule, Seq):
+            self.items = [i for i in rule]
+        else:
+            raise RuntimeError("invalid item object: {}".format(str(rule)))
 
+        self.position = position
+        if (self.position < 0) or (self.position > len(self.items)):
+            raise RuntimeError("invalid position {} for production: {}".format(position, str(rule)))
 
 def json_hook(grammar,memo,tokens_only,dct):
     """
