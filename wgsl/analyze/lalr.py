@@ -59,13 +59,20 @@ def main():
     argparser.add_argument('-ll1',
                            help='compute LL(1) parser table and associated conflicts',
                            action="store_true")
+    argparser.add_argument('-lalr',
+                           help='compute LALR(1) parser table and associated conflicts',
+                           action="store_true")
     args = argparser.parse_args()
     with open(args.json_file) as infile:
         json_text = "".join(infile.readlines())
 
     g = Grammar.Load(json_text, 'translation_unit')
 
-    if args.ll1:
+    if args.lalr:
+        (table,conflicts) = g.LALR1()
+        if len(conflicts) > 0:
+            sys.exit(1)
+    elif args.ll1:
         (table,conflicts) = g.LL1()
 
         for key, reduction in table.items():

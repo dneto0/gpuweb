@@ -752,7 +752,7 @@ class Grammar:
 
     def LL1(self):
         """
-        Constructs an LL(1) parser table, or raises an error if it can't.
+        Constructs an LL(1) parser table and associated conflicts (if any).
 
         Args:
             self: Grammar in canonical form with First and Follow
@@ -796,3 +796,16 @@ class Grammar:
                             add(lhs,x,Reduce(lhs,rhs))
         return (table,conflicts)
 
+    def LALR1(self):
+        """
+        Constructs an LALR(1) parser table and associated conflicts (if any).
+
+        Args:
+            self: Grammar in canonical form with First and Follow
+            sets computed.
+
+        Returns: a 2-tuple:
+            an LALRL(1) parser table...
+            a list of conflicts
+        """
+        raise RuntimeError("LALR(1) parser table construction is not implemented")
