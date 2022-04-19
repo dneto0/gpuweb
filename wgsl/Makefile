@@ -46,3 +46,7 @@ analyze_first:
 .PHONY: analyze
 analyze: grammar/src/grammar.json
 	python3 $(ANALYZE_SCRIPT)  grammar/src/grammar.json
+
+.PHONY: lalr
+lalr: grammar/src/grammar.json
+	python3 $(ANALYZE_SCRIPT) -lalr grammar/src/grammar.json
