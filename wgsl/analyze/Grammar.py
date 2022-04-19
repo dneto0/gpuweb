@@ -44,6 +44,7 @@ Represent and process a grammar:
 import json
 
 EPSILON = u"\u03b5"
+MIDDLE_DOT = u"\u00b7"
 
 # Definitions:
 #
@@ -173,6 +174,16 @@ class ContainerRule(Rule):
         super().__init__()
         self.children = children
 
+    def __eq__(self,other):
+        if not isinstance(other, self.__class__):
+            return False
+        if len(self.children) is not len(other.children):
+            return False
+        return all([(self.children[i] == other.children[i]) for i in range(len(self.children))])
+
+    def __hash__(self):
+        return str(self).__hash__()
+
     # Emulate an indexable sequence by adding certain standard methods:
     def __len__(self):
         return self.children.__len__()
@@ -203,6 +214,12 @@ class LeafRule(Rule):
     def __init__(self,content):
         super().__init__()
         self.content = content
+
+    def __eq__(self,other):
+        return isinstance(other, self.__class__) and (self.content == other.content)
+
+    def __hash__(self):
+        return str(self).__hash__()
 
 class Token(LeafRule):
     """A Token represents a non-empty contiguous sequence of code points"""
@@ -292,6 +309,12 @@ class Item():
         self.position = position
         if (self.position < 0) or (self.position > len(self.items)):
             raise RuntimeError("invalid position {} for production: {}".format(position, str(rule)))
+
+    def __str__(self):
+        parts = [str(i) for i in self.items]
+        parts.insert(self.position, MIDDLE_DOT)
+        return " ".join(parts)
+
 
 def json_hook(grammar,memo,tokens_only,dct):
     """

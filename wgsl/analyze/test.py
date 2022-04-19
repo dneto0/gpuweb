@@ -668,5 +668,166 @@ class Item_Basics(unittest.TestCase):
     def test_Item_OfRepeat1(self):
         self.assertRaises(RuntimeError, self.make_item, Grammar.Repeat1([]), 0)
 
+
+class Rule_Equality(unittest.TestCase):
+    def test_Empty(self):
+        a = Grammar.Empty()
+        a2 = Grammar.Empty()
+        self.assertEqual(a,a)
+        self.assertTrue(a == a)
+        self.assertTrue(a == a2)
+
+    def test_EndOfText(self):
+        a = Grammar.EndOfText()
+        a2 = Grammar.EndOfText()
+        self.assertEqual(a,a)
+        self.assertTrue(a == a)
+        self.assertTrue(a == a2)
+
+    def test_Fixed(self):
+        a = Grammar.Fixed('a')
+        a2 = Grammar.Fixed('a')
+        b = Grammar.Fixed('b')
+        self.assertEqual(a,a)
+        self.assertTrue(a == a)
+        self.assertTrue(a == a2)
+        self.assertFalse(a == b)
+
+    def test_Symbol(self):
+        a = Grammar.Symbol('a')
+        a2 = Grammar.Symbol('a')
+        b = Grammar.Symbol('b')
+        self.assertEqual(a,a)
+        self.assertTrue(a == a)
+        self.assertTrue(a == a2)
+        self.assertFalse(a == b)
+
+    def test_Pattern(self):
+        a = Grammar.Pattern('a')
+        a2 = Grammar.Pattern('a')
+        b = Grammar.Pattern('b')
+        self.assertEqual(a,a)
+        self.assertTrue(a == a)
+        self.assertTrue(a == a2)
+        self.assertFalse(a == b)
+
+    def test_Repeat1(self):
+        a = Grammar.Repeat1([Grammar.Pattern('a')])
+        a2 = Grammar.Repeat1([Grammar.Pattern('a')])
+        b = Grammar.Repeat1([Grammar.Pattern('b')])
+        self.assertEqual(a,a)
+        self.assertTrue(a == a)
+        self.assertTrue(a == a2)
+        self.assertFalse(a == b)
+
+    def test_Choice(self):
+        a = Grammar.Choice([Grammar.Pattern('a'), Grammar.Empty()])
+        a2 = Grammar.Choice([Grammar.Pattern('a'), Grammar.Empty()])
+        b = Grammar.Repeat1([Grammar.Pattern('a')])
+        c = Grammar.Repeat1([Grammar.Pattern('a'), Grammar.EndOfText()])
+        d = Grammar.Choice([Grammar.Fixed('a'), Grammar.Empty()])
+        self.assertEqual(a,a)
+        self.assertTrue(a == a)
+        self.assertTrue(a == a2)
+        self.assertFalse(a == b)
+        self.assertFalse(a == c)
+        self.assertFalse(a == d)
+
+    def test_Seq(self):
+        a = Grammar.Seq([Grammar.Pattern('a'), Grammar.Empty()])
+        a2 = Grammar.Seq([Grammar.Pattern('a'), Grammar.Empty()])
+        b = Grammar.Repeat1([Grammar.Pattern('a')])
+        c = Grammar.Repeat1([Grammar.Pattern('a'), Grammar.EndOfText()])
+        d = Grammar.Seq([Grammar.Fixed('a'), Grammar.Empty()])
+        self.assertEqual(a,a)
+        self.assertTrue(a == a)
+        self.assertTrue(a == a2)
+        self.assertFalse(a == b)
+        self.assertFalse(a == c)
+        self.assertFalse(a == d)
+
+    def test_CrossProduct(self):
+        empty = Grammar.Empty()
+        end = Grammar.EndOfText()
+        fixed = Grammar.Fixed('a')
+        symbol = Grammar.Symbol('a')
+        pattern = Grammar.Pattern('a')
+        choice = Grammar.Choice([Grammar.Pattern('a')])
+        repeat1 = Grammar.Repeat1([Grammar.Pattern('a')])
+        seq = Grammar.Seq([Grammar.Pattern('a')])
+
+        self.assertTrue( empty == empty )
+        self.assertFalse( empty == end )
+        self.assertFalse( empty == fixed )
+        self.assertFalse( empty == symbol )
+        self.assertFalse( empty == pattern )
+        self.assertFalse( empty == choice )
+        self.assertFalse( empty == repeat1 )
+        self.assertFalse( empty == seq )
+
+        self.assertFalse( end == empty )
+        self.assertTrue( end == end )
+        self.assertFalse( end == fixed )
+        self.assertFalse( end == symbol )
+        self.assertFalse( end == pattern )
+        self.assertFalse( end == choice )
+        self.assertFalse( end == repeat1 )
+        self.assertFalse( end == seq )
+
+        self.assertFalse( fixed == empty )
+        self.assertFalse( fixed == end )
+        self.assertTrue( fixed == fixed )
+        self.assertFalse( fixed == symbol )
+        self.assertFalse( fixed == pattern )
+        self.assertFalse( fixed == choice )
+        self.assertFalse( fixed == repeat1 )
+        self.assertFalse( fixed == seq )
+
+        self.assertFalse( symbol == empty )
+        self.assertFalse( symbol == end )
+        self.assertFalse( symbol == fixed )
+        self.assertTrue( symbol == symbol )
+        self.assertFalse( symbol == pattern )
+        self.assertFalse( symbol == choice )
+        self.assertFalse( symbol == repeat1 )
+        self.assertFalse( symbol == seq )
+
+        self.assertFalse( pattern == empty )
+        self.assertFalse( pattern == end )
+        self.assertFalse( pattern == fixed )
+        self.assertFalse( pattern == symbol )
+        self.assertTrue( pattern == pattern )
+        self.assertFalse( pattern == choice )
+        self.assertFalse( pattern == repeat1 )
+        self.assertFalse( pattern == seq )
+
+        self.assertFalse( choice == empty )
+        self.assertFalse( choice == end )
+        self.assertFalse( choice == fixed )
+        self.assertFalse( choice == symbol )
+        self.assertFalse( choice == pattern )
+        self.assertTrue( choice == choice )
+        self.assertFalse( choice == repeat1 )
+        self.assertFalse( choice == seq )
+
+        self.assertFalse( repeat1 == empty )
+        self.assertFalse( repeat1 == end )
+        self.assertFalse( repeat1 == fixed )
+        self.assertFalse( repeat1 == symbol )
+        self.assertFalse( repeat1 == pattern )
+        self.assertFalse( repeat1 == choice )
+        self.assertTrue( repeat1 == repeat1 )
+        self.assertFalse( repeat1 == seq )
+
+        self.assertFalse( seq == empty )
+        self.assertFalse( seq == end )
+        self.assertFalse( seq == fixed )
+        self.assertFalse( seq == symbol )
+        self.assertFalse( seq == pattern )
+        self.assertFalse( seq == choice )
+        self.assertFalse( seq == repeat1 )
+        self.assertTrue( seq == seq )
+
+
 if __name__ == '__main__':
     unittest.main()
