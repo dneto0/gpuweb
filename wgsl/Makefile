@@ -1,6 +1,6 @@
 .PHONY: all clean
 
-all: index.html grammar/grammar.js
+all: index.html grammar/grammar.js test
 
 clean:
 	rm -f index.html index.pre.html grammar/grammar.js
@@ -20,6 +20,8 @@ online:
 
 grammar/src/grammar.json : grammar/grammar.js
 
+.PHONY: test
+test: analyze_test
 
 ANALYZE_SCRIPT=analyze/lalr.py
 
