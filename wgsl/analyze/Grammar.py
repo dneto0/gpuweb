@@ -338,14 +338,25 @@ class Reduce(Action):
         return "{} -> {}".format(self.non_terminal, str(self.rhs))
 
 
+@functools.total_ordering
 class Item():
     """
-    An SLR Item is a Flat Production, with a single position marker.
+    An SLR Item is a non-terminal name, and a Flat Production with a
+    single position marker.
+
     If there are N objects in the production, the marked position
     is an integer between 0 and N inclusive, indicating the number
     of objects that precede the marked position.
     """
-    def __init__(self,rule,position):
+    def __init__(self,lhs,rule,position):
+        """
+        Args:
+            lhs: the name of the nonterminal, as a Python string or a Symbol
+            rule: the Flat Production
+            position: Index of the position, where 0 is to the left
+              of the first item in the choice
+        """
+        self.lhs = lhs if isinstance(lhs,Symbol) else Symbol(lhs)
         self.rule = rule
 
         # self.items is the sub-objects, as a list
@@ -365,9 +376,33 @@ class Item():
             raise RuntimeError("invalid position {} for production: {}".format(position, str(rule)))
 
     def __str__(self):
-        parts = [str(i) for i in self.items]
+        parts = ["{} ->".format(self.lhs)]
+        parts.append([str(i) for i in self.items])
         parts.insert(self.position, MIDDLE_DOT)
         return " ".join(parts)
+
+    def __eq__(self,other):
+        return (self.lhs == other.lhs) and (self.rule == other.rule) and (self.position == other.position)
+
+    def __hash__(self):
+        return str(self).__hash__()
+
+    def __lt__(self,other):
+        if self.lhs < other.lhs:
+            return True
+        if other.lhs < self.lhs:
+            return False
+        if self.rule < other.rule:
+            return True
+        if other.rule < self.rule:
+            return False
+        if self.position < other.position:
+            return True
+        if other.position < self.position:
+            return False
+        return False
+
+
 
 
 def json_hook(grammar,memo,tokens_only,dct):
@@ -920,4 +955,9 @@ class Grammar:
             an LALRL(1) parser table...
             a list of conflicts
         """
-        raise RuntimeError("LALR(1) parser table construction is not implemented")
+
+        # Build the LR(1) sets of items.  But when making a new set Y
+        # merge it into an existing one X if they have the same "core".
+        # Here, a "core" of a set are the items which are either:
+        #     the entire-language rule:     Seq(start_symbol, EndOfText())
+        # or, have the "dot" not at the left end.
