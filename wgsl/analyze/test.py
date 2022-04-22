@@ -1010,5 +1010,58 @@ class Rule_Less(unittest.TestCase):
         self.assertTrue(a1 < a2)
         self.assertFalse(a2 < a1)
 
+class Item_is_kernel(unittest.TestCase):
+
+    def make_item(self,*args):
+        return Grammar.Item(*args)
+
+    def test_Item_OfEmpty(self):
+        it = Grammar.Item("e",Grammar.Empty(),0)
+        self.assertFalse(it.is_kernel())
+
+    def test_Item_OfFixed_Pos0(self):
+        it = Grammar.Item("e",Grammar.Fixed('a'),0)
+        self.assertFalse(it.is_kernel())
+
+    def test_Item_OfFixed_Pos1(self):
+        it = Grammar.Item("e",Grammar.Fixed('a'),1)
+        self.assertTrue(it.is_kernel())
+
+    def test_Item_OfPattern_Pos0(self):
+        it = Grammar.Item("e",Grammar.Pattern('a'),0)
+        self.assertFalse(it.is_kernel())
+
+    def test_Item_OfPattern_Pos1(self):
+        it = Grammar.Item("e",Grammar.Pattern('a'),1)
+        self.assertTrue(it.is_kernel())
+
+    def test_Item_OfSymbol_Pos0(self):
+        it = Grammar.Item("e",Grammar.Symbol('a'),0)
+        self.assertFalse(it.is_kernel())
+
+    def test_Item_OfSymbol_Pos1(self):
+        it = Grammar.Item("e",Grammar.Symbol('a'),1)
+        self.assertTrue(it.is_kernel())
+
+    def test_Item_OfSeq_Pos0(self):
+        it = Grammar.Item("s",Grammar.Seq([Grammar.Fixed('a')]),0)
+        self.assertFalse(it.is_kernel())
+
+    def test_Item_OfSeq_Pos1(self):
+        it = Grammar.Item("s",Grammar.Seq([Grammar.Fixed('a')]),1)
+        self.assertTrue(it.is_kernel())
+
+    def test_Item_OfLanguage_Pos0(self):
+        it = Grammar.Item(Grammar.LANGUAGE,Grammar.Seq([Grammar.Fixed('a'),Grammar.EndOfText()]),0)
+        self.assertTrue(it.is_kernel())
+
+    def test_Item_OfLanguage_Pos1(self):
+        it = Grammar.Item(Grammar.LANGUAGE,Grammar.Seq([Grammar.Fixed('a'),Grammar.EndOfText()]),1)
+        self.assertTrue(it.is_kernel())
+
+    def test_Item_OfLanguage_Pos2(self):
+        it = Grammar.Item(Grammar.LANGUAGE,Grammar.Seq([Grammar.Fixed('a'),Grammar.EndOfText()]),2)
+        self.assertTrue(it.is_kernel())
+
 if __name__ == '__main__':
     unittest.main()

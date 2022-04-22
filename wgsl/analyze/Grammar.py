@@ -46,6 +46,8 @@ import functools
 
 EPSILON = u"\u03b5"
 MIDDLE_DOT = u"\u00b7"
+# The name of the nonterminal for the entire language
+LANGUAGE = "language"
 
 # Definitions:
 #
@@ -402,6 +404,12 @@ class Item():
             return False
         return False
 
+    def is_kernel(self):
+        # A kernel item either:
+        # - has the dot not at the left end, or:
+        # - is the production representing the entire language:
+        #   LANGUAGE => Seq( Grammar.start_symbol, EndOfText )
+        return (self.position > 0) or (self.lhs.content == LANGUAGE)
 
 
 
@@ -857,7 +865,7 @@ class Grammar:
         self.rules = self.json_grammar["rules"]
 
         # Augment the grammar:
-        self.rules['language'] = Seq([Symbol(start_symbol), self.end_of_text])
+        self.rules[LANGUAGE] = Seq([Symbol(start_symbol), self.end_of_text])
 
     def canonicalize(self):
         self.rules = canonicalize_grammar(self.rules,self.empty)
