@@ -379,8 +379,8 @@ class Item():
 
     def __str__(self):
         parts = ["{} ->".format(self.lhs)]
-        parts.append([str(i) for i in self.items])
-        parts.insert(self.position, MIDDLE_DOT)
+        parts.extend([str(i) for i in self.items])
+        parts.insert(1 + self.position, MIDDLE_DOT)
         return " ".join(parts)
 
     def __eq__(self,other):
@@ -969,3 +969,10 @@ class Grammar:
         # Here, a "core" of a set are the items which are either:
         #     the entire-language rule:     Seq(start_symbol, EndOfText())
         # or, have the "dot" not at the left end.
+
+        # The root item is the one representing the entire language.
+        # Since the grammar is in canonical form, it's a Choice over a
+        # single sequence.
+        root_item = Item(LANGUAGE, self.rules[LANGUAGE][0],0)
+        return ("not finished",[])
+
