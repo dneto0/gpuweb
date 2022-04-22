@@ -412,7 +412,6 @@ class Item():
         return (self.position > 0) or (self.lhs.content == LANGUAGE)
 
 
-
 def json_hook(grammar,memo,tokens_only,dct):
     """
     Translates a JSON dictionary into a corresponding grammar node, based on
@@ -806,6 +805,58 @@ def walk(obj,dict_fn):
         return [walk(i,dict_fn) for i in obj]
     return obj
 
+
+class LookaheadSet(set):
+    """
+    A LookaheadSet is a set of terminals
+    """
+    def __str__(self):
+        return "{{}}".format(" ".join([str(i) for i in self]))
+
+class ItemSet(dict):
+    """
+    An ItemSet is an LR(1) set of Items, where each item maps to its lookahead set.
+    """
+    def __str__(self):
+        parts = []
+        for item, lookahead in self.items():
+            parts.append("{} : {{}}".format(str(item), str(lookahead)))
+        return "\n".join(parts)
+
+    def close(self,grammar):
+        """
+        Update this set with the closure of items in itself, with respect to the
+        given grammar.
+        """
+        keep_going = True
+        while keep_going:
+            keep_going = False
+            copy = self.copy()
+            for item, lookahead in copy.items():
+                if item.position >= len(item.items):
+                    continue
+                B = item.items[item.position]
+                afterB = item.items[item.position+1:]
+                if not B.is_symbol():
+                    continue
+                for a in lookahead:
+                    suffix = [i for i in afterB]
+                    suffix.append(a)
+                    for b in first(grammar, suffix):
+                        # For each production B -> B_prod in G'
+                        rhs = grammar.rules[B.content]
+                        rhs = grammar.rules[rhs.content] if rhs.is_symbol() else rhs
+                        for B_prod in rhs:
+                            candidate = Item(B,B_prod,0)
+                            if candidate not in self:
+                                self[candidate] = LookaheadSet({b})
+                                keep_going = True
+                            else:
+                                if b not in self[candidate]:
+                                    self[candidate].add(b)
+                                    keep_going = True
+
+
 class Grammar:
     """
     A Grammar represents a language generated from a start symbol via
@@ -973,6 +1024,17 @@ class Grammar:
         # The root item is the one representing the entire language.
         # Since the grammar is in canonical form, it's a Choice over a
         # single sequence.
-        root_item = Item(LANGUAGE, self.rules[LANGUAGE][0],0)
+        root = Item(LANGUAGE, self.rules[LANGUAGE][0],0)
+
+        # An ItemSet can be found by any of the items in its core.
+        # Within an ItemSet, an item maps to its lookahead set.
+
+        item_to_set = ItemSet()
+        item_to_set[root] = LookaheadSet({EndOfText()})
+
+        print(str(item_to_set))
+        item_to_set.close(self)
+        print("===")
+        print(str(item_to_set))
         return ("not finished",[])
 
