@@ -42,6 +42,7 @@ Represent and process a grammar:
 """
 
 import json
+import functools
 
 EPSILON = u"\u03b5"
 MIDDLE_DOT = u"\u00b7"
@@ -133,6 +134,10 @@ class Rule:
                 return True
         return False
 
+    def _class_less(self,other):
+        rank = { Choice: 1, Seq: 2, Repeat1: 3, Symbol: 5, Fixed: 10, Pattern: 20, Empty: 100, EndOfText: 1000 }
+        return rank[self.__class__] < rank[other.__class__]
+
 
     # Runs a given function 'fn' on this node and its descendants.
     # The fn(self,True) is called on entry and fn(self,False) on exit.
@@ -168,6 +173,7 @@ class Rule:
         self.traverse(lambda obj, on_entry: f(parts,obj,on_entry))
         return " ".join(parts)
 
+@functools.total_ordering
 class ContainerRule(Rule):
     """A ContainerRule is a rule with children"""
     def __init__(self,children):
@@ -180,6 +186,18 @@ class ContainerRule(Rule):
         if len(self.children) is not len(other.children):
             return False
         return all([(self.children[i] == other.children[i]) for i in range(len(self.children))])
+    def __lt__(self,other):
+        # Order by class
+        if self._class_less(other):
+            return True
+        if other._class_less(self):
+            return False
+        for i in range(min(len(self.children), len(other.children))):
+            if self.children[i] < other.children[i]:
+                return True
+            if other.children[i] < self.children[i]:
+                return False
+        return len(self.children) < len(other.children)
 
     def __hash__(self):
         return str(self).__hash__()
@@ -209,6 +227,7 @@ class ContainerRule(Rule):
     def __contains__(self,item):
         return self.children.__contains__(item)
 
+@functools.total_ordering
 class LeafRule(Rule):
     """A LeafRule is a rule without children"""
     def __init__(self,content):
@@ -220,6 +239,18 @@ class LeafRule(Rule):
 
     def __hash__(self):
         return str(self).__hash__()
+
+    def __lt__(self,other):
+        # Order by class
+        if self._class_less(other):
+            return True
+        if other._class_less(self):
+            return False
+        if self.content is None:
+            return other.content is not None
+        if other.content is None:
+            return True
+        return self.content < other.content
 
 class Token(LeafRule):
     """A Token represents a non-empty contiguous sequence of code points"""
