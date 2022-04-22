@@ -563,110 +563,113 @@ class Item_Basics(unittest.TestCase):
         return Grammar.Item(*args)
 
     def test_Item_OfEmpty_Good(self):
-        it = Grammar.Item(Grammar.Empty(),0)
+        it = Grammar.Item("e",Grammar.Empty(),0)
         self.assertEqual(it.items, [])
+        self.assertEqual(it.lhs, Grammar.Symbol("e"))
+        self.assertEqual(it.position, 0)
 
     def test_Item_OfEmpty_PosTooSmall(self):
-        self.assertRaises(RuntimeError, self.make_item, Grammar.Empty(), -1)
+        self.assertRaises(RuntimeError, self.make_item, "a", Grammar.Empty(), -1)
 
     def test_Item_OfEmpty_PosTooBig(self):
-        self.assertRaises(RuntimeError, self.make_item, Grammar.Empty(), 1)
+        self.assertRaises(RuntimeError, self.make_item, "a", Grammar.Empty(), 1)
 
     def test_Item_OfFixed_Pos0(self):
         t = Grammar.Fixed('x')
-        it = Grammar.Item(t,0)
+        it = Grammar.Item("t",t,0)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 0)
         self.assertEqual(it.items, [t])
 
     def test_Item_OfFixed_Pos1(self):
         t = Grammar.Fixed('x')
-        it = Grammar.Item(t,1)
+        it = Grammar.Item("t",t,1)
+        self.assertEqual(it.lhs, Grammar.Symbol("t"))
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 1)
         self.assertEqual(it.items, [t])
 
     def test_Item_OfFixed_PosTooSmall(self):
-        self.assertRaises(RuntimeError, self.make_item, Grammar.Fixed('x'), -1)
+        self.assertRaises(RuntimeError, self.make_item, "a", Grammar.Fixed('x'), -1)
 
     def test_Item_OfFixed_PosTooBig(self):
-        self.assertRaises(RuntimeError, self.make_item, Grammar.Fixed('x'), 2)
+        self.assertRaises(RuntimeError, self.make_item, "a", Grammar.Fixed('x'), 2)
 
     def test_Item_OfPattern_Pos0(self):
         t = Grammar.Pattern('[a-z]+')
-        it = Grammar.Item(t,0)
+        it = Grammar.Item("t",t,0)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 0)
         self.assertEqual(it.items, [t])
 
     def test_Item_OfPattern_Pos1(self):
         t = Grammar.Pattern('[a-z]+')
-        it = Grammar.Item(t,1)
+        it = Grammar.Item("t",t,1)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 1)
         self.assertEqual(it.items, [t])
 
     def test_Item_OfPattern_PosTooSmall(self):
-        self.assertRaises(RuntimeError, self.make_item, Grammar.Pattern('[a-z]+'), -1)
+        self.assertRaises(RuntimeError, self.make_item, "a", Grammar.Pattern('[a-z]+'), -1)
 
     def test_Item_OfPattern_PosTooBig(self):
-        self.assertRaises(RuntimeError, self.make_item, Grammar.Pattern('[a-z]+'), 2)
+        self.assertRaises(RuntimeError, self.make_item, "a", Grammar.Pattern('[a-z]+'), 2)
 
     def test_Item_OfSymbol_Pos0(self):
         t = Grammar.Symbol('x')
-        it = Grammar.Item(t,0)
+        it = Grammar.Item("t",t,0)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 0)
         self.assertEqual(it.items, [t])
 
     def test_Item_OfSymbol_Pos1(self):
         t = Grammar.Symbol('x')
-        it = Grammar.Item(t,1)
+        it = Grammar.Item("t",t,1)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 1)
         self.assertEqual(it.items, [t])
 
     def test_Item_OfSymbol_PosTooSmall(self):
-        self.assertRaises(RuntimeError, self.make_item, Grammar.Symbol('x'), -1)
+        self.assertRaises(RuntimeError, self.make_item, "a", Grammar.Symbol('x'), -1)
 
     def test_Item_OfSymbol_PosTooBig(self):
-        self.assertRaises(RuntimeError, self.make_item, Grammar.Symbol('x'), 2)
+        self.assertRaises(RuntimeError, self.make_item, "a", Grammar.Symbol('x'), 2)
 
     def example_seq(self):
         return Grammar.Seq([Grammar.Fixed('x'), Grammar.Symbol('blah')])
 
     def test_Item_OfSeq_Pos0(self):
         t = self.example_seq()
-        it = Grammar.Item(t,0)
+        it = Grammar.Item("t",t,0)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 0)
         self.assertEqual(it.items, [i for i in t])
 
     def test_Item_OfSeq_Pos1(self):
         t = self.example_seq()
-        it = Grammar.Item(t,1)
+        it = Grammar.Item("t",t,1)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 1)
         self.assertEqual(it.items, [i for i in t])
 
     def test_Item_OfSeq_Pos2(self):
         t = self.example_seq()
-        it = Grammar.Item(t,2)
+        it = Grammar.Item("t",t,2)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 2)
         self.assertEqual(it.items, [i for i in t])
 
     def test_Item_OfSeq_PosTooSmall(self):
-        self.assertRaises(RuntimeError, self.make_item, self.example_seq(), -1)
+        self.assertRaises(RuntimeError, self.make_item, "s", self.example_seq(), -1)
 
     def test_Item_OfSeq_PosTooBig(self):
-        self.assertRaises(RuntimeError, self.make_item, self.example_seq(), 3)
+        self.assertRaises(RuntimeError, self.make_item, "s", self.example_seq(), 3)
 
     def test_Item_OfChoice(self):
-        self.assertRaises(RuntimeError, self.make_item, Grammar.Choice([]), 0)
+        self.assertRaises(RuntimeError, self.make_item, "c", Grammar.Choice([]), 0)
 
     def test_Item_OfRepeat1(self):
-        self.assertRaises(RuntimeError, self.make_item, Grammar.Repeat1([Grammar.Empty()]), 0)
+        self.assertRaises(RuntimeError, self.make_item, "c", Grammar.Repeat1([Grammar.Empty()]), 0)
 
 
 class Rule_Equality(unittest.TestCase):
