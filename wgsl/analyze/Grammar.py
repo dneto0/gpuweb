@@ -70,6 +70,15 @@ MIDDLE_DOT = u"\u00b7"
 #
 #  Symbol: A name for a Terminal or Nonterminal.
 #
+#  Choice: A Rule which matches when any of several children matches
+#
+#  Seq (Sequence): A Rule which matches when all children are matched, one after
+#    another
+#
+#  Repeat1: A Rule which matches when its child matches one or more times.
+#
+#  ContainerRule: One of Choice, Seq, or Repeat1
+#
 #  Production: An expression of Choice, Sequence, Repeat1 expressions over
 #    Terminals, Nonterminals, and Empty.  In these expressions, a Nonterminal is
 #    represented by a Symbol for its name.
@@ -180,24 +189,32 @@ class ContainerRule(Rule):
         super().__init__()
         self.children = children
 
+    def ordered(self):
+        return self.ordered_children if ('ordered_children' in dir(self)) else self.children
+
     def __eq__(self,other):
         if not isinstance(other, self.__class__):
             return False
         if len(self.children) is not len(other.children):
             return False
-        return all([(self.children[i] == other.children[i]) for i in range(len(self.children))])
+        ours = self.ordered()
+        theirs = other.ordered()
+        return all([(ours[i] == theirs[i]) for i in range(len(ours))])
+
     def __lt__(self,other):
         # Order by class
         if self._class_less(other):
             return True
         if other._class_less(self):
             return False
-        for i in range(min(len(self.children), len(other.children))):
-            if self.children[i] < other.children[i]:
+        ours = self.ordered()
+        theirs = other.ordered()
+        for i in range(min(len(ours), len(theirs))):
+            if ours[i] < theirs[i]:
                 return True
-            if other.children[i] < self.children[i]:
+            if theirs[i] < ours[i]:
                 return False
-        return len(self.children) < len(other.children)
+        return len(ours) < len(theirs)
 
     def __hash__(self):
         return str(self).__hash__()
@@ -260,6 +277,10 @@ class Token(LeafRule):
 class Choice(ContainerRule):
     def __init__(self,children):
         super().__init__(children)
+        # Order does not matter among the children. 
+        # Store them in order so we can more quickly test for equality
+        # and less-than.
+        self.ordered_children = sorted(self.children)
 
 class Seq(ContainerRule):
     def __init__(self,children):
@@ -268,6 +289,8 @@ class Seq(ContainerRule):
 class Repeat1(ContainerRule):
     def __init__(self,children):
         super().__init__(children)
+        if len(children) != 1:
+            raise RuntimeError("Repeat1 must have exactly one child: {}".format(str(children)))
 
 class Symbol(LeafRule):
     def __init__(self,content):

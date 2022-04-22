@@ -666,7 +666,7 @@ class Item_Basics(unittest.TestCase):
         self.assertRaises(RuntimeError, self.make_item, Grammar.Choice([]), 0)
 
     def test_Item_OfRepeat1(self):
-        self.assertRaises(RuntimeError, self.make_item, Grammar.Repeat1([]), 0)
+        self.assertRaises(RuntimeError, self.make_item, Grammar.Repeat1([Grammar.Empty()]), 0)
 
 
 class Rule_Equality(unittest.TestCase):
@@ -985,6 +985,27 @@ class Rule_Less(unittest.TestCase):
         self.assertFalse( seq < choice )
         self.assertTrue( seq < repeat1 )
         self.assertFalse( seq < seq )
+
+    def test_Choice_internal_order(self):
+        a1 = Grammar.Choice([Grammar.Fixed('a'), Grammar.Fixed('b')])
+        a2 = Grammar.Choice([Grammar.Fixed('b'), Grammar.Fixed('a')])
+        self.assertTrue(a1 == a2)
+        self.assertFalse(a1 < a2)
+        self.assertFalse(a2 < a1)
+
+    def test_Seq_internal_order(self):
+        a1 = Grammar.Seq([Grammar.Fixed('a'), Grammar.Fixed('b')])
+        a2 = Grammar.Seq([Grammar.Fixed('b'), Grammar.Fixed('a')])
+        self.assertFalse(a1 == a2)
+        self.assertTrue(a1 < a2)
+        self.assertFalse(a2 < a1)
+
+    def test_Seq_internal_order(self):
+        a1 = Grammar.Seq([Grammar.Fixed('a'), Grammar.Fixed('b')])
+        a2 = Grammar.Seq([Grammar.Fixed('b'), Grammar.Fixed('a')])
+        self.assertFalse(a1 == a2)
+        self.assertTrue(a1 < a2)
+        self.assertFalse(a2 < a1)
 
 if __name__ == '__main__':
     unittest.main()
