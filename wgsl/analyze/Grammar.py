@@ -351,6 +351,13 @@ class Item():
     If there are N objects in the production, the marked position
     is an integer between 0 and N inclusive, indicating the number
     of objects that precede the marked position.
+
+    Internally:
+       self.lhs: a Symbol naming the LHS of the grammar production
+       self.rule: the Rule that is the RHS of the grammar production
+       self.items: a list: sequence of items (Rules) in the production
+       self.position: an integer index: the "dot" representing the current position
+           in the rule appears to the left of the item at this indexed position.
     """
     def __init__(self,lhs,rule,position):
         """
@@ -834,23 +841,31 @@ class ItemSet(dict):
         keep_going = True
         while keep_going:
             keep_going = False
+            # From the dragon book, 1st ed. 4.38 Sets of LR(1) items construction.
+            #
+            # For each item [ A -> alpha . B beta, a ] in I,
+            # and each production " B -> . gamma " in the grammar,
+            # and each terminal b in FIRST(beta a),
+            # add [ B -> . gamma, b ] to I if it is not already there.
             copy = self.copy()
             for item, lookahead in copy.items():
                 if item.position >= len(item.items):
                     continue
                 B = item.items[item.position]
-                afterB = item.items[item.position+1:]
                 if not B.is_symbol():
                     continue
-                for a in lookahead:
-                    suffix = [i for i in afterB]
-                    suffix.append(a)
-                    for b in first(grammar, suffix):
-                        # For each production B -> B_prod in G'
-                        rhs = grammar.rules[B.content]
-                        rhs = grammar.rules[rhs.content] if rhs.is_symbol() else rhs
-                        for B_prod in rhs:
-                            candidate = Item(B,B_prod,0)
+
+                afterB = item.items[item.position+1:]
+
+                # For each production B -> B_prod in G'
+                rhs = grammar.rules[B.content]
+                rhs = grammar.rules[rhs.content] if rhs.is_symbol() else rhs
+                # The grammar is in canonical form, so rhs is a Choice over
+                # several candidate productions. Use each one.
+                for B_prod in rhs:
+                    candidate = Item(B,B_prod,0)
+                    for a in lookahead:
+                        for b in first(grammar, afterB + [a]):
                             if candidate not in self:
                                 self[candidate] = LookaheadSet({b})
                                 keep_going = True
