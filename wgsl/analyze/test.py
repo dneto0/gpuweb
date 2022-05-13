@@ -1063,5 +1063,36 @@ class Item_is_kernel(unittest.TestCase):
         it = Grammar.Item(Grammar.LANGUAGE,Grammar.Seq([Grammar.Fixed('a'),Grammar.EndOfText()]),2)
         self.assertTrue(it.is_kernel())
 
+class Lookahead_is_a_set(unittest.TestCase):
+    def test_init_empty(self):
+        x = Grammar.LookaheadSet()
+        self.assertTrue(x == set())
+
+    def test_init_single(self):
+        x = Grammar.LookaheadSet({1})
+        self.assertTrue(x == set({1}))
+
+    def test_init_several(self):
+        x = Grammar.LookaheadSet({1,2,9})
+        self.assertTrue(x == set({9,2,1}))
+
+    def test_str_empty(self):
+        x = Grammar.LookaheadSet({})
+        self.assertEqual(str(x),"{}")
+
+    def test_str_several(self):
+        x = Grammar.LookaheadSet({9,2,1})
+        self.assertEqual(str(x),"{9 2 1}")
+
+    def test_add(self):
+        x = Grammar.LookaheadSet({})
+        x.add(1)
+        self.assertEqual(x, {1})
+
+    def test_add_redundant(self):
+        x = Grammar.LookaheadSet({1})
+        x.add(1)
+        self.assertEqual(x, {1})
+
 if __name__ == '__main__':
     unittest.main()
