@@ -46,6 +46,8 @@ import functools
 
 EPSILON = u"\u03b5"
 MIDDLE_DOT = u"\u00b7"
+LBRACE = "{"
+RBRACE = "}"
 # The name of the nonterminal for the entire language
 LANGUAGE = "language"
 
@@ -811,7 +813,8 @@ class LookaheadSet(set):
     A LookaheadSet is a set of terminals
     """
     def __str__(self):
-        return "{{}}".format(" ".join([str(i) for i in self]))
+        return "{}{}{}".format(LBRACE, " ".join([str(i) for i in self]), RBRACE)
+
 
 class ItemSet(dict):
     """
@@ -820,7 +823,7 @@ class ItemSet(dict):
     def __str__(self):
         parts = []
         for item, lookahead in self.items():
-            parts.append("{} : {{}}".format(str(item), str(lookahead)))
+            parts.append("{} : {}".format(str(item), str(lookahead)))
         return "\n".join(parts)
 
     def close(self,grammar):
