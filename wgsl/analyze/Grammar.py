@@ -833,6 +833,9 @@ class ItemSet(dict):
             parts.append("{} : {}".format(str(item), str(lookahead)))
         return "\n".join(parts)
 
+    def copy(self):
+        return ItemSet(super().copy())
+
     def close(self,grammar):
         """
         Update this set with the closure of items in itself, with respect to the
@@ -873,6 +876,7 @@ class ItemSet(dict):
                                 if b not in self[candidate]:
                                     self[candidate].add(b)
                                     keep_going = True
+        return self
 
 
 class Grammar:
