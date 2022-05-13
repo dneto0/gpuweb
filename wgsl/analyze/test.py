@@ -1080,9 +1080,9 @@ class Lookahead_is_a_set(unittest.TestCase):
         x = Grammar.LookaheadSet({})
         self.assertEqual(str(x),"{}")
 
-    def test_str_several(self):
+    def test_str_several_is_ordered(self):
         x = Grammar.LookaheadSet({9,2,1})
-        self.assertEqual(str(x),"{9 2 1}")
+        self.assertEqual(str(x),"{1 2 9}")
 
     def test_add(self):
         x = Grammar.LookaheadSet({})

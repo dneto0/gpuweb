@@ -819,8 +819,10 @@ class LookaheadSet(set):
     """
     A LookaheadSet is a set of terminals
     """
+
     def __str__(self):
-        return "{}{}{}".format(LBRACE, " ".join([str(i) for i in self]), RBRACE)
+        """Returns a string representation of a canonical ordering of the items"""
+        return "{}{}{}".format(LBRACE, " ".join(sorted([str(i) for i in self])), RBRACE)
 
 
 class ItemSet(dict):
