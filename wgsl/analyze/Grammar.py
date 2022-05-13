@@ -825,15 +825,25 @@ class LookaheadSet(set):
         return "{}{}{}".format(LBRACE, " ".join(sorted([str(i) for i in self])), RBRACE)
 
 
+@functools.total_ordering
 class ItemSet(dict):
     """
     An ItemSet is an LR(1) set of Items, where each item maps to its lookahead set.
     """
     def __str__(self):
+        return "\n".join(self.as_ordered_parts())
+
+    def as_ordered_parts(self):
         parts = []
         for item, lookahead in self.items():
             parts.append("{} : {}".format(str(item), str(lookahead)))
-        return "\n".join(parts)
+        return sorted(parts)
+
+    def __lt__(self,other):
+        return str(self) < str(other)
+
+    def __hash__(self):
+        return str(self).__hash__()
 
     def copy(self):
         return ItemSet(super().copy())
