@@ -47,6 +47,11 @@ analyze_first:
 analyze: grammar/src/grammar.json
 	python3 $(ANALYZE_SCRIPT)  grammar/src/grammar.json
 
+# Example 4.42 from Dragon book
+.PHONY: analyze_442
+analyze_442: grammar/src/grammar.json
+	python3 $(ANALYZE_SCRIPT) -lalr analyze/test/ex442.json
+
 .PHONY: lalr
 lalr: grammar/src/grammar.json
 	python3 $(ANALYZE_SCRIPT) -lalr grammar/src/grammar.json
