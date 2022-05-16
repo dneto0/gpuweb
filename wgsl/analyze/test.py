@@ -191,6 +191,70 @@ DRAGON_BOOK_EXAMPLE_4_17 = """
 }
 """
 
+DRAGON_BOOK_EXAMPLE_4_42 = """
+{
+  "name": "dragon_book_ex_4_42",
+  "word": "id",
+  "rules": {
+    "translation_unit": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "C"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "C"
+        }
+      ]
+    },
+    "C": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "c"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "C"
+            }
+          ]
+        },
+        {
+          "type": "SYMBOL",
+          "name": "d"
+        }
+      ]
+    },
+    "c": {
+      "type": "TOKEN",
+      "content": {
+        "type": "STRING",
+        "value": "c"
+      }
+    },
+    "d": {
+      "type": "TOKEN",
+      "content": {
+        "type": "STRING",
+        "value": "d"
+      }
+    }
+  },
+  "extras": [],
+  "conflicts": [],
+  "precedences": [],
+  "externals": [],
+  "inline": [],
+  "supertypes": []
+}
+"""
+
 
 SIMPLE_WGSL = """
 {
@@ -1093,6 +1157,72 @@ class Lookahead_is_a_set(unittest.TestCase):
         x = Grammar.LookaheadSet({1})
         x.add(1)
         self.assertEqual(x, {1})
+
+EX442_LR1_ITEMS_EXPECTED = map(lambda x: x.rstrip(), """translation_unit -> C · C : {EndOfText}
+===
+translation_unit -> C C · : {EndOfText}
+===
+C -> 'c' C · : {'c' 'd'}
+===
+C -> 'd' · : {EndOfText}
+===
+language -> translation_unit · EndOfText : {EndOfText}
+===
+language -> · translation_unit EndOfText : {EndOfText}
+===
+C -> 'c' · C : {'c' 'd'}
+===
+C -> 'c' C · : {EndOfText}
+===
+C -> 'd' · : {'c' 'd'}
+===
+C -> 'c' · C : {EndOfText}
+""".split("===\n"))
+
+EX442_LR1_ITEMS_CLOSED_EXPECTED = map(lambda x: x.rstrip(), """C -> · 'c' C : {EndOfText}
+C -> · 'd' : {EndOfText}
+translation_unit -> C · C : {EndOfText}
+===
+translation_unit -> C C · : {EndOfText}
+===
+C -> 'c' C · : {'c' 'd'}
+===
+C -> 'd' · : {EndOfText}
+===
+language -> translation_unit · EndOfText : {EndOfText}
+===
+C -> · 'c' C : {'c' 'd'}
+C -> · 'd' : {'c' 'd'}
+language -> · translation_unit EndOfText : {EndOfText}
+translation_unit -> · C C : {EndOfText}
+===
+C -> 'c' · C : {'c' 'd'}
+C -> · 'c' C : {'c' 'd'}
+C -> · 'd' : {'c' 'd'}
+===
+C -> 'c' C · : {EndOfText}
+===
+C -> 'd' · : {'c' 'd'}
+===
+C -> 'c' · C : {EndOfText}
+C -> · 'c' C : {EndOfText}
+C -> · 'd' : {EndOfText}
+""".split("===\n"))
+
+class LR1_items(unittest.TestCase):
+    def test_ex442(self):
+        g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
+        got = g.LR1_ItemSets()
+        got_set = set([str(i) for i in got])
+        expected_set = set(EX442_LR1_ITEMS_EXPECTED)
+        self.assertEqual(got_set, expected_set)
+
+    def test_ex442_closed(self):
+        g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
+        got = g.LR1_ItemSets()
+        got_set = set([str(i.copy().close(g)) for i in got])
+        expected_set = set(EX442_LR1_ITEMS_CLOSED_EXPECTED)
+        #self.assertEqual(got_set, expected_set)
 
 if __name__ == '__main__':
     unittest.main()

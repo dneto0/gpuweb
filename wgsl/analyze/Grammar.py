@@ -917,6 +917,8 @@ class ItemSet(dict):
             if item.at_end():
                 continue
             X = item.items[item.position]
+            if X == grammar.end_of_text:
+                continue
             if X not in partition:
                 partition[X] = []
             partition[X].append(item)
@@ -1078,17 +1080,15 @@ class Grammar:
                             add(lhs,x,Reduce(lhs,rhs))
         return (table,conflicts)
 
-    def LALR1(self):
+    def LR1_ItemSets(self):
         """
-        Constructs an LALR(1) parser table and associated conflicts (if any).
+        Constructs the LR(1) sets of items.
 
         Args:
-            self: Grammar in canonical form with First and Follow
-            sets computed.
+            self: Grammar in canonical form, with computed First
+                and Follow sets.
 
-        Returns: a 2-tuple:
-            an LALRL(1) parser table...
-            a list of conflicts
+        Returns: a set of the cores of the LR1(1) item-sets for the grammar.
         """
 
         # Build the LR(1) sets of items.  But when making a new set Y
@@ -1108,21 +1108,38 @@ class Grammar:
         root_item_set = ItemSet()
         root_item_set[root_item] = LookaheadSet({EndOfText()})
 
-        LR1_items = set({root_item_set})
+        LR1_item_sets_result = set({root_item_set})
 
         keep_going = True
         while keep_going:
             keep_going = False
-            old_items = LR1_items.copy()
+            old_items = LR1_item_sets_result.copy()
             for item_set in old_items:
                 gotos = item_set.gotos(self)
                 for g in gotos:
-                    if g not in LR1_items:
-                        LR1_items.add(g)
+                    if g not in LR1_item_sets_result:
+                        LR1_item_sets_result.add(g)
                         keep_going = True
 
+        return LR1_item_sets_result
+
+
+    def LALR1(self):
+        """
+        Constructs an LALR(1) parser table and associated conflicts (if any).
+
+        Args:
+            self: Grammar in canonical form with First and Follow
+            sets computed.
+
+        Returns: a 2-tuple:
+            an LALRL(1) parser table...
+            a list of conflicts
+        """
+
+        items = self.LR1_Items()
         print("LALR(1) item-sets, just the core:")
-        for IS in LR1_items:
+        for IS in items:
             print("===")
             print(str(IS.copy().close(self)))
         return ("not finished",[])
