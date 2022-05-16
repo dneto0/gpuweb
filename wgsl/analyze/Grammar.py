@@ -420,6 +420,9 @@ class Item():
         #   LANGUAGE => Seq( Grammar.start_symbol, EndOfText )
         return (self.position > 0) or (self.lhs.content == LANGUAGE)
 
+    def at_end(self):
+        return self.position == len(self.items)
+
 
 def json_hook(grammar,memo,tokens_only,dct):
     """
@@ -853,6 +856,9 @@ class ItemSet(dict):
         Update this set with the closure of items in itself, with respect to the
         given grammar.
         """
+        def lookup(rule):
+            return grammar.rules[rule.content] if isinstance(rule,Symbol) else rule
+
         keep_going = True
         while keep_going:
             keep_going = False
@@ -864,7 +870,7 @@ class ItemSet(dict):
             # add [ B -> . gamma, b ] to I if it is not already there.
             copy = self.copy()
             for item, lookahead in copy.items():
-                if item.position >= len(item.items):
+                if item.at_end():
                     continue
                 B = item.items[item.position]
                 if not B.is_symbol():
@@ -873,14 +879,14 @@ class ItemSet(dict):
                 afterB = item.items[item.position+1:]
 
                 # For each production B -> B_prod in G'
-                rhs = grammar.rules[B.content]
-                rhs = grammar.rules[rhs.content] if rhs.is_symbol() else rhs
+                rhs = lookup(grammar.rules[B.content])
                 # The grammar is in canonical form, so rhs is a Choice over
                 # several candidate productions. Use each one.
                 for B_prod in rhs:
                     candidate = Item(B,B_prod,0)
                     for a in lookahead:
-                        for b in first(grammar, afterB + [a]):
+                        firsts = first(grammar, afterB + [a])
+                        for b in firsts:
                             if candidate not in self:
                                 self[candidate] = LookaheadSet({b})
                                 keep_going = True
@@ -889,6 +895,42 @@ class ItemSet(dict):
                                     self[candidate].add(b)
                                     keep_going = True
         return self
+
+    def gotos(self,grammar):
+        """
+        Return a list of (unclosed) ItemSets goto(self,X) for grammar symbols X.
+
+        That is, for any X, collect all items [A -> alpha . X beta, a] in the
+        current item set, and produce a new (unclosed) ItemSet out of the
+        union of [A -> alpha X . beta, a]
+
+        Here X may be a terminal or a nonterminal.
+        """
+        # Operate on a closed copy of myself.
+        me = self.copy()
+        me.close(grammar)
+
+        # Partition items according to the next symbol to be consumed, X,
+        # i.e. the symbol immediately to the right of the dot.
+        partition = dict()
+        for item, lookahead in me.items():
+            if item.at_end():
+                continue
+            X = item.items[item.position]
+            if X not in partition:
+                partition[X] = []
+            partition[X].append(item)
+
+        # Now make a list of item sets from the partitions.
+        result = []
+        for X, list_of_items in partition.items():
+            x_item_set = ItemSet()
+            for i in list_of_items:
+                advanced_item = Item(i.lhs, i.rule, i.position+1)
+                # They both map to the same lookahead set
+                x_item_set[advanced_item] = me[i]
+            result.append(x_item_set)
+        return result
 
 
 class Grammar:
@@ -1058,17 +1100,30 @@ class Grammar:
         # The root item is the one representing the entire language.
         # Since the grammar is in canonical form, it's a Choice over a
         # single sequence.
-        root = Item(LANGUAGE, self.rules[LANGUAGE][0],0)
+        root_item = Item(LANGUAGE, self.rules[LANGUAGE][0],0)
 
         # An ItemSet can be found by any of the items in its core.
         # Within an ItemSet, an item maps to its lookahead set.
 
-        item_to_set = ItemSet()
-        item_to_set[root] = LookaheadSet({EndOfText()})
+        root_item_set = ItemSet()
+        root_item_set[root_item] = LookaheadSet({EndOfText()})
 
-        print(str(item_to_set))
-        item_to_set.close(self)
-        print("===")
-        print(str(item_to_set))
+        LR1_items = set({root_item_set})
+
+        keep_going = True
+        while keep_going:
+            keep_going = False
+            old_items = LR1_items.copy()
+            for item_set in old_items:
+                gotos = item_set.gotos(self)
+                for g in gotos:
+                    if g not in LR1_items:
+                        LR1_items.add(g)
+                        keep_going = True
+
+        print("LALR(1) item-sets, just the core:")
+        for IS in LR1_items:
+            print("===")
+            print(str(IS.copy().close(self)))
         return ("not finished",[])
 
