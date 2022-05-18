@@ -904,6 +904,7 @@ class ItemSet(dict):
             # add [ B -> . gamma, b ] to I if it is not already there.
             copy = self.copy()
             for item, lookahead in copy.items():
+                lookahead_copy = lookahead.copy()
                 if item.at_end():
                     continue
                 B = item.items[item.position]
@@ -916,9 +917,10 @@ class ItemSet(dict):
                 rhs = lookup(grammar.rules[B.content])
                 # The grammar is in canonical form, so rhs is a Choice over
                 # several candidate productions. Use each one.
+                rhs = [rhs] if rhs.is_terminal() else rhs
                 for B_prod in rhs:
                     candidate = Item(B,B_prod,0)
-                    for a in lookahead:
+                    for a in lookahead_copy:
                         firsts = first(grammar, afterB + [a])
                         for b in firsts:
                             if candidate not in self:
@@ -1154,9 +1156,11 @@ class Grammar:
 
         keep_going = True
         while keep_going:
+            print("\n{} item sets".format(len(LR1_item_sets_result)))
             keep_going = False
             old_items = LR1_item_sets_result.copy()
             for item_set in old_items:
+                print("visit {}".format(item_set))
                 gotos = item_set.gotos(self)
                 for g in gotos:
                     if lalr:
@@ -1188,7 +1192,7 @@ class Grammar:
             a list of conflicts
         """
 
-        items = self.LR1_ItemSets()
+        items = self.LALR1_ItemSets()
         print("LALR(1) item-sets, just the core:")
         for IS in items:
             print("===")
