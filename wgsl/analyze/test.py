@@ -1158,6 +1158,32 @@ class Lookahead_is_a_set(unittest.TestCase):
         x.add(1)
         self.assertEqual(x, {1})
 
+class Lookahead_merge(unittest.TestCase):
+    def test_merge_empty(self):
+        x = Grammar.LookaheadSet({1,2,3})
+        b = x.merge(Grammar.LookaheadSet({}))
+        self.assertEqual(str(x),"{1 2 3}")
+        self.assertFalse(b)
+
+    def test_merge_same(self):
+        x = Grammar.LookaheadSet({1,2,3})
+        b = x.merge(Grammar.LookaheadSet({1,2,3}))
+        self.assertEqual(str(x),"{1 2 3}")
+        self.assertFalse(b)
+
+    def test_merge_disjoint(self):
+        x = Grammar.LookaheadSet({-1,9,4})
+        b = x.merge(Grammar.LookaheadSet({1,2,3}))
+        self.assertEqual(str(x),"{-1 1 2 3 4 9}")
+        self.assertTrue(b)
+
+    def test_merge_overlap(self):
+        x = Grammar.LookaheadSet({1,2,4})
+        b = x.merge(Grammar.LookaheadSet({1,2,3}))
+        self.assertEqual(str(x),"{1 2 3 4}")
+        self.assertTrue(b)
+
+
 EX442_LR1_ITEMS_EXPECTED = map(lambda x: x.rstrip(), """translation_unit -> C · C : {EndOfText}
 ===
 translation_unit -> C C · : {EndOfText}
@@ -1209,6 +1235,43 @@ C -> · 'c' C : {EndOfText}
 C -> · 'd' : {EndOfText}
 """.split("===\n"))
 
+EX442_LALR1_ITEMS_EXPECTED = map(lambda x: x.rstrip(), """translation_unit -> C · C : {EndOfText}
+===
+translation_unit -> C C · : {EndOfText}
+===
+C -> 'c' C · : {'c' 'd' EndOfText}
+===
+C -> 'd' · : {'c' 'd' EndOfText}
+===
+language -> translation_unit · EndOfText : {EndOfText}
+===
+language -> · translation_unit EndOfText : {EndOfText}
+===
+C -> 'c' · C : {'c' 'd' EndOfText}
+""".split("===\n"))
+
+EX442_LALR1_ITEMS_CLOSED_EXPECTED = map(lambda x: x.rstrip(), """C -> · 'c' C : {EndOfText}
+C -> · 'd' : {EndOfText}
+translation_unit -> C · C : {EndOfText}
+===
+translation_unit -> C C · : {EndOfText}
+===
+C -> 'c' C · : {'c' 'd' EndOfText}
+===
+C -> 'd' · : {'c' 'd' EndOfText}
+===
+language -> translation_unit · EndOfText : {EndOfText}
+===
+C -> · 'c' C : {'c' 'd'}
+C -> · 'd' : {'c' 'd'}
+language -> · translation_unit EndOfText : {EndOfText}
+translation_unit -> · C C : {EndOfText}
+===
+C -> 'c' · C : {'c' 'd' EndOfText}
+C -> · 'c' C : {'c' 'd' EndOfText}
+C -> · 'd' : {'c' 'd' EndOfText}
+""".split("===\n"))
+
 class LR1_items(unittest.TestCase):
     def test_ex442(self):
         g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
@@ -1222,7 +1285,22 @@ class LR1_items(unittest.TestCase):
         got = g.LR1_ItemSets()
         got_set = set([str(i.copy().close(g)) for i in got])
         expected_set = set(EX442_LR1_ITEMS_CLOSED_EXPECTED)
-        #self.assertEqual(got_set, expected_set)
+        self.assertEqual(got_set, expected_set)
+
+class LALR1_items(unittest.TestCase):
+    def test_ex442(self):
+        g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
+        got = g.LALR1_ItemSets()
+        got_set = set([str(i) for i in got])
+        expected_set = set(EX442_LALR1_ITEMS_EXPECTED)
+        self.assertEqual(got_set, expected_set)
+
+    def test_ex442_closed(self):
+        g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
+        got = g.LALR1_ItemSets()
+        got_set = set([str(i.copy().close(g)) for i in got])
+        expected_set = set(EX442_LALR1_ITEMS_CLOSED_EXPECTED)
+        self.assertEqual(got_set, expected_set)
 
 if __name__ == '__main__':
     unittest.main()

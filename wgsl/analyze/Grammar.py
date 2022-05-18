@@ -827,6 +827,18 @@ class LookaheadSet(set):
         """Returns a string representation of a canonical ordering of the items"""
         return "{}{}{}".format(LBRACE, " ".join(sorted([str(i) for i in self])), RBRACE)
 
+    def merge(self, other):
+        """
+        Adds the members of the other set.
+        Returns: True when something was added to the current set.
+        """
+        result = False
+        for i in other:
+            if i not in self:
+                self.add(i)
+                result = True
+        return result
+
 
 @functools.total_ordering
 class ItemSet(dict):
@@ -850,6 +862,28 @@ class ItemSet(dict):
 
     def copy(self):
         return ItemSet(super().copy())
+
+    def stripped(self):
+        """
+        Returns a copy of set, but with empty lookaheads
+
+        This is useful for determining if two ItemSets differ only in their lookahead.
+        """
+        return ItemSet({i:[] for i in self.keys()})
+
+    def merge(self, other):
+        """
+        Adds the lookeaheads from the other ItemSet to self.
+        Assumes the other ItemSet has the same items as self.
+
+        Returns: True when something new was added to the current set.
+        """
+        result = False
+        for item, lookahead in self.items():
+            if item not in other:
+                raise RuntimeError("item {} missing from other: {}".format(str(item), str(other)))
+            result = result | lookahead.merge(other[item])
+        return result
 
     def close(self,grammar):
         """
@@ -1080,13 +1114,17 @@ class Grammar:
                             add(lhs,x,Reduce(lhs,rhs))
         return (table,conflicts)
 
-    def LR1_ItemSets(self):
+    def LR1_ItemSets(self, lalr=False):
         """
         Constructs the LR(1) sets of items.
 
         Args:
             self: Grammar in canonical form, with computed First
                 and Follow sets.
+            lalr: when False, compute LR(1) item sets.
+                  when True, compute LALR(1) item sets, i.e. merge item sets
+                  when have the same core.  This merges the lookaheads item
+                  by item.
 
         Returns: a set of the cores of the LR1(1) item-sets for the grammar.
         """
@@ -1110,6 +1148,10 @@ class Grammar:
 
         LR1_item_sets_result = set({root_item_set})
 
+        # For each item set IS found, map IS.stripped() to IS.
+        # This lets us merge LR(1) item sets to produce LALR(1) item sets.
+        by_stripped = { root_item_set.stripped(): root_item_set }
+
         keep_going = True
         while keep_going:
             keep_going = False
@@ -1117,12 +1159,21 @@ class Grammar:
             for item_set in old_items:
                 gotos = item_set.gotos(self)
                 for g in gotos:
+                    if lalr:
+                        g_s = g.stripped()
+                        if g_s in by_stripped:
+                            # Merge into existing item set.
+                            keep_going = keep_going | by_stripped[g_s].merge(g)
+                            continue
                     if g not in LR1_item_sets_result:
                         LR1_item_sets_result.add(g)
                         keep_going = True
-
+                        if lalr:
+                            by_stripped[g.stripped()] = g
         return LR1_item_sets_result
 
+    def LALR1_ItemSets(self):
+        return self.LR1_ItemSets(lalr=True)
 
     def LALR1(self):
         """
@@ -1137,7 +1188,7 @@ class Grammar:
             a list of conflicts
         """
 
-        items = self.LR1_Items()
+        items = self.LR1_ItemSets()
         print("LALR(1) item-sets, just the core:")
         for IS in items:
             print("===")
