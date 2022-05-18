@@ -136,7 +136,7 @@
         "value": "@"
       }
     },
-    "_space": {
+    "_blankspace": {
       "type": "TOKEN",
       "content": {
         "type": "PATTERN",
@@ -203,7 +203,7 @@
   "extras": [
     {
       "type": "SYMBOL",
-      "name": "_space"
+      "name": "_blankspace"
     }
   ],
   "conflicts": [],
