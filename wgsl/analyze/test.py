@@ -395,7 +395,7 @@ SIMPLE_WGSL = """
         "value": "@"
       }
     },
-    "_space": {
+    "_blankspace": {
       "type": "TOKEN",
       "content": {
         "type": "PATTERN",
@@ -462,7 +462,7 @@ SIMPLE_WGSL = """
   "extras": [
     {
       "type": "SYMBOL",
-      "name": "_space"
+      "name": "_blankspace"
     }
   ],
   "conflicts": [],
