@@ -1196,8 +1196,12 @@ class Grammar:
         dirty_set = LR1_item_sets_result.copy()
         while len(dirty_set) > 0:
             work_list = dirty_set.copy()
+            #print("\ndirty {}".format(len(dirty_set)), flush=True)
             dirty_set = set()
-            for item_set in work_list:
+            # Sort the work list so we get deterministic ordering, and therefore
+            # deterministic itemset core numbering.
+            for item_set in sorted(work_list):
+                #print("\n  {}".format(str(item_set)), flush=True)
                 gotos = item_set.gotos(self)
                 for g in gotos:
                     if g not in LR1_item_sets_result:
