@@ -62,6 +62,9 @@ def main():
     argparser.add_argument('-lalr',
                            help='compute LALR(1) parser table and associated conflicts',
                            action="store_true")
+    argparser.add_argument('-lr',
+                           help='compute LR(1) item sets',
+                           action="store_true")
     args = argparser.parse_args()
     with open(args.json_file) as infile:
         json_text = "".join(infile.readlines())
@@ -69,9 +72,18 @@ def main():
     g = Grammar.Load(json_text, 'translation_unit')
 
     if args.lalr:
+        #g.dump()
+        #print("\n")
         (table,conflicts) = g.LALR1()
         if len(conflicts) > 0:
             sys.exit(1)
+    if args.lr:
+        #g.dump()
+        #print("\n")
+        lr1_itemsets = g.LR1_ItemSets()
+        for IS in lr1_itemsets:
+            print("\n{}".format(str(IS)))
+
     elif args.ll1:
         (table,conflicts) = g.LL1()
 
