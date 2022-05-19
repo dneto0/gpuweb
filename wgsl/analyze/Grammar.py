@@ -873,7 +873,7 @@ class ItemSet(dict):
             return True
         if other.core_index is None:
             return False
-        # Othewrise, order by core_index
+        # Otherwise, order by core_index
         if self.core_index == other.core_index:
             return str(self) < str(other)
         return self.core_index < other.core_index
@@ -970,15 +970,15 @@ class ItemSet(dict):
         """
         Return a list of closed ItemSets goto(self,X) for grammar symbols X.
 
+        Assumes self is closed.
+
         That is, for any X, collect all items [A -> alpha . X beta, a] in the
         current item set, and produce a new (unclosed) ItemSet out of the
         union of [A -> alpha X . beta, a]
 
         Here X may be a terminal or a nonterminal.
         """
-        # Operate on a closed copy of myself.
         me = self.copy()
-        me.close(grammar)
 
         # Partition items according to the next symbol to be consumed, X,
         # i.e. the symbol immediately to the right of the dot.
@@ -1193,19 +1193,17 @@ class Grammar:
 
         LR1_item_sets_result = set({root_item_set})
 
-        keep_going = True
-        while keep_going:
-            #print("\n{} item sets".format(len(LR1_item_sets_result)))
-            keep_going = False
-            old_items = LR1_item_sets_result.copy()
-            for item_set in old_items:
-                #print("visit {}".format(item_set))
-                #print(".",end='',flush=True)
+        dirty_set = LR1_item_sets_result.copy()
+        while len(dirty_set) > 0:
+            work_list = dirty_set.copy()
+            dirty_set = set()
+            for item_set in work_list:
                 gotos = item_set.gotos(self)
                 for g in gotos:
                     if g not in LR1_item_sets_result:
                         LR1_item_sets_result.add(g)
-                        keep_going = True
+                        dirty_set.add(g)
+
         return sorted(LR1_item_sets_result)
 
     def LALR1_ItemSets_Cores(self):
