@@ -853,36 +853,38 @@ class ItemSet(dict):
         # item set.  Well defined only after calling the close() method.
         self.core_index = None
 
-    def __str__(self):
-        content = "\n".join(self.as_ordered_parts())
-        if self.core_index is None:
-            return content
-        return "#{}\n{}".format(self.core_index,content)
-
     def as_ordered_parts(self):
         parts = []
         for item, lookahead in self.items():
             parts.append("{} : {}".format(str(item), str(lookahead)))
         return sorted(parts)
 
-    def __lt__(self,other):
-        # Closed item sets always come after non-closed.
+    def content_str(self):
+        return "\n".join(self.as_ordered_parts())
+
+    def __str__(self):
+        content = self.content_str()
         if self.core_index is None:
-            if other.core_index is None:
-                return str(self) < str(other)
-            return True
-        if other.core_index is None:
-            return False
-        # Otherwise, order by core_index
-        if self.core_index == other.core_index:
-            return str(self) < str(other)
-        return self.core_index < other.core_index
+            return content
+        return "#{}\n{}".format(self.core_index,content)
+
+    # Methods affecting ordering and equality checks should not be affected by
+    # a cached index that may be updated later
+    def __lt__(self,other):
+        return self.content_str() < other.content_str()
 
     def __hash__(self):
-        return str(self).__hash__()
+        return self.content_str().__hash__()
+
+    def pretty_key(self):
+        # Use this for sorting for output
+        prefix = "_" if self.core_index is None else "#{:8d}\n".format(self.core_index)
+        return "{}{}".format(prefix,self.content_str())
 
     def copy(self):
-        return ItemSet(super().copy())
+        result = ItemSet(super().copy())
+        result.core_index = self.core_index
+        return result
 
     def core(self):
         """
@@ -1050,6 +1052,8 @@ class Grammar:
 
         # Maps an item set core (ie. no lookaheads) to its sequential index.
         self.registered_item_set_cores = dict()
+        # Maps an item set core index to the item
+        self.item_set_cores_by_index = []
 
         # First decode it without any interpretation.
         pass0 = json.loads(json_text)
@@ -1113,6 +1117,8 @@ class Grammar:
         Registers an item set, and return an index such that any item set with
         the same core will map to the same index.
         Indices start at 0 and go up by 1.
+
+        Returns its index.
         """
         assert isinstance(item_set,ItemSet)
         core = item_set.core()
@@ -1120,6 +1126,7 @@ class Grammar:
             return self.registered_item_set_cores[core]
         # Register it
         result = len(self.registered_item_set_cores)
+        self.item_set_cores_by_index.append(item_set)
         self.registered_item_set_cores[core] = result
         return result
 
@@ -1208,7 +1215,7 @@ class Grammar:
                         LR1_item_sets_result.add(g)
                         dirty_set.add(g)
 
-        return sorted(LR1_item_sets_result)
+        return sorted(LR1_item_sets_result,key=ItemSet.pretty_key)
 
     def LALR1_ItemSets_Cores(self):
         root_item = Item(LANGUAGE, self.rules[LANGUAGE][0],0)

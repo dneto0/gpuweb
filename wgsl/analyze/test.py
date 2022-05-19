@@ -1166,8 +1166,9 @@ class ItemSet_Less(unittest.TestCase):
     def test_Less(self):
         i0 = self.is_C_0()
         i1 = self.is_C_1()
-        self.assertLess(i0,i1)
-        self.assertGreater(i1,i0)
+        # The "dot" character is higher than '
+        self.assertLess(i1,i0)
+        self.assertGreater(i0,i1)
 
     def test_Less_Lookahead(self):
         i0c = self.is_C_0(la=Grammar.LookaheadSet({self.c}))
@@ -1214,9 +1215,10 @@ class ItemSet_Less(unittest.TestCase):
     def test_Less_Lookahead_ClosedTF(self):
         i0c = self.is_C_0(closed=True,la=Grammar.LookaheadSet({self.c}))
         i0d = self.is_C_0(closed=False,la=Grammar.LookaheadSet({self.d}))
-        # Unclosed always precedes closed
-        self.assertLess(i0d,i0c)
-        self.assertGreater(i0c,i0d)
+        # We only compare on content, never by the index. So closure
+        # doesn't matter here.
+        self.assertLess(i0c,i0d)
+        self.assertGreater(i0d,i0c)
 
     def test_Equal_Lookahead_ClosedTF(self):
         i0c = self.is_C_0(closed=True,la=Grammar.LookaheadSet({self.c}))
@@ -1315,13 +1317,13 @@ C -> 'd' · : {'c' 'd'}
 C -> 'd' · : {EndOfText}
 ===
 #5
-translation_unit -> C C · : {EndOfText}
-===
-#6
 C -> 'c' C · : {'c' 'd'}
 ===
-#6
+#5
 C -> 'c' C · : {EndOfText}
+===
+#6
+translation_unit -> C C · : {EndOfText}
 """.split("===\n")))
 
 EX442_LALR1_ITEMS_CLOSED_EXPECTED = sorted(map(lambda x: x.rstrip(), """#0
@@ -1359,8 +1361,9 @@ EX442_LALR1_ITEMS_CLOSED_EXPECTED = sorted(map(lambda x: x.rstrip(), """
 class LR1_items(unittest.TestCase):
     def test_ex442(self):
         g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
-        got = set([str(i) for i in g.LR1_ItemSets()])
-        self.assertEqual(got, set(EX442_LR1_ITEMS_CLOSED_EXPECTED))
+        got = g.LR1_ItemSets()
+        got_str = [str(i) for i in got]
+        self.assertEqual(set(got_str), set(EX442_LR1_ITEMS_CLOSED_EXPECTED))
 
 class LALR1_items(unittest.TestCase):
     def test_ex442(self):
