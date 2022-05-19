@@ -1170,26 +1170,16 @@ class Grammar:
                             add(lhs,x,Reduce(lhs,rhs))
         return (table,conflicts)
 
-    def LR1_ItemSets(self, lalr=False):
+    def LR1_ItemSets(self):
         """
         Constructs the LR(1) sets of items.
 
         Args:
             self: Grammar in canonical form, with computed First
                 and Follow sets.
-            lalr: when False, compute LR(1) item sets.
-                  when True, compute LALR(1) item sets, i.e. merge item sets
-                  when have the same core.  This merges the lookaheads item
-                  by item.
 
         Returns: a list of the LR1(1) item-sets for the grammar.
         """
-
-        # Build the LR(1) sets of items.  But when making a new set Y
-        # merge it into an existing one X if they have the same "core".
-        # Here, a "core" of a set are the items which are either:
-        #     the entire-language rule:     Seq(start_symbol, EndOfText())
-        # or, have the "dot" not at the left end.
 
         # The root item is the one representing the entire language.
         # Since the grammar is in canonical form, it's a Choice over a
@@ -1203,9 +1193,30 @@ class Grammar:
 
         LR1_item_sets_result = set({root_item_set})
 
-        # For each item set IS found, map IS.core() to IS.
-        # This lets us merge LR(1) item sets to produce LALR(1) item sets.
-        by_core = { root_item_set.core(): root_item_set }
+        keep_going = True
+        while keep_going:
+            #print("\n{} item sets".format(len(LR1_item_sets_result)))
+            keep_going = False
+            old_items = LR1_item_sets_result.copy()
+            for item_set in old_items:
+                #print("visit {}".format(item_set))
+                #print(".",end='',flush=True)
+                gotos = item_set.gotos(self)
+                for g in gotos:
+                    if g not in LR1_item_sets_result:
+                        LR1_item_sets_result.add(g)
+                        keep_going = True
+        return sorted(LR1_item_sets_result)
+
+    def LALR1_ItemSets_Cores(self):
+        root_item = Item(LANGUAGE, self.rules[LANGUAGE][0],0)
+
+        # An ItemSet can be found by any of the items in its core.
+        # Within an ItemSet, an item maps to its lookahead set.
+
+        root_item_set = ItemSet({root_item: LookaheadSet({EndOfText()})}).close(self)
+
+        LR1_item_sets_result = set({root_item_set})
 
         keep_going = True
         while keep_going:
@@ -1217,21 +1228,10 @@ class Grammar:
                 #print(".",end='',flush=True)
                 gotos = item_set.gotos(self)
                 for g in gotos:
-                    if lalr:
-                        g_s = g.core()
-                        if g_s in by_core:
-                            # Merge into existing item set.
-                            keep_going = keep_going | by_core[g_s].merge(g)
-                            continue
                     if g not in LR1_item_sets_result:
                         LR1_item_sets_result.add(g)
                         keep_going = True
-                        if lalr:
-                            by_core[g.core()] = g
         return sorted(LR1_item_sets_result)
-
-    def LALR1_ItemSets(self):
-        return self.LR1_ItemSets(lalr=True)
 
     def LALR1(self):
         """
