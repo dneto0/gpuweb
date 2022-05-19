@@ -37,8 +37,10 @@ Represent and process a grammar:
 - Canonicalize
 - Compute First and Follow sets
 - Compute LL(1) parser table and associated conflicts
-- TODO: Determine lookahead required for an LALR(1) parser
-- TODO: Verify the language is LALR(1) with context-sensitive lookahead
+- WIP: Verify the language is LALR(1) with context-sensitive lookahead
+  - WIP: Compute LALR(1) item sets
+    - TODO: ItemSet registers itself with the grammar and gets and index.
+  - TODO: Determine lookahead required for an LALR(1) parser
 """
 
 import json
@@ -281,7 +283,7 @@ class Token(LeafRule):
 class Choice(ContainerRule):
     def __init__(self,children):
         super().__init__(children)
-        # Order does not matter among the children. 
+        # Order does not matter among the children.
         # Store them in order so we can more quickly test for equality
         # and less-than.
         self.ordered_children = sorted(self.children)
@@ -845,8 +847,17 @@ class ItemSet(dict):
     """
     An ItemSet is an LR(1) set of Items, where each item maps to its lookahead set.
     """
+    def __init__(self,*args):
+        super().__init__(*args)
+        # self.core_index is the unique index within the grammar for the core of this
+        # item set.  Well defined only after calling the close() method.
+        self.core_index = None
+
     def __str__(self):
-        return "\n".join(self.as_ordered_parts())
+        content = "\n".join(self.as_ordered_parts())
+        if self.core_index is None:
+            return content
+        return "#{}\n{}".format(self.core_index,content)
 
     def as_ordered_parts(self):
         parts = []
@@ -855,7 +866,17 @@ class ItemSet(dict):
         return sorted(parts)
 
     def __lt__(self,other):
-        return str(self) < str(other)
+        # Closed item sets always come after non-closed.
+        if self.core_index is None:
+            if other.core_index is None:
+                return str(self) < str(other)
+            return True
+        if other.core_index is None:
+            return False
+        # Othewrise, order by core_index
+        if self.core_index == other.core_index:
+            return str(self) < str(other)
+        return self.core_index < other.core_index
 
     def __hash__(self):
         return str(self).__hash__()
@@ -863,9 +884,9 @@ class ItemSet(dict):
     def copy(self):
         return ItemSet(super().copy())
 
-    def stripped(self):
+    def core(self):
         """
-        Returns a copy of set, but with empty lookaheads
+        Returns a copy of this item set, but with empty lookaheads.
 
         This is useful for determining if two ItemSets differ only in their lookahead.
         """
@@ -887,8 +908,20 @@ class ItemSet(dict):
 
     def close(self,grammar):
         """
-        Update this set with the closure of items in itself, with respect to the
-        given grammar.
+        Compute the closure of this item set, and a unique index for its core.
+
+        That is:
+            if   [A -> alpha . B beta , x ] is in the item set, and
+                 [ B -> gamma ] is a grammar rule,
+            then add
+                 [ B -> . gamma, x ]  to this item set.
+            There may be many such B's, rules containing them, productions for B,
+            and lookahead tokens 'x'.
+
+        Once the closure is computed, register its core with the grammar, and save
+        it in self.core_index.
+
+        Returns: self
         """
         def lookup(rule):
             return grammar.rules[rule.content] if isinstance(rule,Symbol) else rule
@@ -930,11 +963,12 @@ class ItemSet(dict):
                                 if b not in self[candidate]:
                                     self[candidate].add(b)
                                     keep_going = True
+        self.core_index = grammar.register_item_set(self)
         return self
 
     def gotos(self,grammar):
         """
-        Return a list of (unclosed) ItemSets goto(self,X) for grammar symbols X.
+        Return a list of closed ItemSets goto(self,X) for grammar symbols X.
 
         That is, for any X, collect all items [A -> alpha . X beta, a] in the
         current item set, and produce a new (unclosed) ItemSet out of the
@@ -967,6 +1001,7 @@ class ItemSet(dict):
                 advanced_item = Item(i.lhs, i.rule, i.position+1)
                 # They both map to the same lookahead set
                 x_item_set[advanced_item] = me[i]
+            x_item_set.close(grammar)
             result.append(x_item_set)
         return result
 
@@ -1012,6 +1047,9 @@ class Grammar:
         self.start_symbol = start_symbol
         self.empty = Empty()
         self.end_of_text = EndOfText()
+
+        # Maps an item set core (ie. no lookaheads) to its sequential index.
+        self.registered_item_set_cores = dict()
 
         # First decode it without any interpretation.
         pass0 = json.loads(json_text)
@@ -1070,6 +1108,22 @@ class Grammar:
             parts.append("{}: {}\n".format(key,pretty_str(self.rules[key])))
         return "".join(parts)
 
+    def register_item_set(self,item_set):
+        """
+        Registers an item set, and return an index such that any item set with
+        the same core will map to the same index.
+        Indices start at 0 and go up by 1.
+        """
+        assert isinstance(item_set,ItemSet)
+        core = item_set.core()
+        if core in self.registered_item_set_cores:
+            return self.registered_item_set_cores[core]
+        # Register it
+        result = len(self.registered_item_set_cores)
+        self.registered_item_set_cores[core] = result
+        return result
+
+
     def LL1(self):
         """
         Constructs an LL(1) parser table and associated conflicts (if any).
@@ -1103,7 +1157,7 @@ class Grammar:
                 if not isinstance(rule,Choice):
                     raise RuntimeException("expected Choice node for "+
                        +"'{}' rule, got: {}".format(lhs,rule))
-                # For each terminal A -> alpha, 
+                # For each terminal A -> alpha,
                 for rhs in rule:
                     # For each terminal x in First(alpha), add
                     # A -> alpha to M[A,x]
@@ -1128,7 +1182,7 @@ class Grammar:
                   when have the same core.  This merges the lookaheads item
                   by item.
 
-        Returns: a set of the cores of the LR1(1) item-sets for the grammar.
+        Returns: a list of the LR1(1) item-sets for the grammar.
         """
 
         # Build the LR(1) sets of items.  But when making a new set Y
@@ -1145,36 +1199,36 @@ class Grammar:
         # An ItemSet can be found by any of the items in its core.
         # Within an ItemSet, an item maps to its lookahead set.
 
-        root_item_set = ItemSet()
-        root_item_set[root_item] = LookaheadSet({EndOfText()})
+        root_item_set = ItemSet({root_item: LookaheadSet({EndOfText()})}).close(self)
 
         LR1_item_sets_result = set({root_item_set})
 
-        # For each item set IS found, map IS.stripped() to IS.
+        # For each item set IS found, map IS.core() to IS.
         # This lets us merge LR(1) item sets to produce LALR(1) item sets.
-        by_stripped = { root_item_set.stripped(): root_item_set }
+        by_core = { root_item_set.core(): root_item_set }
 
         keep_going = True
         while keep_going:
-            print("\n{} item sets".format(len(LR1_item_sets_result)))
+            #print("\n{} item sets".format(len(LR1_item_sets_result)))
             keep_going = False
             old_items = LR1_item_sets_result.copy()
             for item_set in old_items:
-                print("visit {}".format(item_set))
+                #print("visit {}".format(item_set))
+                #print(".",end='',flush=True)
                 gotos = item_set.gotos(self)
                 for g in gotos:
                     if lalr:
-                        g_s = g.stripped()
-                        if g_s in by_stripped:
+                        g_s = g.core()
+                        if g_s in by_core:
                             # Merge into existing item set.
-                            keep_going = keep_going | by_stripped[g_s].merge(g)
+                            keep_going = keep_going | by_core[g_s].merge(g)
                             continue
                     if g not in LR1_item_sets_result:
                         LR1_item_sets_result.add(g)
                         keep_going = True
                         if lalr:
-                            by_stripped[g.stripped()] = g
-        return LR1_item_sets_result
+                            by_core[g.core()] = g
+        return sorted(LR1_item_sets_result)
 
     def LALR1_ItemSets(self):
         return self.LR1_ItemSets(lalr=True)

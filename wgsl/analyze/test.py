@@ -1184,123 +1184,91 @@ class Lookahead_merge(unittest.TestCase):
         self.assertTrue(b)
 
 
-EX442_LR1_ITEMS_EXPECTED = map(lambda x: x.rstrip(), """translation_unit -> C · C : {EndOfText}
-===
-translation_unit -> C C · : {EndOfText}
-===
-C -> 'c' C · : {'c' 'd'}
-===
-C -> 'd' · : {EndOfText}
-===
-language -> translation_unit · EndOfText : {EndOfText}
-===
-language -> · translation_unit EndOfText : {EndOfText}
-===
-C -> 'c' · C : {'c' 'd'}
-===
-C -> 'c' C · : {EndOfText}
-===
-C -> 'd' · : {'c' 'd'}
-===
-C -> 'c' · C : {EndOfText}
-""".split("===\n"))
-
-EX442_LR1_ITEMS_CLOSED_EXPECTED = map(lambda x: x.rstrip(), """C -> · 'c' C : {EndOfText}
-C -> · 'd' : {EndOfText}
-translation_unit -> C · C : {EndOfText}
-===
-translation_unit -> C C · : {EndOfText}
-===
-C -> 'c' C · : {'c' 'd'}
-===
-C -> 'd' · : {EndOfText}
-===
-language -> translation_unit · EndOfText : {EndOfText}
-===
+EX442_LR1_ITEMS_CLOSED_EXPECTED = sorted(map(lambda x: x.rstrip(), """#0
 C -> · 'c' C : {'c' 'd'}
 C -> · 'd' : {'c' 'd'}
 language -> · translation_unit EndOfText : {EndOfText}
 translation_unit -> · C C : {EndOfText}
 ===
+#1
+language -> translation_unit · EndOfText : {EndOfText}
+===
+#2
+C -> · 'c' C : {EndOfText}
+C -> · 'd' : {EndOfText}
+translation_unit -> C · C : {EndOfText}
+===
+#3
 C -> 'c' · C : {'c' 'd'}
 C -> · 'c' C : {'c' 'd'}
 C -> · 'd' : {'c' 'd'}
 ===
-C -> 'c' C · : {EndOfText}
-===
-C -> 'd' · : {'c' 'd'}
-===
+#3
 C -> 'c' · C : {EndOfText}
 C -> · 'c' C : {EndOfText}
 C -> · 'd' : {EndOfText}
-""".split("===\n"))
-
-EX442_LALR1_ITEMS_EXPECTED = map(lambda x: x.rstrip(), """translation_unit -> C · C : {EndOfText}
 ===
+#4
+C -> 'd' · : {'c' 'd'}
+===
+#4
+C -> 'd' · : {EndOfText}
+===
+#5
 translation_unit -> C C · : {EndOfText}
 ===
-C -> 'c' C · : {'c' 'd' EndOfText}
+#6
+C -> 'c' C · : {'c' 'd'}
 ===
-C -> 'd' · : {'c' 'd' EndOfText}
-===
-language -> translation_unit · EndOfText : {EndOfText}
-===
-language -> · translation_unit EndOfText : {EndOfText}
-===
-C -> 'c' · C : {'c' 'd' EndOfText}
-""".split("===\n"))
+#6
+C -> 'c' C · : {EndOfText}
+""".split("===\n")))
 
-EX442_LALR1_ITEMS_CLOSED_EXPECTED = map(lambda x: x.rstrip(), """C -> · 'c' C : {EndOfText}
-C -> · 'd' : {EndOfText}
-translation_unit -> C · C : {EndOfText}
-===
-translation_unit -> C C · : {EndOfText}
-===
-C -> 'c' C · : {'c' 'd' EndOfText}
-===
-C -> 'd' · : {'c' 'd' EndOfText}
-===
-language -> translation_unit · EndOfText : {EndOfText}
-===
+EX442_LR1_ITEMS_CLOSED_EXPECTED = sorted(map(lambda x: x.rstrip(), """#0
 C -> · 'c' C : {'c' 'd'}
 C -> · 'd' : {'c' 'd'}
 language -> · translation_unit EndOfText : {EndOfText}
 translation_unit -> · C C : {EndOfText}
 ===
+#1
+language -> translation_unit · EndOfText : {EndOfText}
+===
+#2
+C -> · 'c' C : {EndOfText}
+C -> · 'd' : {EndOfText}
+translation_unit -> C · C : {EndOfText}
+===
+#3
 C -> 'c' · C : {'c' 'd' EndOfText}
 C -> · 'c' C : {'c' 'd' EndOfText}
 C -> · 'd' : {'c' 'd' EndOfText}
-""".split("===\n"))
+===
+#4
+C -> 'd' · : {'c' 'd' EndOfText}
+===
+#5
+translation_unit -> C C · : {EndOfText}
+===
+#6
+C -> 'c' C · : {'c' 'd' EndOfText}
+""".split("===\n")))
+
+EX442_LALR1_ITEMS_CLOSED_EXPECTED = sorted(map(lambda x: x.rstrip(), """
+""".split("===\n")))
 
 class LR1_items(unittest.TestCase):
     def test_ex442(self):
         g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
-        got = g.LR1_ItemSets()
-        got_set = set([str(i) for i in got])
-        expected_set = set(EX442_LR1_ITEMS_EXPECTED)
-        self.assertEqual(got_set, expected_set)
-
-    def test_ex442_closed(self):
-        g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
-        got = g.LR1_ItemSets()
-        got_set = set([str(i.copy().close(g)) for i in got])
-        expected_set = set(EX442_LR1_ITEMS_CLOSED_EXPECTED)
-        self.assertEqual(got_set, expected_set)
+        got = [str(i) for i in g.LR1_ItemSets()]
+        self.assertEqual(got, EX442_LR1_ITEMS_CLOSED_EXPECTED)
 
 class LALR1_items(unittest.TestCase):
     def test_ex442(self):
         g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
-        got = g.LALR1_ItemSets()
-        got_set = set([str(i) for i in got])
-        expected_set = set(EX442_LALR1_ITEMS_EXPECTED)
-        self.assertEqual(got_set, expected_set)
-
-    def test_ex442_closed(self):
-        g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
-        got = g.LALR1_ItemSets()
-        got_set = set([str(i.copy().close(g)) for i in got])
-        expected_set = set(EX442_LALR1_ITEMS_CLOSED_EXPECTED)
-        self.assertEqual(got_set, expected_set)
+        got = [str(i) for i in g.LALR1_ItemSets()]
+        #print("===".join(got))
+        self.maxDiff = 10000000
+        self.assertEqual(got, EX442_LALR1_ITEMS_CLOSED_EXPECTED)
 
 if __name__ == '__main__':
     unittest.main()
