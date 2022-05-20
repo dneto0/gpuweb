@@ -1033,12 +1033,12 @@ class ItemSet(dict):
     def gotos(self,grammar,memo=None):
         """
         Computes the goto set for this item set.  The result is a list of pairs
-        (item_set_X, action_X), where:
+        (X, item_set_X), where:
+            X is a grammar symbol X (terminal or non-terminal), and
             item_set_X is the closed ItemSet goto(self,X)
                representing the next parser state after having successfully recognized
                grammar symbol X
-            action_X is the associated parser action.
-        where X ranges over all grammar symbols X (both terminals and nonterminals).
+        where X ranges over all grammar symbols X such that goto(self,X) is non-empty.
 
         Args:
            self
@@ -1088,9 +1088,51 @@ class ItemSet(dict):
                     original_item_set = memo[x_item_set.core_index]
                     original_item_set.merge(x_item_set)
                     x_item_set = original_item_set
-            result.append((x_item_set,None))
+
+            result.append((X, x_item_set))
         return result
 
+@functools.total_ordering
+class Action:
+    """ A parser action """
+
+    def __lt__(self,other):
+        return self.compare_value() < other.compare_value()
+
+    def __eq__(self):
+        return self.compare_value() == other.compare_value()
+
+    def __hash__(self):
+        return self.compare_value().__hash__()
+
+class Accept(Action):
+    def __str__(self):
+        return "acc"
+
+    def compare_value(self):
+        return (0,0)
+
+class Shift(Action):
+    def __init__(self,item_set):
+        self.item_set = item_set # item_set is assumed closed, and has core index
+        self.index = item_set.core_index
+
+    def __str__(self):
+        return "s#{}".format(self.index)
+
+    def compare_value(self):
+        return (1,self.item_set.index)
+
+class Reduce(Action):
+    def __init__(self,item_set):
+        self.item_set = item_set # item_set is assumed closed, and has core index
+        self.index = item_set.core_index
+
+    def __str__(self):
+        return "r#{}".format(self.index)
+
+    def compare_value(self):
+        return (2,self.item_set.index)
 
 class Grammar:
     """
@@ -1288,16 +1330,16 @@ class Grammar:
             # deterministic itemset core numbering.
             for item_set in sorted(work_list):
                 gotos = item_set.gotos(self)
-                for (dest_item_set,action) in gotos:
+                for (X, dest_item_set) in gotos:
                     if dest_item_set not in LR1_item_sets_result:
                         LR1_item_sets_result.add(dest_item_set)
                         dirty_set.add(dest_item_set)
 
         return sorted(LR1_item_sets_result,key=ItemSet.pretty_key)
 
-    def LALR1_ItemSets(self, max_item_sets=None):
+    def LALR1_ItemSets(self, action_table=None, max_item_sets=None):
         """
-        Constructs the LALR(1) sets of items.
+        Constructs the LALR(1) sets of items and action table.
 
         Args:
             self: Grammar in canonical form, with computed First
@@ -1306,7 +1348,9 @@ class Grammar:
                 An artificial limit on the number of item set cores created.
                 May terminate the algorithm before it has computed the full answer.
 
-        Returns: a list of the LR1(1) item-sets for the grammar.
+        Returns: a pair:
+            - a list of the LR1(1) item-sets for the grammar.
+            - an action table, mapping (item_set, terminal) to an Action
         """
 
         # Mapping from a core index to an already-discovered item set.
@@ -1333,7 +1377,7 @@ class Grammar:
             # deterministic itemset core numbering.
             for item_set in sorted(work_list):
                 gotos = item_set.gotos(self,memo=by_index)
-                for (dest_item_set,action) in gotos:
+                for (X, dest_item_set) in gotos:
                     if dest_item_set.core_index not in by_index:
                         LALR1_item_sets_result.add(dest_item_set)
                         by_index[dest_item_set.core_index] = dest_item_set
