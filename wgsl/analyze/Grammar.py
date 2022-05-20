@@ -1015,7 +1015,13 @@ class ItemSet(dict):
 
     def gotos(self,grammar,memo=None):
         """
-        Return a list of closed ItemSets goto(self,X) for grammar symbols X.
+        Computes the goto set for this item set.  The result is a list of pairs
+        (item_set_X, action_X), where:
+            item_set_X is the closed ItemSet goto(self,X)
+               representing the next parser state after having successfully recognized
+               grammar symbol X
+            action_X is the associated parser action.
+        where X ranges over all grammar symbols X (both terminals and nonterminals).
 
         Args:
            self
@@ -1065,7 +1071,7 @@ class ItemSet(dict):
                     original_item_set = memo[x_item_set.core_index]
                     original_item_set.merge(x_item_set)
                     x_item_set = original_item_set
-            result.append(x_item_set)
+            result.append((x_item_set,None))
         return result
 
 
@@ -1265,10 +1271,10 @@ class Grammar:
             # deterministic itemset core numbering.
             for item_set in sorted(work_list):
                 gotos = item_set.gotos(self)
-                for g in gotos:
-                    if g not in LR1_item_sets_result:
-                        LR1_item_sets_result.add(g)
-                        dirty_set.add(g)
+                for (dest_item_set,action) in gotos:
+                    if dest_item_set not in LR1_item_sets_result:
+                        LR1_item_sets_result.add(dest_item_set)
+                        dirty_set.add(dest_item_set)
 
         return sorted(LR1_item_sets_result,key=ItemSet.pretty_key)
 
@@ -1310,11 +1316,11 @@ class Grammar:
             # deterministic itemset core numbering.
             for item_set in sorted(work_list):
                 gotos = item_set.gotos(self,memo=by_index)
-                for g in gotos:
-                    if g.core_index not in by_index:
-                        LALR1_item_sets_result.add(g)
-                        by_index[g.core_index] = g
-                        dirty_set.add(g)
+                for (dest_item_set,action) in gotos:
+                    if dest_item_set.core_index not in by_index:
+                        LALR1_item_sets_result.add(dest_item_set)
+                        by_index[dest_item_set.core_index] = dest_item_set
+                        dirty_set.add(dest_item_set)
 
         return sorted(LALR1_item_sets_result, key=ItemSet.pretty_key)
 
@@ -1323,20 +1329,20 @@ class Grammar:
         Constructs an LALR(1) parser table and associated conflicts (if any).
 
         Args:
-            self: Grammar in canonical form with First and Follow
-                sets computed.
+            self: Grammar in canonical form with First and Follow sets computed.
             max_item_sets:
                 An artificial limit on the number of item set cores created.
-                May terminate the algorithm before it has computed the full answer.
+                May terminate the algorithm before it has computed the full
+                answer.
 
         Returns: a 2-tuple:
             an LALRL(1) parser table...
             a list of conflicts
         """
 
-        items = self.LALR1_ItemSets(max_item_sets=max_item_sets)
+        item_sets = self.LALR1_ItemSets(max_item_sets=max_item_sets)
         print("\nLALR(1) item-sets:")
-        for IS in sorted(items,key=ItemSet.pretty_key):
+        for IS in sorted(item_sets,key=ItemSet.pretty_key):
             print("===")
             print(str(IS))
         print("\n\n\nDONE LALR1 items sets")
