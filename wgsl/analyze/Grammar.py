@@ -38,9 +38,6 @@ Represent and process a grammar:
 - Compute First and Follow sets
 - Compute LL(1) parser table and associated conflicts
 - WIP: Verify the language is LALR(1) with context-sensitive lookahead
-  - When an ItemSet is closed, it registers itself with the grammar and gets
-    an index for its core.
-  - TODO: ItemSet.core should only look at kernel items
   - WIP: Compute LALR(1) item sets
   - TODO: Determine lookahead required for an LALR(1) parser
 """
@@ -889,13 +886,11 @@ class ItemSet(dict):
         result.core_index = self.core_index
         return result
 
-    def core(self):
+    def kernel_core(self):
         """
-        Returns a copy of this item set, but with empty lookaheads.
-
-        This is useful for determining if two ItemSets differ only in their lookahead.
+        Returns a copy of this item set, but only with kernel items, and with empty lookaheads.
         """
-        return ItemSet({i:[] for i in self.keys()})
+        return ItemSet({i:[] for i in filter(lambda x: x.is_kernel(), self.keys())})
 
     def merge(self, other):
         """
@@ -1141,7 +1136,7 @@ class Grammar:
         Returns its index.
         """
         assert isinstance(item_set,ItemSet)
-        core = item_set.core()
+        core = item_set.kernel_core()
         if core in self.item_set_core_index:
             return self.item_set_core_index[core]
         # Register it
