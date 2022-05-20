@@ -836,11 +836,23 @@ def walk(obj,dict_fn):
 class LookaheadSet(set):
     """
     A LookaheadSet is a set of terminals
+
+    Once created, it must not change except via the merge method.
     """
+    def __init__(self,*args):
+        super().__init__(*args)
+        self.rehash()
+
+    def rehash(self):
+        """Recomputes self.str and self.hash"""
+        self.str = "{}{}{}".format(LBRACE, " ".join(sorted([str(i) for i in self])), RBRACE)
+        self.hash = self.str.__hash__()
 
     def __str__(self):
-        """Returns a string representation of a canonical ordering of the items"""
-        return "{}{}{}".format(LBRACE, " ".join(sorted([str(i) for i in self])), RBRACE)
+        return self.str
+
+    def __hash__(self):
+        return self.hash
 
     def merge(self, other):
         """
@@ -850,9 +862,16 @@ class LookaheadSet(set):
         result = False
         for i in other:
             if i not in self:
-                self.add(i)
+                super().add(i)
                 result = True
+        self.rehash()
         return result
+
+    def add(self, element):
+        raise RuntimeError("Don't do Lookahead.add")
+
+    def remove(self, element):
+        raise RuntimeError("Don't do Lookahead.remove")
 
 
 @functools.total_ordering
@@ -967,15 +986,12 @@ class ItemSet(dict):
                 for B_prod in rhs:
                     candidate = Item(B,B_prod,0)
                     for a in lookahead_copy:
-                        firsts = first(grammar, afterB + [a])
-                        for b in firsts:
-                            if candidate not in self:
-                                self[candidate] = LookaheadSet({b})
-                                keep_going = True
-                            else:
-                                if b not in self[candidate]:
-                                    self[candidate].add(b)
-                                    keep_going = True
+                        firsts_lookahead = LookaheadSet(first(grammar, afterB + [a]))
+                        if candidate not in self:
+                            self[candidate] = firsts_lookahead
+                            keep_going = True
+                        else:
+                            keep_going = self[candidate].merge(firsts_lookahead)
         self.core_index = grammar.register_item_set(self)
         return self
 

@@ -1250,16 +1250,6 @@ class Lookahead_is_a_set(unittest.TestCase):
         x = Grammar.LookaheadSet({9,2,1})
         self.assertEqual(str(x),"{1 2 9}")
 
-    def test_add(self):
-        x = Grammar.LookaheadSet({})
-        x.add(1)
-        self.assertEqual(x, {1})
-
-    def test_add_redundant(self):
-        x = Grammar.LookaheadSet({1})
-        x.add(1)
-        self.assertEqual(x, {1})
-
 class Lookahead_merge(unittest.TestCase):
     def test_merge_empty(self):
         x = Grammar.LookaheadSet({1,2,3})
