@@ -1003,12 +1003,10 @@ class ItemSet(dict):
         with the same core.
 
         """
-        me = self.copy() # TODO avoid this copy?
-
         # Partition items according to the next symbol to be consumed, X,
         # i.e. the symbol immediately to the right of the dot.
         partition = dict()
-        for item, lookahead in me.items():
+        for item in self:
             if item.at_end():
                 continue
             X = item.items[item.position]
@@ -1025,7 +1023,7 @@ class ItemSet(dict):
             for i in list_of_items:
                 advanced_item = Item(i.lhs, i.rule, i.position+1)
                 # Map to the same lookahead set. Needed for closure
-                x_item_set[advanced_item] = me[i]
+                x_item_set[advanced_item] = self[i]
             x_item_set.close(grammar)
 
             if memo is not None:
