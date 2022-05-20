@@ -841,7 +841,11 @@ class LookaheadSet(set):
     """
     def __init__(self,*args):
         super().__init__(*args)
-        self.rehash()
+        self.reset()
+
+    def reset(self):
+        self.str = None
+        self.hash = None
 
     def rehash(self):
         """Recomputes self.str and self.hash"""
@@ -849,9 +853,13 @@ class LookaheadSet(set):
         self.hash = self.str.__hash__()
 
     def __str__(self):
+        if self.str is None:
+            self.rehash()
         return self.str
 
     def __hash__(self):
+        if self.hash is None:
+            self.rehash()
         return self.hash
 
     def merge(self, other):
@@ -864,7 +872,7 @@ class LookaheadSet(set):
             if i not in self:
                 super().add(i)
                 result = True
-        self.rehash()
+        self.reset()
         return result
 
     def add(self, element):
