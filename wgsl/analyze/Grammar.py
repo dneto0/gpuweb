@@ -1285,10 +1285,11 @@ class Grammar:
             a list of conflicts
         """
 
-        items = self.LALR1_ItemSets()
-        print("LALR(1) item-sets, just the core:")
-        for IS in items:
+        items = self.LALR1_ItemSets_Cores()
+        print("LALR(1) item-sets:")
+        for IS in sorted(items,key=ItemSet.pretty_key):
             print("===")
-            print(str(IS.copy().close(self)))
+            print(str(IS))
+        print("\n\n\nDONE LALR1 items sets")
         return ("not finished",[])
 
