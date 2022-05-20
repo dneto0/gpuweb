@@ -55,7 +55,7 @@ analyze_442: grammar/src/grammar.json
 # Profile an abbreviated computation of LALR(1) item sets
 .PHONY: profile
 profile: grammar/src/grammar.json
-	python3 -m cProfile -o lalrstats.wgsl $(ANALYZE_SCRIPT) -lalr grammar/src/grammar.json -limit 100
+	python3 -m cProfile -o lalrstats.wgsl $(ANALYZE_SCRIPT) -lalr grammar/src/grammar.json
 
 # Compute LR(1) item sets
 .PHONY: lr
