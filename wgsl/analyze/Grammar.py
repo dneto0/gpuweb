@@ -353,6 +353,8 @@ class Item():
     is an integer between 0 and N inclusive, indicating the number
     of objects that precede the marked position.
 
+    Once created, it must not be changed.
+
     Internally:
        self.lhs: a Symbol naming the LHS of the grammar production
        self.rule: the Rule that is the RHS of the grammar production
@@ -387,18 +389,24 @@ class Item():
         if (self.position < 0) or (self.position > len(self.items)):
             raise RuntimeError("invalid position {} for production: {}".format(position, str(rule)))
 
-    def __str__(self):
+        self.str = self.string_internal()
+        self.hash = self.str.__hash__()
+
+    def string_internal(self):
         parts = ["{} ->".format(self.lhs)]
         parts.extend([str(i) for i in self.items])
         parts.insert(1 + self.position, MIDDLE_DOT)
         return " ".join(parts)
+
+    def __str__(self):
+        return self.str
 
     def __eq__(self,other):
         # Test position first. It's the quickest to check
         return (self.position == other.position) and (self.lhs == other.lhs) and (self.rule == other.rule)
 
     def __hash__(self):
-        return str(self).__hash__()
+        return self.hash
 
     def __lt__(self,other):
         if self.lhs < other.lhs:
