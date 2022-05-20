@@ -38,8 +38,10 @@ Represent and process a grammar:
 - Compute First and Follow sets
 - Compute LL(1) parser table and associated conflicts
 - WIP: Verify the language is LALR(1) with context-sensitive lookahead
+  - When an ItemSet is closed, it registers itself with the grammar and gets
+    an index for its core.
+  - TODO: ItemSet.core should only look at kernel items
   - WIP: Compute LALR(1) item sets
-    - TODO: ItemSet registers itself with the grammar and gets and index.
   - TODO: Determine lookahead required for an LALR(1) parser
 """
 
@@ -395,7 +397,8 @@ class Item():
         return " ".join(parts)
 
     def __eq__(self,other):
-        return (self.lhs == other.lhs) and (self.rule == other.rule) and (self.position == other.position)
+        # Test position first. It's the quickest to check
+        return (self.position == other.position) and (self.lhs == other.lhs) and (self.rule == other.rule)
 
     def __hash__(self):
         return str(self).__hash__()
@@ -968,19 +971,31 @@ class ItemSet(dict):
         self.core_index = grammar.register_item_set(self)
         return self
 
-    def gotos(self,grammar):
+    def gotos(self,grammar,memo=None):
         """
         Return a list of closed ItemSets goto(self,X) for grammar symbols X.
+
+        Args:
+           self
+           grammar: The grammar being traversed
+           memo: None, or a dictionary mapping an item-set's core index to the unique
+              LALR1 item set with that core.
 
         Assumes self is closed.
 
         That is, for any X, collect all items [A -> alpha . X beta, a] in the
-        current item set, and produce a new (unclosed) ItemSet out of the
-        union of [A -> alpha X . beta, a]
+        current item set, and produce an ItemSet ISX from of the union of
+        [A -> alpha X . beta, a].
 
         Here X may be a terminal or a nonterminal.
+
+        When memo is None, collect these ISX.
+        When memo is a dictionary mapping an item set's core index to an item set,
+        set ISX to memo[ISX.core_index], i.e. reuse the pre-existing item set
+        with the same core.
+
         """
-        me = self.copy()
+        me = self.copy() # TODO avoid this copy?
 
         # Partition items according to the next symbol to be consumed, X,
         # i.e. the symbol immediately to the right of the dot.
@@ -1002,8 +1017,15 @@ class ItemSet(dict):
             for i in list_of_items:
                 advanced_item = Item(i.lhs, i.rule, i.position+1)
                 # They both map to the same lookahead set
-                x_item_set[advanced_item] = me[i]
+                if memo is None:
+                    # For LR1, set the lookaheads
+                    la = me[i]
+                else:
+                    la = LookaheadSet({})
+                x_item_set[advanced_item] = la
             x_item_set.close(grammar)
+            if isinstance(memo,dict) and (x_item_set.core_index in memo):
+                x_item_set = memo[x_item_set.core_index]
             result.append(x_item_set)
         return result
 
@@ -1051,9 +1073,7 @@ class Grammar:
         self.end_of_text = EndOfText()
 
         # Maps an item set core (ie. no lookaheads) to its sequential index.
-        self.registered_item_set_cores = dict()
-        # Maps an item set core index to the item
-        self.item_set_cores_by_index = []
+        self.item_set_core_index = dict()
 
         # First decode it without any interpretation.
         pass0 = json.loads(json_text)
@@ -1122,14 +1142,12 @@ class Grammar:
         """
         assert isinstance(item_set,ItemSet)
         core = item_set.core()
-        if core in self.registered_item_set_cores:
-            return self.registered_item_set_cores[core]
+        if core in self.item_set_core_index:
+            return self.item_set_core_index[core]
         # Register it
-        result = len(self.registered_item_set_cores)
-        self.item_set_cores_by_index.append(item_set)
-        self.registered_item_set_cores[core] = result
+        result = len(self.item_set_core_index)
+        self.item_set_core_index[core] = result
         return result
-
 
     def LL1(self):
         """
@@ -1218,29 +1236,46 @@ class Grammar:
         return sorted(LR1_item_sets_result,key=ItemSet.pretty_key)
 
     def LALR1_ItemSets_Cores(self):
+        """
+        Constructs the cores of LALR(1) sets of items.
+
+        Args:
+            self: Grammar in canonical form, with computed First
+                and Follow sets.
+
+        Returns: a list of the LR1(1) item-sets for the grammar.
+        """
+
+        # Mapping from a core index to an already-discovered item set.
+        by_index = dict()
+
         root_item = Item(LANGUAGE, self.rules[LANGUAGE][0],0)
 
         # An ItemSet can be found by any of the items in its core.
         # Within an ItemSet, an item maps to its lookahead set.
 
         root_item_set = ItemSet({root_item: LookaheadSet({EndOfText()})}).close(self)
+        by_index[root_item_set.core_index] = root_item_set
 
-        LR1_item_sets_result = set({root_item_set})
+        LALR1_item_sets_result = set({root_item_set})
 
-        keep_going = True
-        while keep_going:
-            #print("\n{} item sets".format(len(LR1_item_sets_result)))
-            keep_going = False
-            old_items = LR1_item_sets_result.copy()
-            for item_set in old_items:
-                #print("visit {}".format(item_set))
-                #print(".",end='',flush=True)
-                gotos = item_set.gotos(self)
+        dirty_set = LALR1_item_sets_result.copy()
+        while len(dirty_set) > 0:
+            work_list = dirty_set.copy()
+            #print("\ndirty {}".format(len(dirty_set)), flush=True)
+            dirty_set = set()
+            # Sort the work list so we get deterministic ordering, and therefore
+            # deterministic itemset core numbering.
+            for item_set in sorted(work_list):
+                #print("\n  {}".format(str(item_set)), flush=True)
+                gotos = item_set.gotos(self,memo=by_index)
                 for g in gotos:
-                    if g not in LR1_item_sets_result:
-                        LR1_item_sets_result.add(g)
-                        keep_going = True
-        return sorted(LR1_item_sets_result)
+                    if g.core_index not in by_index:
+                        LALR1_item_sets_result.add(g)
+                        by_index[g.core_index] = g
+                        dirty_set.add(g)
+
+        return sorted(LALR1_item_sets_result, key=ItemSet.pretty_key)
 
     def LALR1(self):
         """
