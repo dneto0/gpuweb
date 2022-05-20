@@ -1502,7 +1502,10 @@ class Grammar:
                     isinstance(X,Token) or raiseRE("internal error: expected a token")
                     addAction(item_set, X, Shift(item_set_for_X))
 
-        return (LALR1_item_sets_result, action_table, sorted(reduced_items.keys()), conflicts)
+        reductions = [None for i in range(len(reduced_items))]
+        for r,i in reduced_items.items():
+            reductions[i] = r
+        return (LALR1_item_sets_result, action_table, reductions, conflicts)
 
     def LALR1_ItemSets(self, max_item_sets=None):
         """
