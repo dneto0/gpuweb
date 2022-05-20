@@ -75,8 +75,10 @@ def main():
 
     if args.lalr:
         #g.dump()
-        #print("\n")
+        print("=Grammar:\n")
+        print(g.pretty_str())
         (item_sets,table,reductions,conflicts) = g.LALR1(max_item_sets=args.limit)
+        print("\n=LALR1 item sets:\n\n")
         print("\n\n".join([str(i) for i in item_sets]))
         print("\n")
         for i in range(len(reductions)):
