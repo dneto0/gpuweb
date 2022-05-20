@@ -65,6 +65,8 @@ def main():
     argparser.add_argument('-lr',
                            help='compute LR(1) item sets',
                            action="store_true")
+    argparser.add_argument('-limit', type=int,
+                           help='limit on number of LALR(1) item sets')
     args = argparser.parse_args()
     with open(args.json_file) as infile:
         json_text = "".join(infile.readlines())
@@ -74,7 +76,7 @@ def main():
     if args.lalr:
         #g.dump()
         #print("\n")
-        (table,conflicts) = g.LALR1()
+        (table,conflicts) = g.LALR1(max_item_sets=args.limit)
         if len(conflicts) > 0:
             sys.exit(1)
         sys.exit(0)

@@ -1229,13 +1229,16 @@ class Grammar:
 
         return sorted(LR1_item_sets_result,key=ItemSet.pretty_key)
 
-    def LALR1_ItemSets(self):
+    def LALR1_ItemSets(self, max_item_sets=None):
         """
         Constructs the LALR(1) sets of items.
 
         Args:
             self: Grammar in canonical form, with computed First
                 and Follow sets.
+            max_item_sets:
+                An artificial limit on the number of item set cores created.
+                May terminate the algorithm before it has computed the full answer.
 
         Returns: a list of the LR1(1) item-sets for the grammar.
         """
@@ -1258,11 +1261,15 @@ class Grammar:
             #print("\ndirty {}".format(len(dirty_set)), flush=True)
             work_list = dirty_set.copy()
             dirty_set = set()
+            if max_item_sets is not None:
+                if len(by_index) > max_item_sets:
+                    break
             # Sort the work list so we get deterministic ordering, and therefore
             # deterministic itemset core numbering.
             for item_set in sorted(work_list):
-                #print("\n  {}".format(str(item_set)), flush=True)
+                print("\n  {}".format(str(item_set)), flush=True)
                 gotos = item_set.gotos(self,memo=by_index)
+                print("\n    got {}".format(len(gotos)), flush=True)
                 for g in gotos:
                     if g.core_index not in by_index:
                         LALR1_item_sets_result.add(g)
@@ -1271,21 +1278,24 @@ class Grammar:
 
         return sorted(LALR1_item_sets_result, key=ItemSet.pretty_key)
 
-    def LALR1(self):
+    def LALR1(self, max_item_sets=None):
         """
         Constructs an LALR(1) parser table and associated conflicts (if any).
 
         Args:
             self: Grammar in canonical form with First and Follow
-            sets computed.
+                sets computed.
+            max_item_sets:
+                An artificial limit on the number of item set cores created.
+                May terminate the algorithm before it has computed the full answer.
 
         Returns: a 2-tuple:
             an LALRL(1) parser table...
             a list of conflicts
         """
 
-        items = self.LALR1_ItemSets_Cores()
-        print("LALR(1) item-sets:")
+        items = self.LALR1_ItemSets(max_item_sets=max_item_sets)
+        print("\nLALR(1) item-sets:")
         for IS in sorted(items,key=ItemSet.pretty_key):
             print("===")
             print(str(IS))
