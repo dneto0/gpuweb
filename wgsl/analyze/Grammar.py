@@ -1011,16 +1011,15 @@ class ItemSet(dict):
             x_item_set = ItemSet()
             for i in list_of_items:
                 advanced_item = Item(i.lhs, i.rule, i.position+1)
-                # They both map to the same lookahead set
-                if memo is None:
-                    # For LR1, set the lookaheads
-                    la = me[i]
-                else:
-                    la = LookaheadSet({})
-                x_item_set[advanced_item] = la
+                # Map to the same lookahead set. Needed for closure
+                x_item_set[advanced_item] = me[i]
             x_item_set.close(grammar)
-            if isinstance(memo,dict) and (x_item_set.core_index in memo):
-                x_item_set = memo[x_item_set.core_index]
+
+            if memo is not None:
+                if x_item_set.core_index in memo:
+                    original_item_set = memo[x_item_set.core_index]
+                    original_item_set.merge(x_item_set)
+                    x_item_set = original_item_set
             result.append(x_item_set)
         return result
 
@@ -1230,9 +1229,9 @@ class Grammar:
 
         return sorted(LR1_item_sets_result,key=ItemSet.pretty_key)
 
-    def LALR1_ItemSets_Cores(self):
+    def LALR1_ItemSets(self):
         """
-        Constructs the cores of LALR(1) sets of items.
+        Constructs the LALR(1) sets of items.
 
         Args:
             self: Grammar in canonical form, with computed First
@@ -1256,8 +1255,8 @@ class Grammar:
 
         dirty_set = LALR1_item_sets_result.copy()
         while len(dirty_set) > 0:
-            work_list = dirty_set.copy()
             #print("\ndirty {}".format(len(dirty_set)), flush=True)
+            work_list = dirty_set.copy()
             dirty_set = set()
             # Sort the work list so we get deterministic ordering, and therefore
             # deterministic itemset core numbering.
