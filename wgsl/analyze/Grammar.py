@@ -45,6 +45,7 @@ Represent and process a grammar:
 
 import json
 import functools
+from collections import defaultdict
 
 EPSILON = u"\u03b5"
 MIDDLE_DOT = u"\u00b7"
@@ -1362,10 +1363,22 @@ class Grammar:
                 An artificial limit on the number of item set cores created.
                 May terminate the algorithm before it has computed the full answer.
 
-        Returns: a pair:
+        Returns: a triple:
             - a list of the LR1(1) item-sets for the grammar.
             - an action table, mapping (item_set, terminal) to an Action
+            - a list of conflicts
         """
+
+        conflicts = []
+        table = defaultdict(Action)
+        def add(item_set, terminal, action):
+            action_key = (item_set,terminal)
+            prev = table[action_key]
+            if prev != action:
+                # Record the conflict, and only keep the original.
+                conflicts.append(Conflict(item_set,terminal,prev,action))
+            else:
+                table[action_key] = action
 
         # Mapping from a core index to an already-discovered item set.
         by_index = dict()
@@ -1391,11 +1404,12 @@ class Grammar:
             # deterministic itemset core numbering.
             for item_set in sorted(work_list):
                 gotos = item_set.gotos(self,memo=by_index)
-                for (X, dest_item_set) in gotos:
-                    if dest_item_set.core_index not in by_index:
-                        LALR1_item_sets_result.add(dest_item_set)
-                        by_index[dest_item_set.core_index] = dest_item_set
-                        dirty_set.add(dest_item_set)
+                for (X, item_set_for_X) in gotos:
+                    if item_set_for_X.core_index not in by_index:
+                        LALR1_item_sets_result.add(item_set_for_X)
+                        by_index[item_set_for_X.core_index] = item_set_for_X
+                        dirty_set.add(item_set_for_X)
+                    # TODO: Update the action table
 
         return sorted(LALR1_item_sets_result, key=ItemSet.pretty_key)
 
