@@ -416,7 +416,7 @@ class Reduce(Action):
         return "r#{}".format(self.index)
 
     def pretty_str(self):
-        return "_#{} {}".format(self.index,str(self.item))
+        return "reduce _#{} {}".format(self.index,str(self.item))
 
     def compare_value(self):
         return (2,self.index)
