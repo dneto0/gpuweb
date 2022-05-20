@@ -41,6 +41,8 @@ Represent and process a grammar:
   - WIP: Compute LALR(1) item sets
   - TODO: Determine lookahead required for an LALR(1) parser
   - TODO: Make sure dirtyness in gotos causes reloop
+  - TODO: pretty_key should return a pair, so we can compare on
+    indices rather than constructing strings all the time.
 """
 
 import json
@@ -1105,13 +1107,17 @@ class ItemSet(dict):
 
     def gotos(self,grammar,memo=None):
         """
-        Computes the goto set for this item set.  The result is a list of pairs
-        (X, item_set_X), where:
-            X is a grammar symbol X (terminal or non-terminal), and
-            item_set_X is the closed ItemSet goto(self,X)
-               representing the next parser state after having successfully recognized
-               grammar symbol X
-        where X ranges over all grammar symbols X such that goto(self,X) is non-empty.
+        Computes the goto set for this item set.
+
+        Returns a pair (changed,goto_list) where:
+            changed is True when
+                memo is not None and new item sets were created or lookaheads were modified.
+            goto_list is is a list of pairs (X, item_set_X), where:
+                X is a grammar symbol X (terminal or non-terminal), and
+                item_set_X is the closed ItemSet goto(self,X)
+                   representing the next parser state after having successfully recognized
+                   grammar symbol X
+                where X ranges over all grammar symbols X such that goto(self,X) is non-empty.
 
         Args:
            self
@@ -1133,6 +1139,8 @@ class ItemSet(dict):
         with the same core.
 
         """
+        changed = False
+
         # Partition items according to the next symbol to be consumed, X,
         # i.e. the symbol immediately to the right of the dot.
         partition = dict()
@@ -1147,7 +1155,7 @@ class ItemSet(dict):
             partition[X].append(item)
 
         # Now make a list of item sets from the partitions.
-        result = []
+        goto_list = []
         for X, list_of_items in partition.items():
             x_item_set = ItemSet()
             for i in list_of_items:
@@ -1159,11 +1167,14 @@ class ItemSet(dict):
             if memo is not None:
                 if x_item_set.core_index in memo:
                     original_item_set = memo[x_item_set.core_index]
-                    original_item_set.merge(x_item_set)
+                    changed = changed | original_item_set.merge(x_item_set)
                     x_item_set = original_item_set
+                else:
+                    changed = True
 
-            result.append((X, x_item_set))
-        return result
+            goto_list.append((X, x_item_set))
+
+        return (changed,goto_list)
 
 
 class Grammar:
@@ -1361,7 +1372,7 @@ class Grammar:
             # Sort the work list so we get deterministic ordering, and therefore
             # deterministic itemset core numbering.
             for item_set in sorted(work_list):
-                gotos = item_set.gotos(self)
+                (_,gotos) = item_set.gotos(self)
                 for (X, dest_item_set) in gotos:
                     if dest_item_set not in LR1_item_sets_result:
                         LR1_item_sets_result.add(dest_item_set)
@@ -1402,7 +1413,10 @@ class Grammar:
         LALR1_item_sets_result = set({root_item_set})
 
         dirty_set = LALR1_item_sets_result.copy()
+        keep_going = True
         while len(dirty_set) > 0:
+            #while keep_going:
+            #keep_going = False
             work_list = dirty_set.copy()
             dirty_set = set()
             if max_item_sets is not None:
@@ -1410,13 +1424,19 @@ class Grammar:
                     break
             # Sort the work list so we get deterministic ordering, and therefore
             # deterministic itemset core numbering.
-            for item_set in sorted(work_list):
-                gotos = item_set.gotos(self,memo=by_index)
+            # Go backwards to try to explore the most recently changed items first.
+            #work_list = sorted(LALR1_item_sets_result, key=ItemSet.pretty_key, reverse=False)
+            for item_set in work_list:
+                (changed,gotos) = item_set.gotos(self,memo=by_index)
+                keep_going = keep_going | changed
                 for (X, item_set_for_X) in gotos:
                     if item_set_for_X.core_index not in by_index:
                         LALR1_item_sets_result.add(item_set_for_X)
                         by_index[item_set_for_X.core_index] = item_set_for_X
                         dirty_set.add(item_set_for_X)
+                        keep_going = True
+                    else:
+                        keep_going = True
 
         LALR1_item_sets_result = sorted(LALR1_item_sets_result, key=ItemSet.pretty_key)
 
@@ -1463,7 +1483,7 @@ class Grammar:
                         addAction(item_set, terminal, make_reduce(item))
 
             # Register Shift actions
-            gotos = item_set.gotos(self,memo=by_index)
+            (_,gotos) = item_set.gotos(self,memo=by_index)
             for (X, item_set_for_X) in gotos:
                 if X.is_terminal():
                     # Can't be EndOfText by construction of the goto result
