@@ -251,16 +251,21 @@ class ContainerRule(Rule):
 
 @functools.total_ordering
 class LeafRule(Rule):
-    """A LeafRule is a rule without children"""
+    """
+    A LeafRule is a rule without children
+
+    Once created, it must not be changed.
+    """
     def __init__(self,content):
         super().__init__()
         self.content = content
+        self.hash = str(self).__hash__()
 
     def __eq__(self,other):
         return isinstance(other, self.__class__) and (self.content == other.content)
 
     def __hash__(self):
-        return str(self).__hash__()
+        return self.hash
 
     def __lt__(self,other):
         # Order by class
