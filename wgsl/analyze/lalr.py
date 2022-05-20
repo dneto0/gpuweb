@@ -77,12 +77,14 @@ def main():
         (table,conflicts) = g.LALR1()
         if len(conflicts) > 0:
             sys.exit(1)
+        sys.exit(0)
     if args.lr:
         #g.dump()
         #print("\n")
         lr1_itemsets = g.LR1_ItemSets()
         for IS in lr1_itemsets:
             print("\n{}".format(str(IS)))
+        sys.exit(0)
 
     elif args.ll1:
         (table,conflicts) = g.LL1()
