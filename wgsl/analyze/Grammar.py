@@ -1414,18 +1414,18 @@ class Grammar:
 
         dirty_set = LALR1_item_sets_result.copy()
         keep_going = True
-        while len(dirty_set) > 0:
-            #while keep_going:
-            #keep_going = False
-            work_list = dirty_set.copy()
-            dirty_set = set()
+        #while len(dirty_set) > 0:
+        while keep_going:
+            keep_going = False
+            #work_list = dirty_set.copy()
+            #dirty_set = set()
             if max_item_sets is not None:
                 if len(by_index) > max_item_sets:
                     break
             # Sort the work list so we get deterministic ordering, and therefore
             # deterministic itemset core numbering.
             # Go backwards to try to explore the most recently changed items first.
-            #work_list = sorted(LALR1_item_sets_result, key=ItemSet.pretty_key, reverse=False)
+            work_list = sorted(LALR1_item_sets_result, key=ItemSet.pretty_key, reverse=True)
             for item_set in work_list:
                 (changed,gotos) = item_set.gotos(self,memo=by_index)
                 keep_going = keep_going | changed
@@ -1434,8 +1434,6 @@ class Grammar:
                         LALR1_item_sets_result.add(item_set_for_X)
                         by_index[item_set_for_X.core_index] = item_set_for_X
                         dirty_set.add(item_set_for_X)
-                        keep_going = True
-                    else:
                         keep_going = True
 
         LALR1_item_sets_result = sorted(LALR1_item_sets_result, key=ItemSet.pretty_key)
