@@ -54,6 +54,9 @@ RBRACE = "}"
 # The name of the nonterminal for the entire language
 LANGUAGE = "language"
 
+def raiseRE(s):
+    raise RuntimeError(s)
+
 # Definitions:
 #
 #  Token: A non-empty sequence of code points. Parsing considers tokens to
@@ -130,6 +133,9 @@ class Rule:
 
     def is_empty(self):
         return isinstance(self, Empty)
+
+    def is_token(self):
+        return isinstance(self, Text, Token)
 
     def is_terminal(self):
         return isinstance(self, (EndOfText, Token))
@@ -358,11 +364,14 @@ class Action:
     def __lt__(self,other):
         return self.compare_value() < other.compare_value()
 
-    def __eq__(self):
+    def __eq__(self,other):
         return self.compare_value() == other.compare_value()
 
     def __hash__(self):
         return self.compare_value().__hash__()
+
+    def compare_value(self):
+        return (-1,0)
 
 class Accept(Action):
     def __str__(self):
@@ -373,6 +382,7 @@ class Accept(Action):
 
 class Shift(Action):
     def __init__(self,item_set):
+        isinstance(item_set,ItemSet) or raiseRE("expected ItemSet")
         self.item_set = item_set # item_set is assumed closed, and has core index
         self.index = item_set.core_index
 
@@ -380,21 +390,25 @@ class Shift(Action):
         return "s#{}".format(self.index)
 
     def compare_value(self):
-        return (1,self.item_set.index)
+        return (1,self.index)
 
 class Reduce(Action):
-    def __init__(self,item_set):
-        self.item_set = item_set # item_set is assumed closed, and has core index
-        self.index = item_set.core_index
+    def __init__(self,item,index):
+        """
+        Args:
+            item: An Item representing a reduction. We ignore the position.
+            index: A unique index
+        """
+        isinstance(item,Item) or raiseRE("expected Item")
+        isinstance(index,int) or raiseRE("expected integer index")
+        self.item = item # item_set is assumed closed, and has core index
+        self.index = index
 
     def __str__(self):
         return "r#{}".format(self.index)
 
     def compare_value(self):
-        return (2,self.item_set.index)
-
-def raiseRE(s):
-    raise RuntimeError(s)
+        return (2,self.index)
 
 class Conflict:
     def __init__(self,item_set,terminal,prev_action,action):
@@ -1372,16 +1386,7 @@ class Grammar:
             - a list of conflicts
         """
 
-        conflicts = []
-        action_table = defaultdict(Action)
-        def add(item_set, terminal, action):
-            action_key = (item_set,terminal)
-            prev = table[action_key]
-            if prev != action:
-                # Record the conflict, and only keep the original.
-                conflicts.append(Conflict(item_set,terminal,prev,action))
-            else:
-                table[action_key] = action
+        # Part 1. Compute LALR(1) item sets
 
         # Mapping from a core index to an already-discovered item set.
         by_index = dict()
@@ -1412,9 +1417,60 @@ class Grammar:
                         LALR1_item_sets_result.add(item_set_for_X)
                         by_index[item_set_for_X.core_index] = item_set_for_X
                         dirty_set.add(item_set_for_X)
-                    # TODO: Update the action table
 
-        return (sorted(LALR1_item_sets_result, key=ItemSet.pretty_key),action_table,conflicts)
+        LALR1_item_sets_result = sorted(LALR1_item_sets_result, key=ItemSet.pretty_key)
+
+        # Part 2. Compute the action table and conflicts.
+        # Do this as a second pass because it's conceivable that an item set may
+        # go from non-accepting to accepting during initial exploration
+        # of the item sets.
+
+        conflicts = []
+        action_table = defaultdict(Action)
+        def addAction(item_set, terminal, action):
+            isinstance(item_set, ItemSet) or raiseRE("expected ItemSet")
+            terminal.is_terminal() or raiseRE("expected terminal")
+            isinstance(action,Action) or raiseRE("expected action")
+
+            action_key = (item_set,terminal)
+            prev = action_table[action_key]
+            if prev != action:
+                # Record the conflict, and only keep the original.
+                conflicts.append(Conflict(item_set,terminal,prev,action))
+            else:
+                table[action_key] = action
+
+        # Maps an item to its reduction index.
+        reduced_items = dict()
+        def make_reduce(item):
+            if item in reduced_items:
+                return Reduce(item,reduced_items[item])
+            index = len(reduced_items)
+            reduced_items[item] = index
+            return Reduce(item,index)
+
+        for item_set in LALR1_item_sets_result:
+            # Register Reduce and Accept actions
+            for item, lookahead in item_set.items():
+                if not item.at_end():
+                    # Only items at the end can reduce or accept
+                    continue
+                if item.is_accepting() and lookahead.includesEndOfText():
+                    addAction(item_set, EndOfText(), Accept())
+                    continue
+                if item.lhs != LANGUAGE:
+                    for terminal in lookahead:
+                        addAction(item_set, terminal, make_reduce(item))
+
+            # Register Shift actions
+            gotos = item_set.gotos(self,memo=by_index)
+            for (X, item_set_for_X) in gotos:
+                if X.is_terminal():
+                    # Can't be EndOfText by construction of the goto result
+                    isinstance(X,Token) or raiseRE("internal error: expected a token")
+                    addAction(item_set, X, Shift(item_set_for_X))
+
+        return (LALR1_item_sets_result, action_table, conflicts)
 
     def LALR1_ItemSets(self, max_item_sets=None):
         """
