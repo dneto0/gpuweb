@@ -1238,6 +1238,70 @@ class ItemSet_Less(unittest.TestCase):
         self.assertFalse(i0c==i0d)
         self.assertFalse(i0d==i0c)
 
+class ItemSet_is_accepting(unittest.TestCase):
+
+    def setUp(self):
+        self.g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
+        self.L = self.g.rules[Grammar.LANGUAGE]
+        self.C = self.g.rules["C"]
+        self.c = self.g.rules["c"]
+        self.d = self.g.rules["d"]
+        self.l_empty = Grammar.LookaheadSet({})
+        self.l_end = Grammar.LookaheadSet({Grammar.EndOfText()})
+        self.l_end_and = Grammar.LookaheadSet({Grammar.Fixed('end'),Grammar.EndOfText()})
+
+    def iL(self,pos=0):
+        return Grammar.Item(Grammar.LANGUAGE,self.L[0],pos)
+    def iC(self,pos=0):
+        return Grammar.Item("C",self.C[0],pos)
+
+    def test_L_empty(self):
+        i0 = self.iL()
+        i0_ = Grammar.ItemSet({i0:self.l_empty}).close(self.g)
+        self.assertFalse(i0_.is_accepting())
+        i1 = self.iL(1)
+        i1_ = Grammar.ItemSet({i1:self.l_empty})
+        self.assertFalse(i1_.is_accepting())
+
+    def test_L_end_alone(self):
+        i0 = self.iL()
+        i0_ = Grammar.ItemSet({i0:self.l_end}).close(self.g)
+        self.assertFalse(i0_.is_accepting())
+        i1 = self.iL(1)
+        i1_ = Grammar.ItemSet({i1:self.l_end})
+        self.assertTrue(i1_.is_accepting())
+
+    def test_L_end_and(self):
+        i0 = self.iL()
+        i0_ = Grammar.ItemSet({i0:self.l_end_and}).close(self.g)
+        self.assertFalse(i0_.is_accepting())
+        i1 = self.iL(1)
+        i1_ = Grammar.ItemSet({i1:self.l_end_and})
+        self.assertTrue(i1_.is_accepting())
+
+    def test_C_empty(self):
+        i0 = self.iC()
+        i0_ = Grammar.ItemSet({i0:self.l_empty}).close(self.g)
+        self.assertFalse(i0_.is_accepting())
+        i1 = self.iC(1)
+        i1_ = Grammar.ItemSet({i1:self.l_empty}).close(self.g)
+        self.assertFalse(i1_.is_accepting())
+
+    def test_C_end_alone(self):
+        i0 = self.iC()
+        i0_ = Grammar.ItemSet({i0:self.l_end}).close(self.g)
+        self.assertFalse(i0_.is_accepting())
+        i1 = self.iC(1)
+        i1_ = Grammar.ItemSet({i1:self.l_end}).close(self.g)
+        self.assertFalse(i1_.is_accepting())
+
+    def test_C_end_and(self):
+        i0 = self.iC()
+        i0_ = Grammar.ItemSet({i0:self.l_end_and}).close(self.g)
+        self.assertFalse(i0_.is_accepting())
+        i1 = self.iC(1)
+        i1_ = Grammar.ItemSet({i1:self.l_end_and}).close(self.g)
+        self.assertFalse(i1_.is_accepting())
 
 class Lookahead_is_a_set(unittest.TestCase):
     def test_init_empty(self):
