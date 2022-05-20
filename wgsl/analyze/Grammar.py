@@ -856,11 +856,18 @@ class LookaheadSet(set):
     def reset(self):
         self.str = None
         self.hash = None
+        self.has_end_of_text = None
+
+    def includesEndOfText(self):
+        if self.has_end_of_text is None:
+            self.rehash()
+        return self.has_end_of_text
 
     def rehash(self):
         """Recomputes self.str and self.hash"""
         self.str = "{}{}{}".format(LBRACE, " ".join(sorted([str(i) for i in self])), RBRACE)
         self.hash = self.str.__hash__()
+        self.has_end_of_text = (EndOfText() in self)
 
     def __str__(self):
         if self.str is None:
@@ -941,6 +948,16 @@ class ItemSet(dict):
         Returns a copy of this item set, but only with kernel items, and with empty lookaheads.
         """
         return ItemSet({i:[] for i in filter(lambda x: x.is_kernel(), self.keys())})
+
+    def is_accepting(self):
+        """
+        Returns True if the parser action for this item set should be 'accept'.
+        """
+        for item, lookahead in self.items():
+            if lookahead.includesEndOfText() and item.is_accepting():
+                return True
+        return False
+
 
     def merge(self, other):
         """
