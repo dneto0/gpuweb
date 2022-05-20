@@ -735,6 +735,16 @@ class Item_Basics(unittest.TestCase):
     def test_Item_OfRepeat1(self):
         self.assertRaises(RuntimeError, self.make_item, "c", Grammar.Repeat1([Grammar.Empty()]), 0)
 
+    def test_Item_is_accepting(self):
+        tu = Grammar.Seq([Grammar.Fixed('translation_unit')])
+        l0 = Grammar.Item(Grammar.LANGUAGE,tu,0)
+        l1 = Grammar.Item(Grammar.LANGUAGE,tu,1)
+        s0 = Grammar.Item("S",tu,0)
+        s1 = Grammar.Item("S",tu,1)
+        self.assertFalse(l0.is_accepting())
+        self.assertTrue(l1.is_accepting())
+        self.assertFalse(s0.is_accepting())
+        self.assertFalse(s1.is_accepting())
 
 class Rule_Equality(unittest.TestCase):
     def test_Empty(self):
