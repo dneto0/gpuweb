@@ -1429,9 +1429,16 @@ class LR1_items(unittest.TestCase):
 class LALR1_items(unittest.TestCase):
     def test_ex442(self):
         g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
+        expected = EX442_LALR1_ITEMS_CLOSED_EXPECTED
         got = g.LALR1_ItemSets()
         got_str = [str(i) for i in got]
-        self.assertEqual(got_str, EX442_LALR1_ITEMS_CLOSED_EXPECTED)
+        #print("got\n")
+        #print("\n===\n".join(got_str))
+        #print("end got\n")
+        #print("\nexpected\n")
+        #print("\n===\n".join(expected))
+        #print("end expected\n")
+        self.assertEqual(got_str, expected)
 
 if __name__ == '__main__':
     unittest.main()
