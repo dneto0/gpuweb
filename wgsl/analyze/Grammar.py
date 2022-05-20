@@ -40,6 +40,7 @@ Represent and process a grammar:
 - WIP: Verify the language is LALR(1) with context-sensitive lookahead
   - WIP: Compute LALR(1) item sets
   - TODO: Determine lookahead required for an LALR(1) parser
+  - TODO: Make sure dirtyness in gotos causes reloop
 """
 
 import json
@@ -322,17 +323,18 @@ class EndOfText(LeafRule):
     def __init__(self):
         super().__init__(None)
 
-class Action:
+class LLAction:
     """
-    A parser action
+    A parser action for a LL(1) grammar
     """
     def __init(self):
         pass
 
-class Reduce(Action):
+class LLReduce(LLAction):
     """
-    A Reduce parser action
-    Reduce('lhs',rhs) replaces the sequence of symbols in the RHS with
+    A Reduce parser action for a LL(1) grammar
+
+    LLReduce('lhs',rhs) replaces the sequence of symbols in the RHS with
     the non-terminal named 'lhs'.
 
     Args:
@@ -347,6 +349,59 @@ class Reduce(Action):
     def __str__(self):
         return "{} -> {}".format(self.non_terminal, str(self.rhs))
 
+
+@functools.total_ordering
+class Action:
+    """ A parser action for an LALR(1) grammar """
+
+    def __lt__(self,other):
+        return self.compare_value() < other.compare_value()
+
+    def __eq__(self):
+        return self.compare_value() == other.compare_value()
+
+    def __hash__(self):
+        return self.compare_value().__hash__()
+
+class Accept(Action):
+    def __str__(self):
+        return "acc"
+
+    def compare_value(self):
+        return (0,0)
+
+class Shift(Action):
+    def __init__(self,item_set):
+        self.item_set = item_set # item_set is assumed closed, and has core index
+        self.index = item_set.core_index
+
+    def __str__(self):
+        return "s#{}".format(self.index)
+
+    def compare_value(self):
+        return (1,self.item_set.index)
+
+class Reduce(Action):
+    def __init__(self,item_set):
+        self.item_set = item_set # item_set is assumed closed, and has core index
+        self.index = item_set.core_index
+
+    def __str__(self):
+        return "r#{}".format(self.index)
+
+    def compare_value(self):
+        return (2,self.item_set.index)
+
+class Conflict:
+    def __init__(self,item_set,terminal,prev_action,action):
+        isinstance(item_set,ItemSet) or raise RuntimeError("expected ItemSet")
+        terminal.is_terminal() or raise RuntimeError("expected terminal")
+        isinstance(prev_action,Action) or raise RuntimeError("expected Action")
+        isinstance(action,Action) or raise RuntimeError("expected Action")
+        self.item_set = item_set
+        self.terminal = terminal
+        self.prev_action = prev_action
+        self.action = action
 
 @functools.total_ordering
 class Item():
@@ -1092,47 +1147,6 @@ class ItemSet(dict):
             result.append((X, x_item_set))
         return result
 
-@functools.total_ordering
-class Action:
-    """ A parser action """
-
-    def __lt__(self,other):
-        return self.compare_value() < other.compare_value()
-
-    def __eq__(self):
-        return self.compare_value() == other.compare_value()
-
-    def __hash__(self):
-        return self.compare_value().__hash__()
-
-class Accept(Action):
-    def __str__(self):
-        return "acc"
-
-    def compare_value(self):
-        return (0,0)
-
-class Shift(Action):
-    def __init__(self,item_set):
-        self.item_set = item_set # item_set is assumed closed, and has core index
-        self.index = item_set.core_index
-
-    def __str__(self):
-        return "s#{}".format(self.index)
-
-    def compare_value(self):
-        return (1,self.item_set.index)
-
-class Reduce(Action):
-    def __init__(self,item_set):
-        self.item_set = item_set # item_set is assumed closed, and has core index
-        self.index = item_set.core_index
-
-    def __str__(self):
-        return "r#{}".format(self.index)
-
-    def compare_value(self):
-        return (2,self.item_set.index)
 
 class Grammar:
     """
@@ -1294,9 +1308,9 @@ class Grammar:
                     for x in first(self,phrase):
                         if x.is_empty():
                             for f in rule.follow:
-                                add(lhs,f,Reduce(lhs,rhs))
+                                add(lhs,f,LLReduce(lhs,rhs))
                         else:
-                            add(lhs,x,Reduce(lhs,rhs))
+                            add(lhs,x,LLReduce(lhs,rhs))
         return (table,conflicts)
 
     def LR1_ItemSets(self):
@@ -1337,7 +1351,7 @@ class Grammar:
 
         return sorted(LR1_item_sets_result,key=ItemSet.pretty_key)
 
-    def LALR1_ItemSets(self, action_table=None, max_item_sets=None):
+    def LALR1_ItemSets(self, max_item_sets=None):
         """
         Constructs the LALR(1) sets of items and action table.
 
