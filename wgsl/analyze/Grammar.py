@@ -393,12 +393,15 @@ class Reduce(Action):
     def compare_value(self):
         return (2,self.item_set.index)
 
+def raiseRE(s):
+    raise RuntimeError(s)
+
 class Conflict:
     def __init__(self,item_set,terminal,prev_action,action):
-        isinstance(item_set,ItemSet) or raise RuntimeError("expected ItemSet")
-        terminal.is_terminal() or raise RuntimeError("expected terminal")
-        isinstance(prev_action,Action) or raise RuntimeError("expected Action")
-        isinstance(action,Action) or raise RuntimeError("expected Action")
+        isinstance(item_set,ItemSet) or raiseRE("expected ItemSet")
+        terminal.is_terminal() or raiseRE("expected terminal")
+        isinstance(prev_action,Action) or raiseRE("expected Action")
+        isinstance(action,Action) or raiseRE("expected Action")
         self.item_set = item_set
         self.terminal = terminal
         self.prev_action = prev_action
