@@ -39,8 +39,7 @@ Represent and process a grammar:
 - Compute LL(1) parser table and associated conflicts
 - WIP: Verify the language is LALR(1) with context-sensitive lookahead
   - WIP: Compute LALR(1) item sets
-  - TODO: Determine lookahead required for an LALR(1) parser
-  - TODO: Make sure dirtyness in gotos causes reloop
+    - return reduce rules
   - TODO: pretty_key should return a pair, so we can compare on
     indices rather than constructing strings all the time.
 """
@@ -375,6 +374,13 @@ class Action:
     def compare_value(self):
         return (-1,0)
 
+    def __str__(self):
+        return "<action>"
+
+    def pretty_str(self):
+        # Overridden sometimes
+        return str(self)
+
 class Accept(Action):
     def __str__(self):
         return "acc"
@@ -409,6 +415,9 @@ class Reduce(Action):
     def __str__(self):
         return "r#{}".format(self.index)
 
+    def pretty_str(self):
+        return "_#{} {}".format(self.index,str(self.item))
+
     def compare_value(self):
         return (2,self.index)
 
@@ -422,6 +431,9 @@ class Conflict:
         self.terminal = terminal
         self.prev_action = prev_action
         self.action = action
+
+    def __str__(self):
+        return "[_#{}, {}] {} vs. {}".format(self.item_set.core_index,str(self.terminal),self.prev_action.pretty_str(),self.action.pretty_str())
 
 @functools.total_ordering
 class Item():
@@ -1391,9 +1403,10 @@ class Grammar:
                 An artificial limit on the number of item set cores created.
                 May terminate the algorithm before it has computed the full answer.
 
-        Returns: a triple:
+        Returns: a tuple:
             - a list of the LALR1(1) item-sets for the grammar.
             - an action table, mapping (item_set, terminal) to an Action
+            - an array of Reduction objects, where the ith has index i
             - a list of conflicts
         """
 
@@ -1444,19 +1457,20 @@ class Grammar:
         # of the item sets.
 
         conflicts = []
-        action_table = defaultdict(Action)
+        action_table = dict()
         def addAction(item_set, terminal, action):
             isinstance(item_set, ItemSet) or raiseRE("expected ItemSet")
             terminal.is_terminal() or raiseRE("expected terminal")
             isinstance(action,Action) or raiseRE("expected action")
 
             action_key = (item_set,terminal)
-            prev = action_table[action_key]
-            if prev != action:
-                # Record the conflict, and only keep the original.
-                conflicts.append(Conflict(item_set,terminal,prev,action))
+            if action_key not in action_table:
+                action_table[action_key] = action
             else:
-                table[action_key] = action
+                prev = action_table[action_key]
+                if prev != action:
+                    # Record the conflict, and only keep the original.
+                    conflicts.append(Conflict(item_set,terminal,prev,action))
 
         # Maps an item to its reduction index.
         reduced_items = dict()
@@ -1488,7 +1502,7 @@ class Grammar:
                     isinstance(X,Token) or raiseRE("internal error: expected a token")
                     addAction(item_set, X, Shift(item_set_for_X))
 
-        return (LALR1_item_sets_result, action_table, conflicts)
+        return (LALR1_item_sets_result, action_table, sorted(reduced_items.keys()), conflicts)
 
     def LALR1_ItemSets(self, max_item_sets=None):
         """
