@@ -76,9 +76,10 @@ def main():
     if args.lalr:
         #g.dump()
         #print("\n")
-        (table,conflicts) = g.LALR1(max_item_sets=args.limit)
+        (item_sets,table,conflicts) = g.LALR1(max_item_sets=args.limit)
         if len(conflicts) > 0:
             sys.exit(1)
+        print("\n\n".join([str(i) for i in item_sets]))
         sys.exit(0)
     if args.lr:
         #g.dump()
