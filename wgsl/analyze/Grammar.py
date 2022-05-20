@@ -435,6 +435,16 @@ class Item():
         #   LANGUAGE => Seq( Grammar.start_symbol, EndOfText )
         return (self.position > 0) or (self.lhs.content == LANGUAGE)
 
+    def is_accepting(self):
+        """
+        Returns True when this item represents having accepted a valid
+        sentence in the language
+
+        The agumented grammar always has 1 element:
+           [ LANGUAGE -> translation_unit . ]
+        """
+        return (self.position == 1) and (self.lhs.content == LANGUAGE)
+
     def at_end(self):
         return self.position == len(self.items)
 
@@ -1250,12 +1260,10 @@ class Grammar:
         dirty_set = LR1_item_sets_result.copy()
         while len(dirty_set) > 0:
             work_list = dirty_set.copy()
-            #print("\ndirty {}".format(len(dirty_set)), flush=True)
             dirty_set = set()
             # Sort the work list so we get deterministic ordering, and therefore
             # deterministic itemset core numbering.
             for item_set in sorted(work_list):
-                #print("\n  {}".format(str(item_set)), flush=True)
                 gotos = item_set.gotos(self)
                 for g in gotos:
                     if g not in LR1_item_sets_result:
@@ -1293,7 +1301,6 @@ class Grammar:
 
         dirty_set = LALR1_item_sets_result.copy()
         while len(dirty_set) > 0:
-            #print("\ndirty {}".format(len(dirty_set)), flush=True)
             work_list = dirty_set.copy()
             dirty_set = set()
             if max_item_sets is not None:
@@ -1302,9 +1309,7 @@ class Grammar:
             # Sort the work list so we get deterministic ordering, and therefore
             # deterministic itemset core numbering.
             for item_set in sorted(work_list):
-                print("\n  {}".format(str(item_set)), flush=True)
                 gotos = item_set.gotos(self,memo=by_index)
-                print("\n    got {}".format(len(gotos)), flush=True)
                 for g in gotos:
                     if g.core_index not in by_index:
                         LALR1_item_sets_result.add(g)
