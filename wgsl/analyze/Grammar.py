@@ -136,7 +136,7 @@ class Rule:
         return isinstance(self, Empty)
 
     def is_token(self):
-        return isinstance(self, Text, Token)
+        return isinstance(self, Token)
 
     def is_terminal(self):
         return isinstance(self, (EndOfText, Token))
@@ -528,7 +528,7 @@ class Item():
         sentence in the language
 
         The agumented grammar always has 1 element:
-           [ LANGUAGE -> translation_unit . ]
+           [ LANGUAGE -> translation_unit . EndOfText ]
         """
         return (self.position == 1) and (self.lhs.content == LANGUAGE)
 
