@@ -1419,6 +1419,80 @@ C -> 'c' C · : {'c' 'd' EndOfText}
 translation_unit -> C C · : {EndOfText}
 """.split("===\n")))
 
+
+#   translation_unit -> @ *
+STAR_GRAMMAR = """ {
+  "name": "firsts",
+  "rules": {
+    "s": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "REPEAT1",
+              "content": {
+                "type": "SYMBOL",
+                "name": "at"
+              }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        }
+      ]
+    },
+    "at": {
+      "type": "TOKEN",
+      "content": {
+        "type": "STRING",
+        "value": "@"
+      }
+    }
+  },
+  "extras": [],
+  "conflicts": [],
+  "precedences": [],
+  "externals": [
+  ],
+  "inline": [
+  ],
+  "supertypes": []
+}
+"""
+STAR_ITEMS_EXPECTED = sorted(map(lambda x: x.rstrip(), """#0
+at -> · '@' : {'@' EndOfText}
+language -> · s EndOfText : {EndOfText}
+s -> · s/0.0 : {EndOfText}
+s/0.0 -> · : {EndOfText}
+s/0.0 -> · s/0.0/0 : {EndOfText}
+s/0.0/0 -> · : {EndOfText}
+s/0.0/0 -> · at s/0.0/0 : {EndOfText}
+===
+#1
+language -> s · EndOfText : {EndOfText}
+===
+#2
+s -> s/0.0 · : {EndOfText}
+===
+#3
+s/0.0 -> s/0.0/0 · : {EndOfText}
+===
+#4
+at -> · '@' : {'@' EndOfText}
+s/0.0/0 -> at · s/0.0/0 : {EndOfText}
+s/0.0/0 -> · : {EndOfText}
+s/0.0/0 -> · at s/0.0/0 : {EndOfText}
+===
+#5
+at -> '@' · : {'@' EndOfText}
+===
+#6
+s/0.0/0 -> at s/0.0/0 · : {EndOfText}
+""".split("===\n")))
+
 class LR1_items(unittest.TestCase):
     def test_ex442(self):
         g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
@@ -1439,6 +1513,15 @@ class LALR1_items(unittest.TestCase):
         #print("\n===\n".join(expected))
         #print("end expected\n")
         self.assertEqual(got_str, expected)
+
+    def test_star(self):
+        g = Grammar.Grammar.Load(STAR_GRAMMAR,'s')
+        expected = STAR_ITEMS_EXPECTED
+        got = g.LALR1_ItemSets()
+        got_str = [str(i) for i in got]
+        self.assertEqual(got_str, expected)
+
+
 
 if __name__ == '__main__':
     unittest.main()
