@@ -1484,15 +1484,13 @@ class Grammar:
         for item_set in LALR1_item_sets_result:
             # Register Reduce and Accept actions
             for item, lookahead in item_set.items():
-                if not item.at_end():
-                    # Only items at the end can reduce or accept
-                    continue
                 if item.is_accepting() and lookahead.includesEndOfText():
                     addAction(item_set, EndOfText(), Accept())
-                    continue
-                if item.lhs != LANGUAGE:
+                if item.at_end() and (item.lhs != LANGUAGE):
+                    # Register reductions
                     for terminal in lookahead:
-                        addAction(item_set, terminal, make_reduce(item))
+                        if terminal.is_token(): # Skip EndOfText
+                            addAction(item_set, terminal, make_reduce(item))
 
             # Register Shift actions
             (_,gotos) = item_set.gotos(self,memo=by_index)
