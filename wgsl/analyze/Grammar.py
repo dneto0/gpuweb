@@ -1229,13 +1229,13 @@ class ParseTable:
             parts.append("{}\n".format(r.pretty_str()))
 
         parts.append("\n=Action:\n")
-        for state_terminal in sorted(self.action, key = lambda st: (st[0].core_index,st[1].content)):
+        for state_terminal in sorted(self.action, key = lambda st: (st[0].core_index,str(st[1]))):
             short_state = state_terminal[0].short_str()
-            terminal = state_terminal[1].content
+            terminal = str(state_terminal[1])
             parts.append("[{} {}]: {}\n".format(short_state,terminal,self.action[state_terminal]))
 
         parts.append("\n=Goto:\n")
-        for state_nonterminal in sorted(self.goto):
+        for state_nonterminal in sorted(self.goto, key = lambda st: (st[0].core_index,str(st[1]))):
             short_state = state_nonterminal[0].short_str()
             nonterminal = str(state_nonterminal[1])
             parts.append("[{} {}]: {}\n".format(short_state,nonterminal,self.goto[state_nonterminal].short_str()))
