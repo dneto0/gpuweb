@@ -1012,6 +1012,13 @@ class ItemSet(dict):
             return content
         return "#{}\n{}".format(self.core_index,content)
 
+    def short_str(self):
+        """
+        Returns a short string, based only on core_index.
+        Assumes core_index has been computed.
+        """
+        return "#{}".format(self.core_index)
+
     # Methods affecting ordering and equality checks should not be affected by
     # a cached index that may be updated later
     def __lt__(self,other):
@@ -1222,10 +1229,16 @@ class ParseTable:
             parts.append("{}\n".format(r.pretty_str()))
 
         parts.append("\n=Action:\n")
-        for state_terminal in sorted(self.action):
-            short_state = "#{}".format(state_terminal[0].core_index)
-            terminal = str(state_terminal[1])
+        for state_terminal in sorted(self.action, key = lambda st: (st[0].core_index,st[1].content)):
+            short_state = state_terminal[0].short_str()
+            terminal = state_terminal[1].content
             parts.append("[{} {}]: {}\n".format(short_state,terminal,self.action[state_terminal]))
+
+        parts.append("\n=Goto:\n")
+        for state_nonterminal in sorted(self.goto):
+            short_state = state_nonterminal[0].short_str()
+            nonterminal = str(state_nonterminal[1])
+            parts.append("[{} {}]: {}\n".format(short_state,nonterminal,self.goto[state_nonterminal].short_str()))
 
         if self.has_conflicts():
             parts.append("\n=Conflicts: {} conflicts".format(len(self.conflicts)))
@@ -1531,6 +1544,10 @@ class Grammar:
             reductions.append(result)
             return result
 
+        # The goto table for noterminals
+        # Maps (item_set, nonterminal) to the next item set
+        nonterminal_goto = dict()
+
         for item_set in LALR1_item_sets_result:
             # Register Reduce and Accept actions
             for item, lookahead in item_set.items():
@@ -1549,8 +1566,10 @@ class Grammar:
                     # Can't be EndOfText by construction of the goto result
                     isinstance(X,Token) or raiseRE("internal error: expected a token")
                     addAction(item_set, X, Shift(item_set_for_X))
+                elif X.is_symbol():
+                    nonterminal_goto[(item_set,X)] = item_set_for_X
 
-        return ParseTable(LALR1_item_sets_result, action_table, dict(), reductions, conflicts)
+        return ParseTable(LALR1_item_sets_result, action_table, nonterminal_goto, reductions, conflicts)
 
     def LALR1_ItemSets(self, max_item_sets=None):
         """
