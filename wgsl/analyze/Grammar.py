@@ -1113,6 +1113,11 @@ class ItemSet(dict):
                 # several candidate productions. Use each one.
                 rhs = [rhs] if rhs.is_terminal() else rhs
                 for B_prod in rhs:
+                    if B_prod.is_empty():
+                        # Avoid creating useless productions that have no right-hand-side
+                        # They can only lead to redundant reductions, and sometimes useless
+                        # conflicts.
+                        continue
                     candidate = Item(B,B_prod,0)
                     for a in lookahead_copy:
                         firsts_lookahead = LookaheadSet(first(grammar, afterB + [a]))
