@@ -783,11 +783,7 @@ def without_empty(s):
     """
     Returns a copy of set s without Empty
     """
-    result = set()
-    for i in s:
-        if not i.is_empty():
-            result.add(i)
-    return result
+    return {i for i in s if not i.is_empty()}
 
 
 def derives_empty(rules,phrase):
