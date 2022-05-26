@@ -1556,8 +1556,7 @@ class Grammar:
                 if item.at_end() and (item.lhs != LANGUAGE):
                     # Register reductions
                     for terminal in lookahead:
-                        if terminal.is_token(): # Skip EndOfText
-                            addAction(item_set, terminal, make_reduce(item))
+                        addAction(item_set, terminal, make_reduce(item))
 
             # Register Shift actions
             (_,gotos) = item_set.gotos(self,memo=by_index)
