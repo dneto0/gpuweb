@@ -1466,9 +1466,7 @@ STAR_ITEMS_EXPECTED = sorted(map(lambda x: x.rstrip(), """#0
 at -> · '@' : {'@' EndOfText}
 language -> · s EndOfText : {EndOfText}
 s -> · s/0.0 : {EndOfText}
-s/0.0 -> · : {EndOfText}
 s/0.0 -> · s/0.0/0 : {EndOfText}
-s/0.0/0 -> · : {EndOfText}
 s/0.0/0 -> · at s/0.0/0 : {EndOfText}
 ===
 #1
@@ -1483,7 +1481,6 @@ s/0.0 -> s/0.0/0 · : {EndOfText}
 #4
 at -> · '@' : {'@' EndOfText}
 s/0.0/0 -> at · s/0.0/0 : {EndOfText}
-s/0.0/0 -> · : {EndOfText}
 s/0.0/0 -> · at s/0.0/0 : {EndOfText}
 ===
 #5
