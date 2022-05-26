@@ -1217,33 +1217,55 @@ class ParseTable:
     def has_conflicts(self):
         return len(self.conflicts) > 0
 
-    def __str__(self):
+    def states_parts(self):
         parts = []
-        parts.append("=LALR1 item sets:\n")
         for i in self.states:
             parts.append(str(i))
             parts.append("\n\n")
+        return parts
 
-        parts.append("\n=Reductions:\n")
+    def reductions_parts(self):
+        parts = []
         for r in self.reductions:
             parts.append("{}\n".format(r.pretty_str()))
+        return parts
 
-        parts.append("\n=Action:\n")
+    def action_parts(self):
+        parts = []
         for state_terminal in sorted(self.action, key = lambda st: (st[0].core_index,str(st[1]))):
             short_state = state_terminal[0].short_str()
             terminal = str(state_terminal[1])
             parts.append("[{} {}]: {}\n".format(short_state,terminal,self.action[state_terminal]))
+        return parts
 
-        parts.append("\n=Goto:\n")
+    def goto_parts(self):
+        parts = []
         for state_nonterminal in sorted(self.goto, key = lambda st: (st[0].core_index,str(st[1]))):
             short_state = state_nonterminal[0].short_str()
             nonterminal = str(state_nonterminal[1])
             parts.append("[{} {}]: {}\n".format(short_state,nonterminal,self.goto[state_nonterminal].short_str()))
+        return parts
+
+    def conflict_parts(self):
+        parts = []
+        for c in self.conflicts:
+            parts.append("{}\n".format(str(c)))
+        return parts
+
+    def __str__(self):
+        parts = []
+        parts.append("=LALR1 item sets:\n")
+        parts.extend(self.states_parts())
+        parts.append("\n=Reductions:\n")
+        parts.extend(self.reductions_parts())
+        parts.append("\n=Action:\n")
+        parts.extend(self.action_parts())
+        parts.append("\n=Goto:\n")
+        parts.extend(self.goto_parts())
 
         if self.has_conflicts():
-            parts.append("\n=Conflicts: {} conflicts".format(len(self.conflicts)))
-            for c in self.conflicts:
-                parts.append("{}\n".format(str(c)))
+            parts.append("\n=Conflicts: {} conflicts\n".format(len(self.conflicts)))
+            parts.extend(self.conflict_parts())
 
         return "".join(parts)
 
