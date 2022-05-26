@@ -1521,7 +1521,43 @@ class LALR1_items(unittest.TestCase):
         got_str = [str(i) for i in got]
         self.assertEqual(got_str, expected)
 
+EX442_ACTIONS = """[#0 'c']: s#3
+[#0 'd']: s#4
+[#1 EndOfText]: acc
+[#2 'c']: s#3
+[#2 'd']: s#4
+[#3 'c']: s#3
+[#3 'd']: s#4
+[#4 'c']: r#0
+[#4 'd']: r#0
+[#4 EndOfText]: r#0
+[#5 'c']: r#1
+[#5 'd']: r#1
+[#5 EndOfText]: r#1
+[#6 EndOfText]: r#2
+"""
 
+class LALR1_actions(unittest.TestCase):
+    def test_ex442(self):
+        g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
+        expected = EX442_ACTIONS
+        parse_table = g.LALR1()
+        got = "".join(parse_table.action_parts())
+        self.assertEqual(got, expected)
+
+EX442_GOTOS = """[#0 C]: #2
+[#0 translation_unit]: #1
+[#2 C]: #6
+[#3 C]: #5
+"""
+
+class LALR1_gotos(unittest.TestCase):
+    def test_ex442(self):
+        g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
+        expected = EX442_GOTOS
+        parse_table = g.LALR1()
+        got = "".join(parse_table.goto_parts())
+        self.assertEqual(got, expected)
 
 if __name__ == '__main__':
-    unittest.main()
+	unittest.main()

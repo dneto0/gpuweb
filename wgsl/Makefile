@@ -40,18 +40,17 @@ dragon:
 analyze_first:
 	python3 $(ANALYZE_SCRIPT)  analyze/test/firsts.json
 
+.PHONY: lalr_first
+lalr_first:
+	python3 $(ANALYZE_SCRIPT)  -lalr analyze/test/firsts.json
+
 .PHONY: lalr_star
 lalr_star:
 	python3 $(ANALYZE_SCRIPT) -lalr analyze/test/star.json
 
-# Analyze the WGSL grammar
-.PHONY: analyze
-analyze: grammar/src/grammar.json
-	python3 $(ANALYZE_SCRIPT)  grammar/src/grammar.json
-
 # Example 4.42 from Dragon book
-.PHONY: analyze_442
-analyze_442: grammar/src/grammar.json
+.PHONY: lalr_442
+lalr_442:
 	python3 $(ANALYZE_SCRIPT) -lalr analyze/test/ex442.json
 
 # Profile an abbreviated computation of LALR(1) item sets
