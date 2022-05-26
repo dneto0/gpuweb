@@ -416,7 +416,7 @@ class Reduce(Action):
         return "r#{}".format(self.index)
 
     def pretty_str(self):
-        return "reduce _#{} {}".format(self.index,str(self.item))
+        return "r#{} {}".format(self.index,str(self.item))
 
     def compare_value(self):
         return (2,self.index)
@@ -433,7 +433,7 @@ class Conflict:
         self.action = action
 
     def __str__(self):
-        return "[_#{}, {}] {} vs. {}".format(self.item_set.core_index,str(self.terminal),self.prev_action.pretty_str(),self.action.pretty_str())
+        return "[#{} {}] {} vs. {}".format(self.item_set.core_index,str(self.terminal),self.prev_action.pretty_str(),self.action.pretty_str())
 
 @functools.total_ordering
 class Item():
@@ -1188,6 +1188,52 @@ class ItemSet(dict):
 
         return (changed,goto_list)
 
+class ParseTable:
+    """
+    An LALR(1) parser table with fields:
+
+      .states:    The set of parser states, where each state is identified with
+                  an LALR(1) item set. Each ItemSet is closed and has a core index.
+      .action:    The parser action table, mapping (state,token) to an Action object.
+                  Any combination not in the table is a parse error.
+      .goto:      The goto table, mapping (state,nonterminal) to another state.
+      .reductions:A list of Reduce objects, in index order.
+      .conflicts: A list of Conflicts
+    """
+    def __init__(self,states,action_table,goto,reductions,conflicts):
+        self.states = states
+        self.action = action_table
+        self.goto = goto
+        self.reductions = reductions
+        self.conflicts = conflicts
+
+    def has_conflicts(self):
+        return len(self.conflicts) > 0
+
+    def __str__(self):
+        parts = []
+        parts.append("=LALR1 item sets:\n")
+        for i in self.states:
+            parts.append(str(i))
+            parts.append("\n\n")
+
+        parts.append("\n=Reductions:\n")
+        for r in self.reductions:
+            parts.append("{}\n".format(r.pretty_str()))
+
+        parts.append("\n=Action:\n")
+        for state_terminal in sorted(self.action):
+            short_state = "#{}".format(state_terminal[0].core_index)
+            terminal = str(state_terminal[1])
+            parts.append("[{} {}]: {}\n".format(short_state,terminal,self.action[state_terminal]))
+
+        if self.has_conflicts():
+            parts.append("\n=Conflicts: {} conflicts".format(len(self.conflicts)))
+            for c in self.conflicts:
+                parts.append("{}\n".format(str(c)))
+
+        return "".join(parts)
+
 
 class Grammar:
     """
@@ -1474,12 +1520,16 @@ class Grammar:
 
         # Maps an item to its reduction index.
         reduced_items = dict()
+        # List, where element i is the Reduce object with index i
+        reductions = []
         def make_reduce(item):
             if item in reduced_items:
-                return Reduce(item,reduced_items[item])
+                return reductions[reduced_items[item]]
             index = len(reduced_items)
             reduced_items[item] = index
-            return Reduce(item,index)
+            result = Reduce(item,index)
+            reductions.append(result)
+            return result
 
         for item_set in LALR1_item_sets_result:
             # Register Reduce and Accept actions
@@ -1500,10 +1550,7 @@ class Grammar:
                     isinstance(X,Token) or raiseRE("internal error: expected a token")
                     addAction(item_set, X, Shift(item_set_for_X))
 
-        reductions = [None for i in range(len(reduced_items))]
-        for r,i in reduced_items.items():
-            reductions[i] = r
-        return (LALR1_item_sets_result, action_table, reductions, conflicts)
+        return ParseTable(LALR1_item_sets_result, action_table, dict(), reductions, conflicts)
 
     def LALR1_ItemSets(self, max_item_sets=None):
         """
@@ -1519,6 +1566,6 @@ class Grammar:
         Returns: a list of the LALR1(1) item-sets for the grammar.
         """
 
-        item_sets = self.LALR1(max_item_sets=max_item_sets)[0]
+        item_sets = self.LALR1(max_item_sets=max_item_sets).states
         return item_sets
 

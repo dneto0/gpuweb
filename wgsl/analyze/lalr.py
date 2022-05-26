@@ -77,16 +77,9 @@ def main():
         #g.dump()
         print("=Grammar:\n")
         print(g.pretty_str())
-        (item_sets,table,reductions,conflicts) = g.LALR1(max_item_sets=args.limit)
-        print("\n=LALR1 item sets:\n\n")
-        print("\n\n".join([str(i) for i in item_sets]))
-        print("\n")
-        for i in range(len(reductions)):
-            print("_#{} {}".format(i,str(reductions[i])))
-        print("\n")
-        if len(conflicts) > 0:
-            print("{} conflicts".format(len(conflicts)))
-            print("\n".join([str(c) for c in conflicts]))
+        parse_table = g.LALR1(max_item_sets=args.limit)
+        print(str(parse_table))
+        if parse_table.has_conflicts():
             sys.exit(1)
         sys.exit(0)
     if args.lr:
