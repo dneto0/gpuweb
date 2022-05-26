@@ -42,6 +42,10 @@ dragon:
 analyze_first:
 	python3 $(ANALYZE_SCRIPT)  analyze/test/firsts.json
 
+.PHONY: lalr_star
+lalr_star:
+	python3 $(ANALYZE_SCRIPT) -lalr analyze/test/star.json
+
 # Analyze the WGSL grammar
 .PHONY: analyze
 analyze: grammar/src/grammar.json
