@@ -51,6 +51,10 @@ lr: $(ANALYZER) $(WGSL_GRAMMAR)
 ll: $(ANALYZER) $(WGSL_GRAMMAR)
 	python3 $(ANALYZE_SCRIPT) -ll grammar/src/grammar.json
 
+.PHONY: lalr_simple
+lalr_simple: $(ANALYZER) analyze/test/firsts.json
+	python3 $(ANALYZE_SCRIPT) -lalr analyze/test/firsts.json
+
 .PHONY: lalr_star
 lalr_star: $(ANALYZER) analyze/test/star.json
 	python3 $(ANALYZE_SCRIPT) -lalr analyze/test/star.json
