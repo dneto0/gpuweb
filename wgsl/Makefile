@@ -36,7 +36,8 @@ analyze_test: $(ANALYZER)
 	python3 analyze/test.py
 
 # Profile generation
-.PHONY: lalr_profile
+.PHONY: profile
+profile : lalr.wgsl.profile
 lalr.wgsl.profile: $(ANALYZER) $(WGSL_GRAMMAR)
 	python3 -m cProfile -o lalr.wgsl.profile $(ANALYZE_SCRIPT) -lalr grammar/src/grammar.json
 
@@ -51,11 +52,11 @@ ll: $(ANALYZER) $(WGSL_GRAMMAR)
 	python3 $(ANALYZE_SCRIPT) -ll grammar/src/grammar.json
 
 .PHONY: lalr_star
-lalr_star: $(ANALYZER) analyis/test/star.json
+lalr_star: $(ANALYZER) analyze/test/star.json
 	python3 $(ANALYZE_SCRIPT) -lalr analyze/test/star.json
 
 # Example 4.42 from Dragon book
 .PHONY: lalr_442
-lalr_44: $(ANALYZER) analyis/test/ex442.json
+lalr_44: $(ANALYZER) analyze/test/ex442.json
 	python3 $(ANALYZE_SCRIPT) -lalr analyze/test/ex442.json
 
