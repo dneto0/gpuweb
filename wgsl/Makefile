@@ -23,49 +23,41 @@ grammar/src/grammar.json : grammar/grammar.js
 .PHONY: test
 test: analyze_test
 
+WGSL_GRAMMAR = grammar/src/grammar.json
 ANALYZE_SCRIPT=analyze/lalr.py
+ANALYZER = $(ANALYZE_SCRIPT) analyze/Grammar.py
+
+# Compute LALR(1) parse table
+.PHONY: lalr
+lalr: $(ANALYZER) $(WGSL_GRAMMAR)
+	python3 $(ANALYZE_SCRIPT) -lalr grammar/src/grammar.json
 
 # Unit tests for the grammar analyzer
 .PHONY: analyze_test
-analyze_test:
+analyze_test: $(ANALYZER)
 	python3 analyze/test.py
 
-# Analyze example 4.17 from the Dragon Book
-# "Compilers: Principles, Techniques, and Tools",
-# Aho, Sethi, and Ullman, 1986
-.PHONY: analyze_dragon
-dragon:
-	python3 $(ANALYZE_SCRIPT)  analyze/test/ex417.json
-
-# Analyze first and follow sets for a simplified WGSL grammar
-.PHONY: analyze_first
-analyze_first:
-	python3 $(ANALYZE_SCRIPT)  analyze/test/firsts.json
-
-.PHONY: lalr_first
-lalr_first:
-	python3 $(ANALYZE_SCRIPT)  -lalr analyze/test/firsts.json
-
-.PHONY: lalr_star
-lalr_star:
-	python3 $(ANALYZE_SCRIPT) -lalr analyze/test/star.json
-
-# Example 4.42 from Dragon book
-.PHONY: lalr_442
-lalr_442:
-	python3 $(ANALYZE_SCRIPT) -lalr analyze/test/ex442.json
-
-# Profile an abbreviated computation of LALR(1) item sets
+# Profile generation
 .PHONY: lalr_profile
-lalr_profile: grammar/src/grammar.json
+lalr.wgsl.profile: $(ANALYZER) $(WGSL_GRAMMAR)
 	python3 -m cProfile -o lalr.wgsl.profile $(ANALYZE_SCRIPT) -lalr grammar/src/grammar.json
 
 # Compute LR(1) item sets
 .PHONY: lr
-lr: grammar/src/grammar.json
+lr: $(ANALYZER) $(WGSL_GRAMMAR)
 	python3 $(ANALYZE_SCRIPT) -lr grammar/src/grammar.json
 
-# Compute LALR(1) item sets
-.PHONY: lalr
-lalr: grammar/src/grammar.json
-	python3 $(ANALYZE_SCRIPT) -lalr grammar/src/grammar.json
+# Compute LL(1) parse table
+.PHONY: ll
+ll: $(ANALYZER) $(WGSL_GRAMMAR)
+	python3 $(ANALYZE_SCRIPT) -ll grammar/src/grammar.json
+
+.PHONY: lalr_star
+lalr_star: $(ANALYZER) analyis/test/star.json
+	python3 $(ANALYZE_SCRIPT) -lalr analyze/test/star.json
+
+# Example 4.42 from Dragon book
+.PHONY: lalr_442
+lalr_44: $(ANALYZER) analyis/test/ex442.json
+	python3 $(ANALYZE_SCRIPT) -lalr analyze/test/ex442.json
+

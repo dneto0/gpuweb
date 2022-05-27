@@ -56,7 +56,7 @@ def main():
     argparser.add_argument('-v', '--verbose',
                            help='increase output verbosity',
                            action="store_true")
-    argparser.add_argument('-ll1',
+    argparser.add_argument('-ll',
                            help='compute LL(1) parser table and associated conflicts',
                            action="store_true")
     argparser.add_argument('-lalr',
@@ -90,7 +90,7 @@ def main():
             print("\n{}".format(str(IS)))
         sys.exit(0)
 
-    elif args.ll1:
+    elif args.ll:
         (table,conflicts) = g.LL1()
 
         for key, reduction in table.items():
