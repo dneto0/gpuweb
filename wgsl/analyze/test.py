@@ -1351,18 +1351,18 @@ class Lookahead_merge(unittest.TestCase):
 
 
 EX442_LR1_ITEMS_CLOSED_EXPECTED = sorted(map(lambda x: x.rstrip(), """#0
+language -> · translation_unit EndOfText : {EndOfText}
 C -> · 'c' C : {'c' 'd'}
 C -> · 'd' : {'c' 'd'}
-language -> · translation_unit EndOfText : {EndOfText}
 translation_unit -> · C C : {EndOfText}
 ===
 #1
 language -> translation_unit · EndOfText : {EndOfText}
 ===
 #2
+translation_unit -> C · C : {EndOfText}
 C -> · 'c' C : {EndOfText}
 C -> · 'd' : {EndOfText}
-translation_unit -> C · C : {EndOfText}
 ===
 #3
 C -> 'c' · C : {'c' 'd'}
@@ -1391,18 +1391,18 @@ translation_unit -> C C · : {EndOfText}
 """.split("===\n")))
 
 EX442_LALR1_ITEMS_CLOSED_EXPECTED = sorted(map(lambda x: x.rstrip(), """#0
+language -> · translation_unit EndOfText : {EndOfText}
 C -> · 'c' C : {'c' 'd' EndOfText}
 C -> · 'd' : {'c' 'd' EndOfText}
-language -> · translation_unit EndOfText : {EndOfText}
 translation_unit -> · C C : {EndOfText}
 ===
 #1
 language -> translation_unit · EndOfText : {EndOfText}
 ===
 #2
+translation_unit -> C · C : {EndOfText}
 C -> · 'c' C : {EndOfText}
 C -> · 'd' : {EndOfText}
-translation_unit -> C · C : {EndOfText}
 ===
 #3
 C -> 'c' · C : {'c' 'd' EndOfText}
@@ -1463,8 +1463,8 @@ STAR_GRAMMAR = """ {
 }
 """
 STAR_ITEMS_EXPECTED = sorted(map(lambda x: x.rstrip(), """#0
-at -> · '@' : {'@' EndOfText}
 language -> · s EndOfText : {EndOfText}
+at -> · '@' : {'@' EndOfText}
 s -> · s/0.0 : {EndOfText}
 s/0.0 -> · s/0.0/0 : {EndOfText}
 s/0.0/0 -> · at s/0.0/0 : {EndOfText}
@@ -1479,8 +1479,8 @@ s -> s/0.0 · : {EndOfText}
 s/0.0 -> s/0.0/0 · : {EndOfText}
 ===
 #4
-at -> · '@' : {'@' EndOfText}
 s/0.0/0 -> at · s/0.0/0 : {EndOfText}
+at -> · '@' : {'@' EndOfText}
 s/0.0/0 -> · at s/0.0/0 : {EndOfText}
 ===
 #5
