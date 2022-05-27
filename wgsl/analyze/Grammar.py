@@ -124,6 +124,7 @@ def raiseRE(s):
 
 class Rule(RegisterableObject):
     def __init__(self,**kwargs):
+        super().__init__(**kwargs)
         self.name = self.__class__.__name__
         self.first = set()
         self.follow = set()
@@ -270,6 +271,7 @@ class LeafRule(Rule):
         super().__init__(**kwargs)
         self.content = content
         self.hash = str(self).__hash__()
+        self.register_conditionally()
 
     def __eq__(self,other):
         return isinstance(other, self.__class__) and (self.content == other.content)
@@ -319,6 +321,7 @@ class Symbol(LeafRule):
 class Fixed(Token):
     def __init__(self,content,**kwargs):
         super().__init__(content,**kwargs)
+        self.register_conditionally(**kwargs)
 
 class Pattern(Token):
     def __init__(self,content,**kwargs):
@@ -567,20 +570,20 @@ def json_hook(grammar,memo,tokens_only,dct):
             # Return the content itself. Don't wrap it.
             result = dct["content"]
         elif  dct["type"] == "STRING":
-            result = memoize(memo,dct["value"],Fixed(dct["value"]))
+            result = memoize(memo,dct["value"],grammar.MakeFixed(dct["value"]))
         elif  dct["type"] == "PATTERN":
-            result = memoize(memo,dct["value"],Pattern(dct["value"]))
+            result = memoize(memo,dct["value"],grammar.MakePattern(dct["value"]))
         elif not tokens_only:
             if  dct["type"] == "BLANK":
                 result = grammar.empty
             elif  dct["type"] == "CHOICE":
-                result = Choice(dct["members"])
+                result = grammar.MakeChoice(dct["members"])
             elif  dct["type"] == "SEQ":
-                result = Seq(dct["members"])
+                result = grammar.MakeSeq(dct["members"])
             elif  dct["type"] == "REPEAT1":
-                result = Repeat1([dct["content"]])
+                result = grammar.MakeRepeat1([dct["content"]])
             elif  dct["type"] == "SYMBOL":
-                result = memoize(memo,dct["name"],Symbol(dct["name"]))
+                result = memoize(memo,dct["name"],grammar.MakeSymbol(dct["name"]))
     return result
 
 def canonicalize_grammar(rules,empty):
@@ -954,7 +957,7 @@ class LookaheadSet(set):
         """Recomputes self.str and self.hash"""
         self.str = "{}{}{}".format(LBRACE, " ".join(sorted([str(i) for i in self])), RBRACE)
         self.hash = self.str.__hash__()
-        self.has_end_of_text = (EndOfText() in self)
+        self.has_end_of_text = any([isinstance(i,EndOfText) for i in self])
 
     def __str__(self):
         if self.str is None:
@@ -1319,10 +1322,6 @@ class Grammar:
         g.canonicalize()
         g.compute_first()
         g.compute_follow()
-
-        # Registry for key grammar objects, so we can use integer-based
-        # keys for them.
-        g.registry = ObjectRegistry()
         return g
 
     def find(self, rule_name):
@@ -1336,10 +1335,14 @@ class Grammar:
            start_symbol: The name of the start symbol, as a Python string
            ignore: the name of a rule to ignore completely
         """
+        # Registry for key grammar objects, so we can use integer-based
+        # keys for them.
+        self.registry = ObjectRegistry()
+
         self.json_text = json_text
         self.start_symbol = start_symbol
-        self.empty = Empty()
-        self.end_of_text = EndOfText()
+        self.empty = Empty(reg=self)
+        self.end_of_text = EndOfText(reg=self)
 
         # Maps an item set core (ie. no lookaheads) to its sequential index.
         self.item_set_core_index = dict()
@@ -1362,6 +1365,30 @@ class Grammar:
 
         # Augment the grammar:
         self.rules[LANGUAGE] = Seq([Symbol(start_symbol), self.end_of_text])
+
+    def MakeFixed(self,content):
+        result = Fixed(content,reg=self)
+        return result
+
+    def MakePattern(self,content):
+        result = Pattern(content,reg=self)
+        return result
+
+    def MakeChoice(self,content):
+        result = Choice(content,reg=self)
+        return result
+
+    def MakeSeq(self,content):
+        result = Seq(content,reg=self)
+        return result
+
+    def MakeRepeat1(self,content):
+        result = Repeat1(content,reg=self)
+        return result
+
+    def MakeSymbol(self,content):
+        result = Symbol(content,reg=self)
+        return result
 
     def canonicalize(self):
         self.rules = canonicalize_grammar(self.rules,self.empty)
@@ -1422,7 +1449,7 @@ class Grammar:
         """
         Register an object to give it a unique integer-based key
         """
-        return self.registry.register(registrable)
+        return self.registry.register(registerable)
 
     def LL1(self):
         """
@@ -1489,7 +1516,7 @@ class Grammar:
         # An ItemSet can be found by any of the items in its core.
         # Within an ItemSet, an item maps to its lookahead set.
 
-        root_item_set = ItemSet({root_item: LookaheadSet({EndOfText()})}).close(self)
+        root_item_set = ItemSet({root_item: LookaheadSet({self.end_of_text})}).close(self)
 
         LR1_item_sets_result = set({root_item_set})
 
@@ -1536,7 +1563,7 @@ class Grammar:
         # An ItemSet can be found by any of the items in its core.
         # Within an ItemSet, an item maps to its lookahead set.
 
-        root_item_set = ItemSet({root_item: LookaheadSet({EndOfText()})}).close(self)
+        root_item_set = ItemSet({root_item: LookaheadSet({self.end_of_text})}).close(self)
         by_index[root_item_set.core_index] = root_item_set
 
         LALR1_item_sets_result = set({root_item_set})
@@ -1609,7 +1636,7 @@ class Grammar:
             # Register Reduce and Accept actions
             for item, lookahead in item_set.data.items():
                 if item.is_accepting() and lookahead.includesEndOfText():
-                    addAction(item_set, EndOfText(), Accept())
+                    addAction(item_set, self.end_of_text, Accept())
                 if item.at_end() and (item.lhs != LANGUAGE):
                     # Register reductions
                     for terminal in lookahead:

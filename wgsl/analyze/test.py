@@ -1582,5 +1582,11 @@ class LALR1_gotos(unittest.TestCase):
         got = "".join(parse_table.goto_parts())
         self.assertEqual(got, expected)
 
+class Grammar_registers_objects(unittest.TestCase):
+    def test_star(self):
+        g = Grammar.Grammar.Load(STAR_GRAMMAR,'s')
+        at = g.find('at')
+        self.assertEqual(at.reg_index,(0,0))
+
 if __name__ == '__main__':
 	unittest.main()
