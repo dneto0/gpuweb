@@ -1103,7 +1103,6 @@ class ItemSet(dict):
             work_list = dirty_dict
             dirty_dict = dict()
             for item, lookahead in work_list.items():
-                lookahead_copy = lookahead.copy()
                 if item.at_end():
                     continue
                 B = item.items[item.position]
@@ -1111,17 +1110,18 @@ class ItemSet(dict):
                     continue
 
                 afterB = item.items[item.position+1:]
+
                 # We will be computing first(afterB + [a]) repeatedly.  Create a lambda that
                 # precomputes the result in common cases.
                 afterB_firsts = first(grammar, afterB)
-                if derives_empty(grammar.rules, afterB):
-                    # When afterB can derive an empty string, then the result could depend on `a`
-                    # `a` could be epsilon, in which case it should be ignored.
-                    first_rest = lambda a: first(grammar, afterB + [a]) if a.is_terminal() else afterB_firsts
+                afterB_derives_empty = derives_empty(grammar.rules, afterB)
+                afterB_lookahead = LookaheadSet(without_empty(afterB_firsts))
+                if afterB_derives_empty:
+                    # When afterB can derive an empty string, then the result could depend on `a`.
+                    afterB_lookahead.merge(lookahead)
                 else:
-                    # If afterB does not derive empty, then we can fully precompute
-                    # the answer.
-                    first_rest = lambda a: afterB_firsts
+                    # If afterB can't derive empty, then it's independent of `a`
+                    pass
 
                 # For each production B -> B_prod in G'
                 rhs = lookup(grammar.rules[B.content])
@@ -1135,15 +1135,12 @@ class ItemSet(dict):
                         # conflicts.
                         continue
                     candidate = Item(B,B_prod,0)
-
-                    for a in lookahead_copy:
-                        firsts_lookahead = LookaheadSet(first_rest(a))
-                        if candidate not in self:
-                            self[candidate] = firsts_lookahead
-                            dirty_dict[candidate] = firsts_lookahead
-                        else:
-                            if self[candidate].merge(firsts_lookahead):
-                                dirty_dict[candidate] = self[candidate]
+                    if candidate not in self:
+                        self[candidate] = LookaheadSet(afterB_lookahead)
+                        dirty_dict[candidate] = self[candidate]
+                    else:
+                        if self[candidate].merge(afterB_lookahead):
+                            dirty_dict[candidate] = self[candidate]
         self.core_index = grammar.register_item_set(self)
         return self
 
