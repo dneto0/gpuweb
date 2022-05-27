@@ -1367,7 +1367,7 @@ class Grammar:
         self.rules = self.json_grammar["rules"]
 
         # Augment the grammar:
-        self.rules[LANGUAGE] = Seq([Symbol(start_symbol), self.end_of_text])
+        self.rules[LANGUAGE] = self.MakeSeq([self.MakeSymbol(start_symbol), self.end_of_text])
 
     def MakeFixed(self,content):
         result = Fixed(content,reg=self)
