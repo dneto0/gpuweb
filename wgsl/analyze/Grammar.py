@@ -989,6 +989,10 @@ class LookaheadSet(set):
 class ItemSet(dict):
     """
     An ItemSet is an LR(1) set of Items, where each item maps to its lookahead set.
+
+    An ItemSet can only be mutated via methods:
+        - close, which can add items and modify lookaheads
+        - merge, which can only change lookaheads, but not the items
     """
     def __init__(self,*args):
         super().__init__(*args)
@@ -1128,7 +1132,7 @@ class ItemSet(dict):
                 # The grammar is in canonical form, so rhs is a Choice over
                 # several candidate productions. Use each one.
                 rhs = [rhs] if rhs.is_terminal() else rhs
-                for B_prod in rhs:
+                for B_prod in rhs: # iterate over the alternatives of a Choice
                     if B_prod.is_empty():
                         # Avoid creating useless productions that have no right-hand-side
                         # They can only lead to redundant reductions, and sometimes useless
@@ -1196,12 +1200,12 @@ class ItemSet(dict):
         # Now make a list of item sets from the partitions.
         goto_list = []
         for X, list_of_items in partition.items():
-            x_item_set = ItemSet()
+            collected_x_items = dict()
             for i in list_of_items:
                 advanced_item = Item(i.lhs, i.rule, i.position+1)
                 # Map to the same lookahead set. Needed for closure
-                x_item_set[advanced_item] = self[i]
-            x_item_set.close(grammar)
+                collected_x_items[advanced_item] = self[i]
+            x_item_set = ItemSet(collected_x_items).close(grammar)
 
             if memo is not None:
                 if x_item_set.core_index in memo:
