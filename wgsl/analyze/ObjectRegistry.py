@@ -53,11 +53,11 @@ class RegisterableObject:
         self.reg_index = None
         self.reg_registry = None
         self.reg_str = None
-        assert 'string_internal' in self
+        assert 'string_internal' in dir(self)
 
+    def register_conditionally(self,**kwargs):
         if 'reg' in kwargs:
-            reg = kwargs[reg]
-            assert isinstance(reg,ObjectRegistry)
+            reg = kwargs['reg']
             self.register(reg)
 
     def register(self,reg):
@@ -65,7 +65,7 @@ class RegisterableObject:
         The object must be able to used as a key in a dictionary.
         """
         self.reg_registry = reg
-        self.reg_index = reg.regsiter(self)
+        self.reg_index = reg.register(self)
 
 class ObjectRegistry:
     def __init__(self):
@@ -80,23 +80,33 @@ class ObjectRegistry:
         Registers an indexable object.
         Returns a pair of integers, uniquely identifying objects like this.
         """
-        assert isinstance(registerable,IndexableObject)
+        assert isinstance(registerable,RegisterableObject)
         if registerable.reg_index is not None:
             # Assume the object is immutable from our perpsective,
             # after it's been registered once
             return registerable.reg_index
         if registerable.__class__ in self.classes:
             class_index = self.classes[registerable.__class__]
-            intra_class_map = self.obj_map[class_index]
+            intra_class_map = self.object_map[class_index]
         else:
             class_index = len(self.object_map)
             self.classes[registerable.__class__] = class_index
             intra_class_map = {}
             self.object_map.append(intra_class_map)
         lookup_str = registerable.string_internal()
-        if lookukp_str in intra_class_map:
+        if lookup_str in intra_class_map:
             return (class_index,intra_class_map[lookukp_str])
         registerable.reg_str = lookup_str
         intra_class_index = len(intra_class_map)
         intra_class_map[registerable] = intra_class_index
         return (class_index,intra_class_index)
+
+    def __str__(self):
+        parts = []
+        parts.append("<ObjectRegistry>\n")
+        for c, i in self.classes.items():
+            parts.append(" {} {}\n".format(c.__name__,i))
+            for o, j in self.object_map[i].items():
+                parts.append("   {} {}\n".format(j,o.string_internal()))
+        parts.append("</ObjectRegistry>\n")
+        return "".join(parts)
