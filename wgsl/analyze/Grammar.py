@@ -37,11 +37,7 @@ Represent and process a grammar:
 - Canonicalize
 - Compute First and Follow sets
 - Compute LL(1) parser table and associated conflicts
-- WIP: Verify the language is LALR(1) with context-sensitive lookahead
-  - WIP: Compute LALR(1) item sets
-    - this is showing 39 conflicts... ??
-  - TODO: pretty_key should return a pair, so we can compare on
-    indices rather than constructing strings all the time.
+- Verify a language is LALR(1) with context-sensitive lookahead
 """
 
 import json
