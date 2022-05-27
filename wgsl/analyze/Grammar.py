@@ -38,6 +38,9 @@ Represent and process a grammar:
 - Compute First and Follow sets
 - Compute LL(1) parser table and associated conflicts
 - Verify a language is LALR(1) with context-sensitive lookahead
+
+- WIP: hash and eq by integer-base tuples only
+   - TODO: Remove last bare creation of Symbol
 """
 
 import json
@@ -271,7 +274,7 @@ class LeafRule(Rule):
         super().__init__(**kwargs)
         self.content = content
         self.hash = str(self).__hash__()
-        self.register_conditionally()
+        self.register_conditionally(**kwargs)
 
     def __eq__(self,other):
         return isinstance(other, self.__class__) and (self.content == other.content)
