@@ -798,8 +798,11 @@ def derives_empty(rules,phrase):
     def lookup(rule):
         return rules[rule.content] if isinstance(rule,Symbol) else rule
 
-    return all([lookup(i).derives_empty() for i in phrase])
-
+    # Write out the loop so we can exit early.
+    for i in phrase:
+        if not lookup(i).derives_empty():
+            return False
+    return True
 
 def first(grammar,phrase):
     """
