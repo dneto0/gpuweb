@@ -1519,6 +1519,31 @@ class LALR1_items(unittest.TestCase):
         got_str = [str(i) for i in got]
         self.assertEqual(got_str, expected)
 
+SIMPLE_WGSL_ITEM_0_CLOSED = """#0
+language -> · translation_unit EndOfText : {EndOfText}
+at -> · '@' : {'@' 'fn'}
+function_decl -> · function_decl/0.0 function_header brace_left brace_right : {';' '@' 'fn' 'type' EndOfText}
+function_decl/0.0 -> · function_decl/0.0/0 : {'fn'}
+function_decl/0.0/0 -> · at function_decl/0.0/0 : {'fn'}
+global_decl -> · function_decl : {';' '@' 'fn' 'type' EndOfText}
+global_decl -> · semicolon : {';' '@' 'fn' 'type' EndOfText}
+global_decl -> · type_alias_decl semicolon : {';' '@' 'fn' 'type' EndOfText}
+semicolon -> · ';' : {';' '@' 'fn' 'type' EndOfText}
+translation_unit -> · translation_unit/0.0 : {EndOfText}
+translation_unit/0.0 -> · translation_unit/0.0/0 : {EndOfText}
+translation_unit/0.0/0 -> · global_decl translation_unit/0.0/0 : {EndOfText}
+type_alias_decl -> · 'type' ident equal ident : {';'}"""
+
+class ItemSet_Close(unittest.TestCase):
+    def test_simple_wgsl_close_0(self):
+        g = Grammar.Grammar.Load(SIMPLE_WGSL,'translation_unit')
+        expected = SIMPLE_WGSL_ITEM_0_CLOSED
+        got = g.LALR1_ItemSets()
+        self.assertGreater(len(got),0)
+        item0_closed = str(got[0])
+        self.assertEqual(item0_closed, expected)
+
+
 EX442_ACTIONS = """[#0 'c']: s#3
 [#0 'd']: s#4
 [#1 EndOfText]: acc

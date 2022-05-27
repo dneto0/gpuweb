@@ -1092,17 +1092,17 @@ class ItemSet(dict):
         def lookup(rule):
             return grammar.rules[rule.content] if isinstance(rule,Symbol) else rule
 
-        keep_going = True
-        while keep_going:
-            keep_going = False
+        dirty_dict = self.copy()
+        while len(dirty_dict) > 0:
             # From the dragon book, 1st ed. 4.38 Sets of LR(1) items construction.
             #
             # For each item [ A -> alpha . B beta, a ] in I,
             # and each production " B -> . gamma " in the grammar,
             # and each terminal b in FIRST(beta a),
             # add [ B -> . gamma, b ] to I if it is not already there.
-            copy = self.copy()
-            for item, lookahead in copy.items():
+            work_list = dirty_dict
+            dirty_dict = dict()
+            for item, lookahead in work_list.items():
                 lookahead_copy = lookahead.copy()
                 if item.at_end():
                     continue
@@ -1140,9 +1140,10 @@ class ItemSet(dict):
                         firsts_lookahead = LookaheadSet(first_rest(a))
                         if candidate not in self:
                             self[candidate] = firsts_lookahead
-                            keep_going = True
+                            dirty_dict[candidate] = firsts_lookahead
                         else:
-                            keep_going = self[candidate].merge(firsts_lookahead)
+                            if self[candidate].merge(firsts_lookahead):
+                                dirty_dict[candidate] = self[candidate]
         self.core_index = grammar.register_item_set(self)
         return self
 
