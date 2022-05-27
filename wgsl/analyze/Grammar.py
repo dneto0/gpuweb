@@ -1111,6 +1111,17 @@ class ItemSet(dict):
                     continue
 
                 afterB = item.items[item.position+1:]
+                # We will be computing first(afterB + [a]) repeatedly.  Create a lambda that
+                # precomputes the result in common cases.
+                afterB_firsts = first(grammar, afterB)
+                if derives_empty(grammar.rules, afterB):
+                    # When afterB can derive an empty string, then the result could depend on `a`
+                    # `a` could be epsilon, in which case it should be ignored.
+                    first_rest = lambda a: first(grammar, afterB + [a]) if a.is_terminal() else afterB_firsts
+                else:
+                    # If afterB does not derive empty, then we can fully precompute
+                    # the answer.
+                    first_rest = lambda a: afterB_firsts
 
                 # For each production B -> B_prod in G'
                 rhs = lookup(grammar.rules[B.content])
@@ -1124,8 +1135,9 @@ class ItemSet(dict):
                         # conflicts.
                         continue
                     candidate = Item(B,B_prod,0)
+
                     for a in lookahead_copy:
-                        firsts_lookahead = LookaheadSet(first(grammar, afterB + [a]))
+                        firsts_lookahead = LookaheadSet(first_rest(a))
                         if candidate not in self:
                             self[candidate] = firsts_lookahead
                             keep_going = True
@@ -1551,7 +1563,7 @@ class Grammar:
         action_table = dict()
         def addAction(item_set, terminal, action):
             isinstance(item_set, ItemSet) or raiseRE("expected ItemSet")
-            terminal.is_terminal() or raiseRE("expected terminal")
+            terminal.is_terminal() or raiseRE("expected terminal: " + str(terminal))
             isinstance(action,Action) or raiseRE("expected action")
 
             action_key = (item_set,terminal)
