@@ -994,10 +994,16 @@ class ItemSet(dict):
         self.core_index = None
 
     def as_ordered_parts(self):
-        parts = []
+        # For readability, put the kernel parts first
+        kernel_parts = []
+        non_kernel_parts = []
         for item, lookahead in self.items():
-            parts.append("{} : {}".format(str(item), str(lookahead)))
-        return sorted(parts)
+            the_str = "{} : {}".format(str(item), str(lookahead))
+            if item.is_kernel():
+                kernel_parts.append(the_str)
+            else:
+                non_kernel_parts.append(the_str)
+        return sorted(kernel_parts) + sorted(non_kernel_parts)
 
     def content_str(self):
         return "\n".join(self.as_ordered_parts())
