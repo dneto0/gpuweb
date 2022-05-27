@@ -43,6 +43,7 @@ Represent and process a grammar:
 import json
 import functools
 from collections import UserDict
+from ObjectRegistry import RegisterableObject, ObjectRegistry
 
 EPSILON = u"\u03b5"
 MIDDLE_DOT = u"\u00b7"
@@ -121,8 +122,8 @@ def raiseRE(s):
 #  First(X):  Where X is a Phrase, First(X) is the set over Terminals or Empty that
 #    begin the Phrases that may be derived from X.
 
-class Rule:
-    def __init__(self):
+class Rule(RegisterableObject):
+    def __init__(self,**kwargs):
         self.name = self.__class__.__name__
         self.first = set()
         self.follow = set()
@@ -167,7 +168,7 @@ class Rule:
                 c.traverse(fn)
         fn(self,False)
 
-    def __str__(self):
+    def string_internal(self):
         parts = []
         def f(parts,obj,on_entry):
             if "content" in dir(obj):
@@ -192,11 +193,15 @@ class Rule:
         self.traverse(lambda obj, on_entry: f(parts,obj,on_entry))
         return " ".join(parts)
 
+    def __str__(self):
+        return self.string_internal()
+
+
 @functools.total_ordering
 class ContainerRule(Rule):
     """A ContainerRule is a rule with children"""
-    def __init__(self,children):
-        super().__init__()
+    def __init__(self,children,**kwargs):
+        super().__init__(**kwargs)
         self.children = children
 
     def ordered(self):
@@ -261,8 +266,8 @@ class LeafRule(Rule):
 
     Once created, it must not be changed.
     """
-    def __init__(self,content):
-        super().__init__()
+    def __init__(self,content,**kwargs):
+        super().__init__(**kwargs)
         self.content = content
         self.hash = str(self).__hash__()
 
@@ -286,46 +291,46 @@ class LeafRule(Rule):
 
 class Token(LeafRule):
     """A Token represents a non-empty contiguous sequence of code points"""
-    def __init__(self,content):
-        super().__init__(content)
+    def __init__(self,content,**kwargs):
+        super().__init__(content,**kwargs)
 
 class Choice(ContainerRule):
-    def __init__(self,children):
-        super().__init__(children)
+    def __init__(self,children,**kwargs):
+        super().__init__(children,**kwargs)
         # Order does not matter among the children.
         # Store them in order so we can more quickly test for equality
         # and less-than.
         self.ordered_children = sorted(self.children)
 
 class Seq(ContainerRule):
-    def __init__(self,children):
-        super().__init__(children)
+    def __init__(self,children,**kwargs):
+        super().__init__(children,**kwargs)
 
 class Repeat1(ContainerRule):
-    def __init__(self,children):
-        super().__init__(children)
+    def __init__(self,children,**kwargs):
+        super().__init__(children,**kwargs)
         if len(children) != 1:
             raise RuntimeError("Repeat1 must have exactly one child: {}".format(str(children)))
 
 class Symbol(LeafRule):
-    def __init__(self,content):
-        super().__init__(content)
+    def __init__(self,content,**kwargs):
+        super().__init__(content,**kwargs)
 
 class Fixed(Token):
-    def __init__(self,content):
-        super().__init__(content)
+    def __init__(self,content,**kwargs):
+        super().__init__(content,**kwargs)
 
 class Pattern(Token):
-    def __init__(self,content):
-        super().__init__(content)
+    def __init__(self,content,**kwargs):
+        super().__init__(content,**kwargs)
 
 class Empty(LeafRule):
-    def __init__(self):
-        super().__init__(None)
+    def __init__(self,**kwargs):
+        super().__init__(None,**kwargs)
 
 class EndOfText(LeafRule):
-    def __init__(self):
-        super().__init__(None)
+    def __init__(self,**kwargs):
+        super().__init__(None,**kwargs)
 
 class LLAction:
     """
@@ -432,7 +437,7 @@ class Conflict:
         return "[#{} {}] {} vs. {}".format(self.item_set.core_index,str(self.terminal),self.prev_action.pretty_str(),self.action.pretty_str())
 
 @functools.total_ordering
-class Item():
+class Item(RegisterableObject):
     """
     An SLR Item is a non-terminal name, and a Flat Production with a
     single position marker.
@@ -982,7 +987,7 @@ class LookaheadSet(set):
 
 
 @functools.total_ordering
-class ItemSet(UserDict):
+class ItemSet(UserDict,RegisterableObject):
     """
     An ItemSet is an LR(1) set of Items, where each item maps to its lookahead set.
 
@@ -1314,6 +1319,10 @@ class Grammar:
         g.canonicalize()
         g.compute_first()
         g.compute_follow()
+
+        # Registry for key grammar objects, so we can use integer-based
+        # keys for them.
+        g.registry = ObjectRegistry()
         return g
 
     def find(self, rule_name):
@@ -1408,6 +1417,12 @@ class Grammar:
         result = len(self.item_set_core_index)
         self.item_set_core_index[core] = result
         return result
+
+    def register(self,registerable):
+        """
+        Register an object to give it a unique integer-based key
+        """
+        return self.registry.register(registrable)
 
     def LL1(self):
         """
