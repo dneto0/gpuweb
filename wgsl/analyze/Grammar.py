@@ -46,7 +46,7 @@ Represent and process a grammar:
 
 import json
 import functools
-from collections import defaultdict
+from collections import UserDict
 
 EPSILON = u"\u03b5"
 MIDDLE_DOT = u"\u00b7"
@@ -986,7 +986,7 @@ class LookaheadSet(set):
 
 
 @functools.total_ordering
-class ItemSet(dict):
+class ItemSet(UserDict):
     """
     An ItemSet is an LR(1) set of Items, where each item maps to its lookahead set.
 
@@ -1004,7 +1004,7 @@ class ItemSet(dict):
         # For readability, put the kernel parts first
         kernel_parts = []
         non_kernel_parts = []
-        for item, lookahead in self.items():
+        for item, lookahead in self.data.items():
             the_str = "{} : {}".format(str(item), str(lookahead))
             if item.is_kernel():
                 kernel_parts.append(the_str)
@@ -1056,7 +1056,7 @@ class ItemSet(dict):
         """
         Returns True if the parser action for this item set should be 'accept'.
         """
-        for item, lookahead in self.items():
+        for item, lookahead in self.data.items():
             if lookahead.includesEndOfText() and item.is_accepting():
                 return True
         return False
@@ -1070,7 +1070,7 @@ class ItemSet(dict):
         Returns: True when something new was added to the current set.
         """
         result = False
-        for item, lookahead in self.items():
+        for item, lookahead in self.data.items():
             if item not in other:
                 raise RuntimeError("item {} missing from other: {}".format(str(item), str(other)))
             result = result | lookahead.merge(other[item])
@@ -1596,7 +1596,7 @@ class Grammar:
 
         for item_set in LALR1_item_sets_result:
             # Register Reduce and Accept actions
-            for item, lookahead in item_set.items():
+            for item, lookahead in item_set.data.items():
                 if item.is_accepting() and lookahead.includesEndOfText():
                     addAction(item_set, EndOfText(), Accept())
                 if item.at_end() and (item.lhs != LANGUAGE):
