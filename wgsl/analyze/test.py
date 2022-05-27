@@ -1493,9 +1493,10 @@ s/0.0/0 -> at s/0.0/0 · : {EndOfText}
 class LR1_items(unittest.TestCase):
     def test_ex442(self):
         g = Grammar.Grammar.Load(DRAGON_BOOK_EXAMPLE_4_42,'translation_unit')
+        expected = EX442_LR1_ITEMS_CLOSED_EXPECTED
         got = g.LR1_ItemSets()
         got_str = [str(i) for i in got]
-        self.assertEqual(got_str, EX442_LR1_ITEMS_CLOSED_EXPECTED)
+        self.assertEqual(got_str, expected)
 
 class LALR1_items(unittest.TestCase):
     def test_ex442(self):
