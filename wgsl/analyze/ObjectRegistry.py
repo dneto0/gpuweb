@@ -82,8 +82,7 @@ class ObjectRegistry:
         """
         assert isinstance(registerable,RegisterableObject)
         if registerable.reg_index is not None:
-            # Assume the object is immutable from our perpsective,
-            # after it's been registered once
+            # Assume immutability after it's been registered once.
             return registerable.reg_index
         if registerable.__class__ in self.classes:
             class_index = self.classes[registerable.__class__]
@@ -91,14 +90,15 @@ class ObjectRegistry:
         else:
             class_index = len(self.object_map)
             self.classes[registerable.__class__] = class_index
-            intra_class_map = {}
+            intra_class_map = dict()
             self.object_map.append(intra_class_map)
         lookup_str = registerable.string_internal()
         if lookup_str in intra_class_map:
-            return (class_index,intra_class_map[lookukp_str])
+            return (class_index,intra_class_map[lookup_str])
         registerable.reg_str = lookup_str
         intra_class_index = len(intra_class_map)
-        intra_class_map[registerable] = intra_class_index
+        intra_class_map[lookup_str] = intra_class_index
+        #print(" register {} {} <- {}".format(class_index,intra_class_index,lookup_str))
         return (class_index,intra_class_index)
 
     def __str__(self):
@@ -107,6 +107,6 @@ class ObjectRegistry:
         for c, i in self.classes.items():
             parts.append(" {} {}\n".format(c.__name__,i))
             for o, j in self.object_map[i].items():
-                parts.append("   {} {}\n".format(j,o.string_internal()))
+                parts.append("   {} {}\n".format(j,o))
         parts.append("</ObjectRegistry>\n")
         return "".join(parts)

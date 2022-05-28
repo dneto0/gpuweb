@@ -461,7 +461,7 @@ class Item(RegisterableObject):
        self.position: an integer index: the "dot" representing the current position
            in the rule appears to the left of the item at this indexed position.
     """
-    def __init__(self,lhs,rule,position):
+    def __init__(self,lhs,rule,position,**kwargs):
         """
         Args:
             lhs: the name of the nonterminal, as a Python string or a Symbol
@@ -469,6 +469,7 @@ class Item(RegisterableObject):
             position: Index of the position, where 0 is to the left
               of the first item in the choice
         """
+        super().__init__()
         self.lhs = lhs if isinstance(lhs,Symbol) else Symbol(lhs)
         self.rule = rule
 
@@ -490,6 +491,8 @@ class Item(RegisterableObject):
 
         self.str = self.string_internal()
         self.hash = self.str.__hash__()
+
+        self.register_conditionally(**kwargs)
 
     def string_internal(self):
         parts = ["{} ->".format(self.lhs)]
@@ -589,7 +592,7 @@ def json_hook(grammar,memo,tokens_only,dct):
                 result = memoize(memo,dct["name"],grammar.MakeSymbol(dct["name"]))
     return result
 
-def canonicalize_grammar(rules,empty):
+def canonicalize_grammar(grammar,empty):
     """
     Computes the Canonical Form of a GrammarDict
 
@@ -601,6 +604,8 @@ def canonicalize_grammar(rules,empty):
         A GrammarDict matching the same language, but in Canonical Form.
     """
 
+    rules = grammar.rules
+
     # First ensure right-hand sides of containers are Choice nodes.
     result = {}
     for key, value in rules.items():
@@ -609,7 +614,7 @@ def canonicalize_grammar(rules,empty):
                 # Choice nodes are unchanged
                 result[key] = value
             else:
-                result[key] = Choice([value])
+                result[key] = grammar.MakeChoice([value])
         else:
             result[key] = value
 
@@ -639,12 +644,12 @@ def canonicalize_grammar(rules,empty):
 
                     Returns: The key's Symbol
                     """
-                    rhs = Choice(list(values))
+                    rhs = grammar.MakeChoice(list(values))
                     result[key.content] = rhs
                     return key
                 for i in range(len(value)):
                     item = value[i]
-                    item_key = Symbol("{}/{}".format(key,str(i)))
+                    item_key = grammar.MakeSymbol("{}/{}".format(key,str(i)))
                     if isinstance(item,LeafRule):
                         parts.append(item)
                     elif isinstance(item,Repeat1):
@@ -655,7 +660,7 @@ def canonicalize_grammar(rules,empty):
                         #   value.i -> epsilon
                         x = item[0]
                         parts.append(add_rule(item_key,
-                                              Seq([x,item_key]),
+                                              grammar.MakeSeq([x,item_key]),
                                               empty))
                         made_a_new_one = True
                     elif isinstance(item,Choice):
@@ -668,7 +673,7 @@ def canonicalize_grammar(rules,empty):
                         seq_parts = []
                         for j in range(len(item)):
                             seq_item = item[j]
-                            seq_item_key = Symbol(
+                            seq_item_key = grammar.MakeSymbol(
                                     "{}/{}.{}".format(key,str(i),str(j)))
                             if isinstance(seq_item,LeafRule):
                                 seq_parts.append(seq_item)
@@ -677,10 +682,10 @@ def canonicalize_grammar(rules,empty):
                                         add_rule(seq_item_key,seq_item))
                                 made_a_new_seq_part = True
                         if made_a_new_seq_part:
-                            parts.append(Seq(seq_parts))
+                            parts.append(grammar.MakeSeq(seq_parts))
                             made_a_new_one = True
                 if made_a_new_one:
-                    rhs = Choice(parts)
+                    rhs = grammar.MakeChoice(parts)
                     result[key] = rhs
                     keep_going = True
                 else:
@@ -1145,7 +1150,7 @@ class ItemSet(UserDict,RegisterableObject):
                         # They can only lead to redundant reductions, and sometimes useless
                         # conflicts.
                         continue
-                    candidate = Item(B,B_prod,0)
+                    candidate = grammar.MakeItem(B,B_prod,0)
                     if candidate not in self:
                         self[candidate] = LookaheadSet(afterB_lookahead)
                         dirty_dict[candidate] = self[candidate]
@@ -1209,7 +1214,7 @@ class ItemSet(UserDict,RegisterableObject):
         for X, list_of_items in partition.items():
             collected_x_items = dict()
             for i in list_of_items:
-                advanced_item = Item(i.lhs, i.rule, i.position+1)
+                advanced_item = grammar.MakeItem(i.lhs, i.rule, i.position+1)
                 # Map to the same lookahead set. Needed for closure
                 collected_x_items[advanced_item] = self[i]
             x_item_set = ItemSet(collected_x_items).close(grammar)
@@ -1393,8 +1398,12 @@ class Grammar:
         result = Symbol(content,reg=self)
         return result
 
+    def MakeItem(self,lhs,rule,position):
+        result = Item(lhs,rule,position,reg=self)
+        return result
+
     def canonicalize(self):
-        self.rules = canonicalize_grammar(self.rules,self.empty)
+        self.rules = canonicalize_grammar(self,self.empty)
 
     def compute_first(self):
         compute_first_sets(self, self.rules)
@@ -1407,6 +1416,7 @@ class Grammar:
         Emits the internal representation of the grammar to stdout
         """
         dump_grammar(self.rules)
+        print(self.registry)
 
     def pretty_str(self):
         """
@@ -1514,7 +1524,7 @@ class Grammar:
         # The root item is the one representing the entire language.
         # Since the grammar is in canonical form, it's a Choice over a
         # single sequence.
-        root_item = Item(LANGUAGE, self.rules[LANGUAGE][0],0)
+        root_item = self.MakeItem(LANGUAGE, self.rules[LANGUAGE][0],0)
 
         # An ItemSet can be found by any of the items in its core.
         # Within an ItemSet, an item maps to its lookahead set.
@@ -1561,7 +1571,7 @@ class Grammar:
         # Mapping from a core index to an already-discovered item set.
         by_index = dict()
 
-        root_item = Item(LANGUAGE, self.rules[LANGUAGE][0],0)
+        root_item = self.MakeItem(LANGUAGE, self.rules[LANGUAGE][0],0)
 
         # An ItemSet can be found by any of the items in its core.
         # Within an ItemSet, an item maps to its lookahead set.
