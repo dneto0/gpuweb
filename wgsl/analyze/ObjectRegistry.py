@@ -35,6 +35,7 @@
 import json
 import functools
 
+@functools.total_ordering
 class RegisterableObject:
     """
     A RegisterableObject can be registered in an ObjectRegistry.
@@ -67,6 +68,28 @@ class RegisterableObject:
         """
         self.reg_registry = reg
         self.reg_index = reg.register(self)
+
+    def __eq__(self,other):
+        if self.reg_index is not None:
+            if isinstance(other,RegisterableObject) and other.reg_index is not None:
+                return self.reg_index == other.reg_index
+            else:
+                return False
+        return self.x__eq__(other)
+
+    def __lt__(self,other):
+        if self.reg_index is not None:
+            if isinstance(other,RegisterableObject) and other.reg_index is not None:
+                return self.reg_index.__lt__(other.reg_index)
+            else:
+                return False
+        return self.x__lt__(other)
+
+    def __hash__(self):
+        if self.reg_index is not None:
+            return self.reg_index.__hash__()
+        return self.x__hash__()
+
 
 class ObjectRegistry:
     def __init__(self):
