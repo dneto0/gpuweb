@@ -47,6 +47,7 @@ class RegisterableObject:
         self.reg_index: a pair of integers unique to values that
              compare as equal to this object.
         self.reg_registry: The registry containing this object.
+        self.reg_str: the string key
     """
     def __init__(self,**kwargs):
         # These fields are populated upon registry
@@ -71,9 +72,13 @@ class ObjectRegistry:
     def __init__(self):
         # Maps a Python class to an index
         self.classes = dict()
-        # Array of dictionaries, where object_map[i] coresponds
-        # to the objects in the i'th class.
-        self.object_map = []
+
+        # Array of dictionary, where object_map_by_str[c] maps
+        # class 'c' object string to an index.
+        self.object_map_by_class_then_str = []
+        # Array of dictionary, where object_map_by_index[(c,i)]
+        # maps to the original object
+        self.object_map_by_index = {}
 
     def register(self,registerable):
         """
@@ -86,27 +91,33 @@ class ObjectRegistry:
             return registerable.reg_index
         if registerable.__class__ in self.classes:
             class_index = self.classes[registerable.__class__]
-            intra_class_map = self.object_map[class_index]
+            intra_class_map = self.object_map_by_class_then_str[class_index]
         else:
-            class_index = len(self.object_map)
+            class_index = len(self.object_map_by_class_then_str)
             self.classes[registerable.__class__] = class_index
             intra_class_map = dict()
-            self.object_map.append(intra_class_map)
+            self.object_map_by_class_then_str.append(intra_class_map)
         lookup_str = registerable.string_internal()
         if lookup_str in intra_class_map:
             return (class_index,intra_class_map[lookup_str])
         registerable.reg_str = lookup_str
         intra_class_index = len(intra_class_map)
+        result = (class_index,intra_class_index)
         intra_class_map[lookup_str] = intra_class_index
-        #print(" register {} {} <- {}".format(class_index,intra_class_index,lookup_str))
+        self.object_map_by_index[result] = registerable
         return (class_index,intra_class_index)
+
+    def reg_find(self,registerable):
+        assert isinstance(registerable,RegisterableObject)
+        index = self.register(registerable)
+        return self.object_map_by_index[index]
 
     def __str__(self):
         parts = []
         parts.append("<ObjectRegistry>\n")
         for c, i in self.classes.items():
             parts.append(" {} {}\n".format(c.__name__,i))
-            for o, j in self.object_map[i].items():
+            for o, j in self.object_map_then_str[i].items():
                 parts.append("   {} {}\n".format(j,o))
         parts.append("</ObjectRegistry>\n")
         return "".join(parts)
