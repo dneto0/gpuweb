@@ -40,7 +40,7 @@ Represent and process a grammar:
 - Verify a language is LALR(1) with context-sensitive lookahead
 
 - WIP: hash and eq by integer-base tuples only
-   - TODO: Remove last bare creation of Symbol
+   - TODO: Remove last bare creation of Symbol, in Item.__init__
 """
 
 import json
@@ -201,7 +201,6 @@ class Rule(RegisterableObject):
         return self.string_internal()
 
 
-@functools.total_ordering
 class ContainerRule(Rule):
     """A ContainerRule is a rule with children"""
     def __init__(self,children,**kwargs):
@@ -211,7 +210,7 @@ class ContainerRule(Rule):
     def ordered(self):
         return self.ordered_children if ('ordered_children' in dir(self)) else self.children
 
-    def __eq__(self,other):
+    def x__eq__(self,other):
         if not isinstance(other, self.__class__):
             return False
         if len(self.children) is not len(other.children):
@@ -220,7 +219,7 @@ class ContainerRule(Rule):
         theirs = other.ordered()
         return all([(ours[i] == theirs[i]) for i in range(len(ours))])
 
-    def __lt__(self,other):
+    def x__lt__(self,other):
         # Order by class
         if self._class_less(other):
             return True
@@ -235,7 +234,7 @@ class ContainerRule(Rule):
                 return False
         return len(ours) < len(theirs)
 
-    def __hash__(self):
+    def x__hash__(self):
         return str(self).__hash__()
 
     # Emulate an indexable sequence by adding certain standard methods:
@@ -276,13 +275,13 @@ class LeafRule(Rule):
         self.hash = str(self).__hash__()
         self.register_conditionally(**kwargs)
 
-    def __eq__(self,other):
+    def x__eq__(self,other):
         return isinstance(other, self.__class__) and (self.content == other.content)
 
-    def __hash__(self):
+    def x__hash__(self):
         return self.hash
 
-    def __lt__(self,other):
+    def x__lt__(self,other):
         # Order by class
         if self._class_less(other):
             return True
@@ -573,7 +572,6 @@ def json_hook(grammar,memo,tokens_only,dct):
     result = dct
     if "type" in dct:
         if  dct["type"] == "TOKEN":
-            # Return the content itself. Don't wrap it.
             result = dct["content"]
         elif  dct["type"] == "STRING":
             result = memoize(memo,dct["value"],grammar.MakeFixed(dct["value"]))
@@ -1376,31 +1374,31 @@ class Grammar:
 
     def MakeFixed(self,content):
         result = Fixed(content,reg=self)
-        return result
+        return self.reg_find(result)
 
     def MakePattern(self,content):
         result = Pattern(content,reg=self)
-        return result
+        return self.reg_find(result)
 
     def MakeChoice(self,content):
         result = Choice(content,reg=self)
-        return result
+        return self.reg_find(result)
 
     def MakeSeq(self,content):
         result = Seq(content,reg=self)
-        return result
+        return self.reg_find(result)
 
     def MakeRepeat1(self,content):
         result = Repeat1(content,reg=self)
-        return result
+        return self.reg_find(result)
 
     def MakeSymbol(self,content):
         result = Symbol(content,reg=self)
-        return result
+        return self.reg_find(result)
 
     def MakeItem(self,lhs,rule,position):
         result = Item(lhs,rule,position,reg=self)
-        return result
+        return self.reg_find(result)
 
     def canonicalize(self):
         self.rules = canonicalize_grammar(self,self.empty)
@@ -1463,6 +1461,14 @@ class Grammar:
         Register an object to give it a unique integer-based key
         """
         return self.registry.register(registerable)
+
+    def reg_find(self,registerable):
+        """
+        Find the first registered object equal to the given one.
+        """
+        result = self.registry.reg_find(registerable)
+        assert result is not None
+        return result
 
     def LL1(self):
         """
