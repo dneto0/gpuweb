@@ -571,23 +571,25 @@ def json_hook(grammar,memo,tokens_only,dct):
 
     result = dct
     if "type" in dct:
-        if  dct["type"] == "TOKEN":
-            result = dct["content"]
-        elif  dct["type"] == "STRING":
-            result = memoize(memo,dct["value"],grammar.MakeFixed(dct["value"]))
-        elif  dct["type"] == "PATTERN":
-            result = memoize(memo,dct["value"],grammar.MakePattern(dct["value"]))
-        elif not tokens_only:
-            if  dct["type"] == "BLANK":
-                result = grammar.empty
-            elif  dct["type"] == "CHOICE":
-                result = grammar.MakeChoice(dct["members"])
-            elif  dct["type"] == "SEQ":
-                result = grammar.MakeSeq(dct["members"])
-            elif  dct["type"] == "REPEAT1":
-                result = grammar.MakeRepeat1([dct["content"]])
-            elif  dct["type"] == "SYMBOL":
-                result = memoize(memo,dct["name"],grammar.MakeSymbol(dct["name"]))
+        type_entry = dct["type"]
+        if isinstance(type_entry,str):
+            if  type_entry == "TOKEN":
+                result = dct["content"]
+            elif  type_entry == "STRING":
+                result = memoize(memo,dct["value"],grammar.MakeFixed(dct["value"]))
+            elif  type_entry == "PATTERN":
+                result = memoize(memo,dct["value"],grammar.MakePattern(dct["value"]))
+            elif not tokens_only:
+                if  type_entry == "BLANK":
+                    result = grammar.empty
+                elif  type_entry == "CHOICE":
+                    result = grammar.MakeChoice(dct["members"])
+                elif  type_entry == "SEQ":
+                    result = grammar.MakeSeq(dct["members"])
+                elif  type_entry == "REPEAT1":
+                    result = grammar.MakeRepeat1([dct["content"]])
+                elif  type_entry == "SYMBOL":
+                    result = memoize(memo,dct["name"],grammar.MakeSymbol(dct["name"]))
     return result
 
 def canonicalize_grammar(grammar,empty):
