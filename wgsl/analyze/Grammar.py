@@ -1375,32 +1375,25 @@ class Grammar:
         self.rules[LANGUAGE] = self.MakeSeq([self.MakeSymbol(start_symbol), self.end_of_text])
 
     def MakeFixed(self,content):
-        result = Fixed(content,reg=self)
-        return self.reg_find(result)
+        return self.register(Fixed(content,reg=self))
 
     def MakePattern(self,content):
-        result = Pattern(content,reg=self)
-        return self.reg_find(result)
+        return self.register(Pattern(content,reg=self))
 
     def MakeChoice(self,content):
-        result = Choice(content,reg=self)
-        return self.reg_find(result)
+        return self.register(Choice(content,reg=self))
 
     def MakeSeq(self,content):
-        result = Seq(content,reg=self)
-        return self.reg_find(result)
+        return self.register(Seq(content,reg=self))
 
     def MakeRepeat1(self,content):
-        result = Repeat1(content,reg=self)
-        return self.reg_find(result)
+        return self.register(Repeat1(content,reg=self))
 
     def MakeSymbol(self,content):
-        result = Symbol(content,reg=self)
-        return self.reg_find(result)
+        return self.register(Symbol(content,reg=self))
 
     def MakeItem(self,lhs,rule,position):
-        result = Item(lhs,rule,position,reg=self)
-        return self.reg_find(result)
+        return self.register(Item(lhs,rule,position,reg=self))
 
     def canonicalize(self):
         self.rules = canonicalize_grammar(self,self.empty)
@@ -1460,17 +1453,10 @@ class Grammar:
 
     def register(self,registerable):
         """
-        Register an object to give it a unique integer-based key
+        Register an object to give it a unique integer-based key.
+        Return the first object registered with its key.
         """
         return self.registry.register(registerable)
-
-    def reg_find(self,registerable):
-        """
-        Find the first registered object equal to the given one.
-        """
-        result = self.registry.reg_find(registerable)
-        assert result is not None
-        return result
 
     def LL1(self):
         """

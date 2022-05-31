@@ -35,6 +35,25 @@
 import json
 import functools
 
+class RegistryInfo:
+    """
+    Info tracked for a registered object
+    """
+    def __init__(self,registry,obj,index,unique_str):
+        # The ObjectRegistry managing this object
+        self.registry = registry
+        # The first equivalent registered object
+        self.obj = obj
+        # The unique integer index for this object, in the context of the registry
+        self.index = index
+        # The string that distinguishes the registered object from all others
+        # in the registry
+        self.str = unique_str
+
+    def __eq__(self,other):
+        return (self.index == other.index) and (self.registry == other.registry)
+
+
 @functools.total_ordering
 class RegisterableObject:
     """
@@ -44,18 +63,12 @@ class RegisterableObject:
     a string that is unique to objects that compare as equal to
     this object.
 
-    It has two fields:
-        self.reg_index: a pair of integers unique to values that
-             compare as equal to this object.
-        self.reg_registry: The registry containing this object.
-        self.reg_str: the string key
+    It has a reg_info object.
     """
     def __init__(self,**kwargs):
-        # These fields are populated upon registry
-        self.reg_index = None
-        self.reg_registry = None
-        self.reg_str = None
         assert 'string_internal' in dir(self)
+        # The fields are populated when this object is registered.
+        self.reg_info = RegistryInfo(None,None,None,None)
 
     def register_conditionally(self,**kwargs):
         if 'reg' in kwargs:
@@ -66,81 +79,75 @@ class RegisterableObject:
         """
         The object must be able to used as a key in a dictionary.
         """
-        self.reg_registry = reg
-        self.reg_index = reg.register(self)
+        reg.register(self)
 
     def __eq__(self,other):
-        if self.reg_index is not None:
-            if isinstance(other,RegisterableObject) and other.reg_index is not None:
-                return self.reg_index == other.reg_index
+        if self.reg_info.index is not None:
+            if isinstance(other,RegisterableObject) and other.reg_info.index is not None:
+                return self.reg_info == other.reg_info
             else:
                 return False
         return self.x__eq__(other)
 
     def __lt__(self,other):
-        if self.reg_index is not None:
-            if isinstance(other,RegisterableObject) and other.reg_index is not None:
-                return self.reg_index.__lt__(other.reg_index)
+        if self.reg_info.index is not None:
+            if isinstance(other,RegisterableObject) and other.reg_info.index is not None:
+                return self.reg_info.index < other.reg_info.index
             else:
                 return False
         return self.x__lt__(other)
 
     def __hash__(self):
-        if self.reg_index is not None:
-            return self.reg_index.__hash__()
+        if self.reg_info.index is not None:
+            return self.reg_info.index.__hash__()
         return self.x__hash__()
 
 
 class ObjectRegistry:
-    def __init__(self):
-        # Maps a Python class to an index
-        self.classes = dict()
+    """
+    An ObjectRegistry maintains a unique index for unique objects,
+    where uniqueness for an object is determined by the pair:
+        (object.__class__, object.string_internal())
+    """
 
-        # Array of dictionary, where object_map_by_str[c] maps
-        # class 'c' object string to an index.
-        self.object_map_by_class_then_str = []
-        # Array of dictionary, where object_map_by_index[(c,i)]
-        # maps to the original object
-        self.object_map_by_index = {}
+    def __init__(self):
+        # Maps an object unique string to a pair:
+        #  (unique index,
+        #   first regsitered object with that unique string)
+        self.str_to_object = dict()
 
     def register(self,registerable):
         """
         Registers an indexable object.
-        Returns a pair of integers, uniquely identifying objects like this.
-        """
-        assert isinstance(registerable,RegisterableObject)
-        if registerable.reg_index is not None:
-            # Assume immutability after it's been registered once.
-            return registerable.reg_index
-        if registerable.__class__ in self.classes:
-            class_index = self.classes[registerable.__class__]
-            intra_class_map = self.object_map_by_class_then_str[class_index]
-        else:
-            class_index = len(self.object_map_by_class_then_str)
-            self.classes[registerable.__class__] = class_index
-            intra_class_map = dict()
-            self.object_map_by_class_then_str.append(intra_class_map)
-        lookup_str = registerable.string_internal()
-        if lookup_str in intra_class_map:
-            return (class_index,intra_class_map[lookup_str])
-        registerable.reg_str = lookup_str
-        intra_class_index = len(intra_class_map)
-        result = (class_index,intra_class_index)
-        intra_class_map[lookup_str] = intra_class_index
-        self.object_map_by_index[result] = registerable
-        return (class_index,intra_class_index)
 
-    def reg_find(self,registerable):
-        assert isinstance(registerable,RegisterableObject)
-        index = self.register(registerable)
-        return self.object_map_by_index[index]
+        Returns:
+            The first object registered that compares as equal.
+            If this object is the first such one, then it also
+            populates the object's reg_info field.
+        """
+        assert 'reg_info' in dir(registerable)
+        assert registerable.reg_info is not None
+        if registerable.reg_info.index is not None:
+            # Assume immutability after it's been registered once.
+            assert registerable.reg_info.registry is self
+            assert registerable.reg_info.str is not None
+            return registerable.reg_info.obj
+
+        lookup_str = "{} {}".format(registerable.__class__.__name__,registerable.string_internal())
+
+        if lookup_str in self.str_to_object:
+            return self.str_to_object[lookup_str]
+        registerable.reg_info = RegistryInfo(self, registerable, len(self.str_to_object), lookup_str)
+        self.str_to_object[lookup_str] = registerable
+        return registerable
 
     def __str__(self):
+        def sort_key(registerable):
+            return registerable.reg_info.index
+        objects = sorted(self.str_to_object.values(), key = lambda o: o.reg_info.index)
         parts = []
         parts.append("<ObjectRegistry>\n")
-        for c, i in self.classes.items():
-            parts.append(" {} {}\n".format(c.__name__,i))
-            for o, j in self.object_map_then_str[i].items():
-                parts.append("   {} {}\n".format(j,o))
+        for o in objects:
+            parts.append(" {} {}\n".format(o.reg_info.index, o.reg_info.str))
         parts.append("</ObjectRegistry>\n")
         return "".join(parts)
