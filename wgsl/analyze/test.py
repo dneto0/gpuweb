@@ -1586,7 +1586,10 @@ class Grammar_registers_objects(unittest.TestCase):
     def test_star(self):
         g = Grammar.Grammar.Load(STAR_GRAMMAR,'s')
         at = g.find('at')
-        self.assertEqual(at.reg_index,(2,0))
+        self.assertEqual(at.reg_info.registry, g.registry)
+        self.assertEqual(at.reg_info.obj, at)
+        self.assertEqual(at.reg_info.str, "Fixed '@'")
+        self.assertEqual(at.reg_info.index, 2)
 
 if __name__ == '__main__':
 	unittest.main()
