@@ -998,7 +998,7 @@ class LookaheadSet(set):
 
 
 @functools.total_ordering
-class ItemSet(UserDict,RegisterableObject):
+class ItemSet(UserDict):
     """
     An ItemSet is an LR(1) set of Items, where each item maps to its lookahead set.
 
@@ -1008,6 +1008,7 @@ class ItemSet(UserDict,RegisterableObject):
     """
     def __init__(self,*args):
         super().__init__(*args)
+        self.data = dict(*args)
         # self.core_index is the unique index within the grammar for the core of this
         # item set.  Well defined only after calling the close() method.
         self.core_index = None
@@ -1054,7 +1055,7 @@ class ItemSet(UserDict,RegisterableObject):
         return "{}{}".format(prefix,self.content_str())
 
     def copy(self):
-        result = ItemSet(super().copy())
+        result = ItemSet(self.data.copy())
         result.core_index = self.core_index
         return result
 
@@ -1076,16 +1077,16 @@ class ItemSet(UserDict,RegisterableObject):
 
     def merge(self, other):
         """
-        Adds the lookeaheads from the other ItemSet to self.
+        Adds the lookaheads from the other ItemSet to self.
         Assumes the other ItemSet has the same items as self.
 
         Returns: True when something new was added to the current set.
         """
         result = False
         for item, lookahead in self.data.items():
-            if item not in other:
+            if item not in other.data:
                 raise RuntimeError("item {} missing from other: {}".format(str(item), str(other)))
-            result = result | lookahead.merge(other[item])
+            result = result | lookahead.merge(other.data[item])
         return result
 
     def close(self,grammar):
@@ -1108,7 +1109,7 @@ class ItemSet(UserDict,RegisterableObject):
         def lookup(rule):
             return grammar.rules[rule.content] if isinstance(rule,Symbol) else rule
 
-        dirty_dict = self.copy()
+        dirty_dict = self.data.copy()
         while len(dirty_dict) > 0:
             # From the dragon book, 1st ed. 4.38 Sets of LR(1) items construction.
             #
