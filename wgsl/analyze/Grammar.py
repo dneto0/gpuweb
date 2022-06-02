@@ -1062,7 +1062,7 @@ class ItemSet(UserDict,RegisterableObject):
         """
         Returns a copy of this item set, but only with kernel items, and with empty lookaheads.
         """
-        return ItemSet({i:[] for i in filter(lambda x: x.is_kernel(), self.keys())})
+        return ItemSet({i:[] for i in filter(lambda x: x.is_kernel(), self.data.keys())})
 
     def is_accepting(self):
         """
@@ -1151,12 +1151,12 @@ class ItemSet(UserDict,RegisterableObject):
                         # conflicts.
                         continue
                     candidate = grammar.MakeItem(B,B_prod,0)
-                    if candidate not in self:
-                        self[candidate] = LookaheadSet(afterB_lookahead)
-                        dirty_dict[candidate] = self[candidate]
+                    if candidate not in self.data:
+                        self.data[candidate] = LookaheadSet(afterB_lookahead)
+                        dirty_dict[candidate] = self.data[candidate]
                     else:
-                        if self[candidate].merge(afterB_lookahead):
-                            dirty_dict[candidate] = self[candidate]
+                        if self.data[candidate].merge(afterB_lookahead):
+                            dirty_dict[candidate] = self.data[candidate]
         self.core_index = grammar.register_item_set(self)
         return self
 
@@ -1199,7 +1199,7 @@ class ItemSet(UserDict,RegisterableObject):
         # Partition items according to the next symbol to be consumed, X,
         # i.e. the symbol immediately to the right of the dot.
         partition = dict()
-        for item in self:
+        for item in self.data:
             if item.at_end():
                 continue
             X = item.items[item.position]
@@ -1216,7 +1216,7 @@ class ItemSet(UserDict,RegisterableObject):
             for i in list_of_items:
                 advanced_item = grammar.MakeItem(i.lhs, i.rule, i.position+1)
                 # Map to the same lookahead set. Needed for closure
-                collected_x_items[advanced_item] = self[i]
+                collected_x_items[advanced_item] = self.data[i]
             x_item_set = ItemSet(collected_x_items).close(grammar)
 
             if memo is not None:
