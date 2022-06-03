@@ -45,7 +45,6 @@ Represent and process a grammar:
 
 import json
 import functools
-from collections import UserDict
 from ObjectRegistry import RegisterableObject, ObjectRegistry
 
 EPSILON = u"\u03b5"
@@ -998,7 +997,7 @@ class LookaheadSet(set):
 
 
 @functools.total_ordering
-class ItemSet(UserDict):
+class ItemSet:
     """
     An ItemSet is an LR(1) set of Items, where each item maps to its lookahead set.
 
@@ -1007,7 +1006,6 @@ class ItemSet(UserDict):
         - merge, which can only change lookaheads, but not the items
     """
     def __init__(self,*args):
-        super().__init__(*args)
         self.data = dict(*args)
         # self.core_index is the unique index within the grammar for the core of this
         # item set.  Well defined only after calling the close() method.
@@ -1044,10 +1042,16 @@ class ItemSet(UserDict):
     # Methods affecting ordering and equality checks should not be affected by
     # a cached index that may be updated later
     def __lt__(self,other):
+        # TODO: Make this faster
         return self.content_str() < other.content_str()
 
     def __hash__(self):
+        # TODO: Make this faster
         return self.content_str().__hash__()
+
+    def __eq__(self,other):
+        # TODO: Make this faster
+        return self.content_str() == other.content_str()
 
     def pretty_key(self):
         # Use this for sorting for output
@@ -1058,6 +1062,16 @@ class ItemSet(UserDict):
         result = ItemSet(self.data.copy())
         result.core_index = self.core_index
         return result
+
+    # Make sure we don't use ItemSet as a raw dictionary
+    def keys(self):
+        raise RuntimeError("don't call keys on ItemSet")
+    def __getitem__(self,*args):
+        raise RuntimeError("don't call __getitem__ on ItemSet")
+    def __setitem__(self,*args):
+        raise RuntimeError("don't call __setitem__ on ItemSet")
+    def __delitem__(self,*args):
+        raise RuntimeError("don't call __delitem__ on ItemSet")
 
     def kernel_core(self):
         """
