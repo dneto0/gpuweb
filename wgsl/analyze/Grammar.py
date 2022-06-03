@@ -1006,6 +1006,7 @@ class ItemSet:
         - merge, which can only change lookaheads, but not the items
     """
     def __init__(self,*args):
+        # Mapping from item to its lookahead set.
         self.data = dict(*args)
         # self.core_index is the unique index within the grammar for the core of this
         # item set.  Well defined only after calling the close() method.
@@ -1073,11 +1074,12 @@ class ItemSet:
     def __delitem__(self,*args):
         raise RuntimeError("don't call __delitem__ on ItemSet")
 
-    def kernel_core(self):
+    def kernel_item_ids(self):
         """
-        Returns a copy of this item set, but only with kernel items, and with empty lookaheads.
+        Returns a set of IDs for the kernel items in this itemset.  This ignores the lookaheads.
         """
-        return ItemSet({i:[] for i in filter(lambda x: x.is_kernel(), self.data.keys())})
+        # Assume all items have been registered, and so they have a unique ID.
+        return frozenset({i.reg_info.index for i in filter(lambda x: x.is_kernel(), self.data.keys())})
 
     def is_accepting(self):
         """
@@ -1122,6 +1124,8 @@ class ItemSet:
         """
         def lookup(rule):
             return grammar.rules[rule.content] if isinstance(rule,Symbol) else rule
+
+        self.core_index = grammar.register_item_set(self)
 
         dirty_dict = self.data.copy()
         while len(dirty_dict) > 0:
@@ -1172,7 +1176,6 @@ class ItemSet:
                     else:
                         if self.data[candidate].merge(afterB_lookahead):
                             dirty_dict[candidate] = self.data[candidate]
-        self.core_index = grammar.register_item_set(self)
         return self
 
     def gotos(self,grammar,memo=None):
@@ -1458,7 +1461,7 @@ class Grammar:
         Returns its index.
         """
         assert isinstance(item_set,ItemSet)
-        core = item_set.kernel_core()
+        core = item_set.kernel_item_ids()
         if core in self.item_set_core_index:
             return self.item_set_core_index[core]
         # Register it
