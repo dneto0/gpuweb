@@ -35,7 +35,7 @@ lalr: $(ANALYZER) $(WGSL_GRAMMAR)
 # Unit tests for the grammar analyzer
 .PHONY: analyze_test
 analyze_test: $(ANALYZER)
-	python3 analyze/test.py
+	python3 analyze/test.py 2>&1
 
 # Profile generation
 .PHONY: profile
