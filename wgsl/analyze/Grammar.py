@@ -1217,19 +1217,23 @@ class ItemSet:
         # Partition items according to the next symbol to be consumed, X,
         # i.e. the symbol immediately to the right of the dot.
         partition = dict()
+        # Map an object ID to its nonterminal
+        nonterminal_by_id = dict()
         for item in self.data:
             if item.at_end():
                 continue
             X = item.items[item.position]
+            xid = X.reg_info.index
             if X == grammar.end_of_text:
                 continue
             if X not in partition:
-                partition[X] = []
-            partition[X].append(item)
+                partition[xid] = []
+                nonterminal_by_id[xid] = X
+            partition[xid].append(item)
 
         # Now make a list of item sets from the partitions.
         goto_list = []
-        for X, list_of_items in partition.items():
+        for xid, list_of_items in partition.items():
             collected_x_items = dict()
             for i in list_of_items:
                 advanced_item = grammar.MakeItem(i.lhs, i.rule, i.position+1)
@@ -1245,7 +1249,7 @@ class ItemSet:
                 else:
                     changed = True
 
-            goto_list.append((X, x_item_set))
+            goto_list.append((nonterminal_by_id[xid], x_item_set))
 
         return (changed,goto_list)
 
