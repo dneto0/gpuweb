@@ -1007,10 +1007,26 @@ class ItemSet:
     """
     def __init__(self,*args):
         # Mapping from item to its lookahead set.
+        # TODO: Use item object index instead of the item itself.
         self.data = dict(*args)
+
         # self.core_index is the unique index within the grammar for the core of this
         # item set.  Well defined only after calling the close() method.
         self.core_index = None
+
+        # In the LALR1 case, this is the goto function for this ItemSet.
+        # It maps a the object ID for nonterminal X to its corresponding ItemSet items_for_X.
+        # See gotos() for what the X -> ItemSet mapping means.
+        # This is populated by gotos()
+        self.goto = None
+
+        # Populated by gotos()
+        # When [ A -> alpha . X beta, ...] is one of items, then this
+        # the item appears in the list keyed by X's object index
+        self.nonterminal_partition = None
+        # Maps an object index to its nonterminal, when the index appears
+        # in nonterminal_partition
+        self.nonterminal_by_id = None
 
     def as_ordered_parts(self):
         # For readability, put the kernel parts first
@@ -1216,41 +1232,50 @@ class ItemSet:
 
         # Partition items according to the next symbol to be consumed, X,
         # i.e. the symbol immediately to the right of the dot.
-        partition = dict()
-        # Map an object ID to its nonterminal
-        nonterminal_by_id = dict()
-        for item in self.data:
-            if item.at_end():
-                continue
-            X = item.items[item.position]
-            xid = X.reg_info.index
-            if X == grammar.end_of_text:
-                continue
-            if X not in partition:
-                partition[xid] = []
-                nonterminal_by_id[xid] = X
-            partition[xid].append(item)
+        if self.nonterminal_partition is None:
+            # Map an object ID to a list of the items that have X immediately
+            # after the dot.
+            self.nonterminal_partition = dict()
+            # Map an object ID to its nonterminal
+            self.nonterminal_by_id = dict()
+            for item in self.data:
+                if item.at_end():
+                    continue
+                X = item.items[item.position]
+                if X == grammar.end_of_text:
+                    continue
+                xid = X.reg_info.index
+                if xid not in self.nonterminal_partition:
+                    self.nonterminal_partition[xid] = []
+                    self.nonterminal_by_id[xid] = X
+                self.nonterminal_partition[xid].append(item)
 
         # Now make a list of item sets from the partitions.
-        goto_list = []
-        for xid, list_of_items in partition.items():
-            collected_x_items = dict()
-            for i in list_of_items:
-                advanced_item = grammar.MakeItem(i.lhs, i.rule, i.position+1)
-                # Map to the same lookahead set. Needed for closure
-                collected_x_items[advanced_item] = self.data[i]
-            x_item_set = ItemSet(collected_x_items).close(grammar)
+        if self.goto is None:
+            self.goto = dict()
+            # Create and save the goto function the first time around.
+            for xid, list_of_items in self.nonterminal_partition.items():
+                collected_x_items = dict()
+                for i in list_of_items:
+                    advanced_item = grammar.MakeItem(i.lhs, i.rule, i.position+1)
+                    # Map to the same lookahead set. Needed for closure
+                    collected_x_items[advanced_item] = self.data[i]
+                x_item_set = ItemSet(collected_x_items).close(grammar)
+                self.goto[xid] = x_item_set
+            changed = True
 
-            if by_index_memo is not None:
+        if by_index_memo is not None:
+            # Propagate lookaheads from our own items to items in the next ItemSets
+            for xid, x_item_set in self.goto.items():
                 if x_item_set.core_index in by_index_memo:
                     original_item_set = by_index_memo[x_item_set.core_index]
                     changed = changed | original_item_set.merge(x_item_set)
                     x_item_set = original_item_set
-                else:
-                    changed = True
+                    self.goto[xid] = x_item_set
 
-            goto_list.append((nonterminal_by_id[xid], x_item_set))
-
+        goto_list = []
+        for xid, x_item_set in self.goto.items():
+            goto_list.append((self.nonterminal_by_id[xid], x_item_set))
         return (changed,goto_list)
 
 class ParseTable:
