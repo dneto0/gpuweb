@@ -1043,15 +1043,15 @@ class ItemSet:
     # Methods affecting ordering and equality checks should not be affected by
     # a cached index that may be updated later
     def __lt__(self,other):
-        # TODO: Make this faster
+        # TODO: These are slow. Only use this in unit tests and LR1, not in LALR1.
         return self.content_str() < other.content_str()
 
     def __hash__(self):
-        # TODO: Make this faster
+        # TODO: These are slow. Only use this in unit tests and LR1, not in LALR1.
         return self.content_str().__hash__()
 
     def __eq__(self,other):
-        # TODO: Make this faster
+        # TODO: These are slow. Only use this in unit tests and LR1, not in LALR1.
         return self.content_str() == other.content_str()
 
     def pretty_key(self):
@@ -1591,7 +1591,8 @@ class Grammar:
         root_item_set = ItemSet({root_item: LookaheadSet({self.end_of_text})}).close(self)
         by_index[root_item_set.core_index] = root_item_set
 
-        LALR1_item_sets_result = set({root_item_set})
+        # TODO: Track item set IDs, instead.
+        LALR1_item_sets_result = set({root_item_set.core_index})
 
         dirty_set = LALR1_item_sets_result.copy()
         keep_going = True
@@ -1606,18 +1607,20 @@ class Grammar:
             # Sort the work list so we get deterministic ordering, and therefore
             # deterministic itemset core numbering.
             # Go backwards to try to explore the most recently changed items first.
-            work_list = sorted(LALR1_item_sets_result, key=ItemSet.pretty_key, reverse=True)
-            for item_set in work_list:
+            work_list = sorted(LALR1_item_sets_result, reverse=True)
+            for core_index in work_list:
+                item_set = by_index[core_index]
                 (changed,gotos) = item_set.gotos(self,memo=by_index)
                 keep_going = keep_going | changed
                 for (X, item_set_for_X) in gotos:
                     if item_set_for_X.core_index not in by_index:
-                        LALR1_item_sets_result.add(item_set_for_X)
+                        LALR1_item_sets_result.add(item_set_for_X.core_index)
                         by_index[item_set_for_X.core_index] = item_set_for_X
-                        dirty_set.add(item_set_for_X)
+                        dirty_set.add(item_set_for_X.core_index)
                         keep_going = True
 
-        LALR1_item_sets_result = sorted(LALR1_item_sets_result, key=ItemSet.pretty_key)
+        # Now this is a list of item_sets
+        LALR1_item_sets_result = sorted({by_index[i] for i in LALR1_item_sets_result}, key=ItemSet.pretty_key)
 
         # Part 2. Compute the action table and conflicts.
         # Do this as a second pass because it's conceivable that an item set may
