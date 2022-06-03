@@ -1178,13 +1178,13 @@ class ItemSet:
                             dirty_dict[candidate] = self.data[candidate]
         return self
 
-    def gotos(self,grammar,memo=None):
+    def gotos(self,grammar,by_index_memo=None):
         """
-        Computes the goto set for this item set.
+        Computes the goto mapping for this item set.
 
         Returns a pair (changed,goto_list) where:
             changed is True when
-                memo is not None and new item sets were created or lookaheads were modified.
+                by_index_memo is not None and new item sets were created or lookaheads were modified.
             goto_list is is a list of pairs (X, item_set_X), where:
                 X is a grammar symbol X (terminal or non-terminal), and
                 item_set_X is the closed ItemSet goto(self,X)
@@ -1195,7 +1195,7 @@ class ItemSet:
         Args:
            self
            grammar: The grammar being traversed
-           memo: None, or a dictionary mapping an item-set's core index to the unique
+           by_index_memo: None, or a dictionary mapping an item-set's core index to the unique
               LALR1 item set with that core.
 
         Assumes self is closed.
@@ -1206,9 +1206,9 @@ class ItemSet:
 
         Here X may be a terminal or a nonterminal.
 
-        When memo is None, collect these ISX.
-        When memo is a dictionary mapping an item set's core index to an item set,
-        set ISX to memo[ISX.core_index], i.e. reuse the pre-existing item set
+        When by_index_memo is None, collect these ISX.
+        When by_index_memo is a dictionary mapping an item set's core index to an item set,
+        set ISX to by_index_memo[ISX.core_index], i.e. reuse the pre-existing item set
         with the same core.
 
         """
@@ -1237,9 +1237,9 @@ class ItemSet:
                 collected_x_items[advanced_item] = self.data[i]
             x_item_set = ItemSet(collected_x_items).close(grammar)
 
-            if memo is not None:
-                if x_item_set.core_index in memo:
-                    original_item_set = memo[x_item_set.core_index]
+            if by_index_memo is not None:
+                if x_item_set.core_index in by_index_memo:
+                    original_item_set = by_index_memo[x_item_set.core_index]
                     changed = changed | original_item_set.merge(x_item_set)
                     x_item_set = original_item_set
                 else:
@@ -1591,7 +1591,6 @@ class Grammar:
         root_item_set = ItemSet({root_item: LookaheadSet({self.end_of_text})}).close(self)
         by_index[root_item_set.core_index] = root_item_set
 
-        # TODO: Track item set IDs, instead.
         LALR1_item_sets_result = set({root_item_set.core_index})
 
         dirty_set = LALR1_item_sets_result.copy()
@@ -1610,7 +1609,7 @@ class Grammar:
             work_list = sorted(LALR1_item_sets_result, reverse=True)
             for core_index in work_list:
                 item_set = by_index[core_index]
-                (changed,gotos) = item_set.gotos(self,memo=by_index)
+                (changed,gotos) = item_set.gotos(self,by_index_memo=by_index)
                 keep_going = keep_going | changed
                 for (X, item_set_for_X) in gotos:
                     if item_set_for_X.core_index not in by_index:
@@ -1671,7 +1670,7 @@ class Grammar:
                         addAction(item_set, terminal, make_reduce(item))
 
             # Register Shift actions
-            (_,gotos) = item_set.gotos(self,memo=by_index)
+            (_,gotos) = item_set.gotos(self,by_index_memo=by_index)
             for (X, item_set_for_X) in gotos:
                 if X.is_terminal():
                     # Can't be EndOfText by construction of the goto result
