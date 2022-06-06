@@ -1090,7 +1090,7 @@ class Rule_Less(unittest.TestCase):
         d = g.MakeChoice([g.MakeFixed('a'), Grammar.Empty()])
         self.assertFalse(a < a)
         self.assertFalse(a < a2)
-        self.assertTrue(a > b)
+        self.assertFalse(a > b)
         self.assertTrue(b < a)
         self.assertTrue(a < c)
         self.assertTrue(d < a)
@@ -1105,7 +1105,7 @@ class Rule_Less(unittest.TestCase):
         d = g.MakeSeq([g.MakeFixed('a'), Grammar.Empty()])
         self.assertFalse(a < a)
         self.assertFalse(a < a2)
-        self.assertTrue(a > b)
+        self.assertFalse(a > b)
         self.assertTrue(b < a)
         self.assertTrue(a < c)
         self.assertTrue(d < a)
@@ -1194,7 +1194,7 @@ class Rule_Less(unittest.TestCase):
         self.assertFalse( seq < seq )
 
     def test_Choice_internal_order(self):
-        g = _gl("a",_def("a",_fixed("a")))
+        g = _gl("a",_def("a",_fixed("a")),_def("b",_fixed("b")))
         a1 = g.MakeChoice([g.MakeFixed('a'), g.MakeFixed('b')])
         a2 = g.MakeChoice([g.MakeFixed('b'), g.MakeFixed('a')])
         self.assertTrue(a1 == a2)
