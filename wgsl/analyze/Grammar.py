@@ -138,6 +138,9 @@ class Rule(RegisterableObject):
     def is_token(self):
         return isinstance(self, Token)
 
+    def is_end_of_text(self):
+        return isinstance(self, EndOfText)
+
     def is_terminal(self):
         return isinstance(self, (EndOfText, Token))
 
@@ -1005,34 +1008,102 @@ class ItemSet:
         - close, which can add items and modify lookaheads
         - merge, which can only change lookaheads, but not the items
     """
+    class GotoEdge:
+        """
+        A GotoEdge represents a transition from this ItemSet
+        to another ItemSet.  The transition embodies the state change
+        that occurs when matching a given symbol (terminal or nonterminal)
+
+        For a given source ItemSet, and a given terminal or nonterminal x, the
+        GotoEdge for x contains all [item,lookahead-set] pairs
+        of the form:  [ A -> alpha . x beta, lookahead-set ]
+        """
+        def __init__(self,x):
+            self.x = x
+            # Maps source item ID to (next item, lookahead).
+            # When    [ A -> alpha . x beta ] is the source item,
+            # then    [ A -> alpha x . beta ] is the destination item
+            self.next = dict()
+
+            self.next_item_set_cache = None
+
+        def add(self,item,next_item,lookahead):
+            assert isinstance(item,Item)
+            assert isinstance(next_item,Item)
+            assert isinstance(lookahead,LookaheadSet)
+            assert item.reg_info.index not in self.next
+            self.next[item.reg_info.index] = (next_item, lookahead)
+
+        def NextItemSet(self,grammar,by_index_memo=None):
+            """
+            Lazily creates an ItemSet out of the next_items tracked by this edge.
+            If by_index_memo is not None, then use the previously saved ItemSet with the
+            same core items, and merge the current lookaheads into it.
+
+            Returns a pair (bool,ItemSet)
+               - where the bool is True if something changed
+               - the destination ItemSet when following this edge
+            """
+            changed = False
+            if (self.next_item_set_cache is None) or (by_index_memo is not None):
+                # Create the item set out from the "next" items and associated lookaheads.
+                d = dict()
+                for item_id, next_and_lookahead in self.next.items():
+                    d[next_and_lookahead[0]] = next_and_lookahead[1]
+
+                next_IS = ItemSet(d).close(grammar)
+                if (by_index_memo is None) or (next_ID.core_index not in by_index_memo):
+                    self.next_item_set_cache = next_IS
+                    changed = True
+                else:
+                    original_IS = by_index_memo[next_IS.core_index]
+                    changed = original_IS.merge(next_IS)
+                    self.next_item_set_cache = original_IS
+            return (changed, self.next_item_set_cache)
+
+
     def __init__(self,*args):
         # Mapping from item to its lookahead set.
         # TODO: Use item object index instead of the item itself.
-        self.data = dict(*args)
+        #self.data = dict(*args)
+
+        # Maps item ID to item
+        self.id_to_item = dict()
+        # Maps item ID to its lookahead
+        self.id_to_lookahead = dict()
+        for item, lookahead in dict(*args).items():
+            self.internal_add(item, lookahead)
+
+        # We always expect every initial item to be a kernel item. But filter anyway
+        self.kernel_ids = frozenset(filter(lambda x: x.is_kernel(), self.id_to_item.values()))
 
         # self.core_index is the unique index within the grammar for the core of this
         # item set.  Well defined only after calling the close() method.
         self.core_index = None
 
         # In the LALR1 case, this is the goto function for this ItemSet.
-        # It maps a the object ID for nonterminal X to its corresponding ItemSet items_for_X.
-        # See gotos() for what the X -> ItemSet mapping means.
-        # This is populated by gotos()
-        self.goto = None
+        # Maps the ID of a nonterminal X to its GotoEdge.
+        self.goto = dict()
 
-        # Populated by gotos()
-        # When [ A -> alpha . X beta, ...] is one of items, then this
-        # the item appears in the list keyed by X's object index
-        self.nonterminal_partition = None
-        # Maps an object index to its nonterminal, when the index appears
-        # in nonterminal_partition
-        self.nonterminal_by_id = None
+    def internal_add(self,item,lookahead):
+        """
+        Adds an item-to-lookahead mapping.
+        """
+        assert isinstance(item, Item)
+        assert isinstance(lookahead, LookaheadSet)
+        index = item.reg_info.index
+        assert isinstance(index,int)
+        #print(" {}  {} ".format(str(index),index.__class__.__name__))
+        assert index not in self.id_to_item
+        self.id_to_item[index] = item
+        self.id_to_lookahead[index] = lookahead
 
     def as_ordered_parts(self):
         # For readability, put the kernel parts first
         kernel_parts = []
         non_kernel_parts = []
-        for item, lookahead in self.data.items():
+        for item_id, lookahead in self.id_to_lookahead.items():
+            item = self.id_to_item[item_id]
             the_str = "{} : {}".format(str(item), str(lookahead))
             if item.is_kernel():
                 kernel_parts.append(the_str)
@@ -1076,9 +1147,7 @@ class ItemSet:
         return "{}{}".format(prefix,self.content_str())
 
     def copy(self):
-        result = ItemSet(self.data.copy())
-        result.core_index = self.core_index
-        return result
+        raise RuntimeError("don't run copy")
 
     # Make sure we don't use ItemSet as a raw dictionary
     def keys(self):
@@ -1094,16 +1163,17 @@ class ItemSet:
         """
         Returns a set of IDs for the kernel items in this itemset.  This ignores the lookaheads.
         """
-        # Assume all items have been registered, and so they have a unique ID.
-        return frozenset({i.reg_info.index for i in filter(lambda x: x.is_kernel(), self.data.keys())})
+        return self.kernel_ids
 
     def is_accepting(self):
         """
         Returns True if the parser action for this item set should be 'accept'.
         """
-        for item, lookahead in self.data.items():
-            if lookahead.includesEndOfText() and item.is_accepting():
-                return True
+        for item_id, lookahead in self.id_to_lookahead.items():
+            if lookahead.includesEndOfText():
+                item = self.id_to_item[item_id]
+                if item.is_accepting():
+                    return True
         return False
 
 
@@ -1114,12 +1184,17 @@ class ItemSet:
 
         Returns: True when something new was added to the current set.
         """
+        raise error
         result = False
-        for item, lookahead in self.data.items():
-            if item not in other.data:
-                raise RuntimeError("item {} missing from other: {}".format(str(item), str(other)))
-            result = result | lookahead.merge(other.data[item])
+        for item_id, lookahead in self.id_to_lookahead.items():
+            if item_id not in other.id_to_lookeahead:
+                raise RuntimeError("item {} missing from other: {}".format(str(self.id_to_item[item_id]), str(other)))
+            result = result | lookahead.merge(other.id_to_lookeahead[item_id])
         return result
+
+    def register_core(self,grammar):
+        self.core_index = grammar.register_item_set(self)
+        return self
 
     def close(self,grammar):
         """
@@ -1141,19 +1216,20 @@ class ItemSet:
         def lookup(rule):
             return grammar.rules[rule.content] if isinstance(rule,Symbol) else rule
 
-        self.core_index = grammar.register_item_set(self)
+        self.register_core(grammar)
 
-        dirty_dict = self.data.copy()
+        dirty_dict = self.id_to_lookahead.copy()
         while len(dirty_dict) > 0:
             # From the dragon book, 1st ed. 4.38 Sets of LR(1) items construction.
             #
             # For each item [ A -> alpha . B beta, a ] in I,
-            # and each production " B -> . gamma " in the grammar,
+            # and each production " B -> gamma " in the grammar,
             # and each terminal b in FIRST(beta a),
             # add [ B -> . gamma, b ] to I if it is not already there.
             work_list = dirty_dict
             dirty_dict = dict()
-            for item, lookahead in work_list.items():
+            for item_id, lookahead in work_list.items():
+                item = self.id_to_item[item_id]
                 if item.at_end():
                     continue
                 B = item.items[item.position]
@@ -1162,14 +1238,13 @@ class ItemSet:
 
                 afterB = item.items[item.position+1:]
 
-                # We will be computing first(afterB + [a]) repeatedly.  Create a lambda that
-                # precomputes the result in common cases.
+                # Compute lookahead.
                 afterB_firsts = first(grammar, afterB)
                 afterB_derives_empty = derives_empty(grammar.rules, afterB)
-                afterB_lookahead = LookaheadSet(without_empty(afterB_firsts))
+                new_item_lookahead = LookaheadSet(without_empty(afterB_firsts))
                 if afterB_derives_empty:
                     # When afterB can derive an empty string, then the result could depend on `a`.
-                    afterB_lookahead.merge(lookahead)
+                    new_item_lookahead.merge(lookahead)
                 else:
                     # If afterB can't derive empty, then it's independent of `a`
                     pass
@@ -1186,15 +1261,18 @@ class ItemSet:
                         # conflicts.
                         continue
                     candidate = grammar.MakeItem(B,B_prod,0)
-                    if candidate not in self.data:
-                        self.data[candidate] = LookaheadSet(afterB_lookahead)
-                        dirty_dict[candidate] = self.data[candidate]
+                    candidate_id = candidate.reg_info.index
+                    if candidate_id not in self.id_to_item:
+                        la = LookaheadSet(new_item_lookahead)
+                        self.internal_add(candidate, LookaheadSet(new_item_lookahead))
+                        dirty_dict[candidate_id] = la
                     else:
-                        if self.data[candidate].merge(afterB_lookahead):
-                            dirty_dict[candidate] = self.data[candidate]
+                        if self.id_to_lookahead[candidate_id].merge(new_item_lookahead):
+                            dirty_dict[candidate_id] = self.id_to_lookahead[candidate_id]
         return self
 
-    def gotos(self,grammar,by_index_memo=None):
+
+    def gotos2(self,grammar,by_index_memo=None):
         """
         Computes the goto mapping for this item set.
 
@@ -1232,50 +1310,108 @@ class ItemSet:
 
         # Partition items according to the next symbol to be consumed, X,
         # i.e. the symbol immediately to the right of the dot.
-        if self.nonterminal_partition is None:
-            # Map an object ID to a list of the items that have X immediately
-            # after the dot.
-            self.nonterminal_partition = dict()
-            # Map an object ID to its nonterminal
-            self.nonterminal_by_id = dict()
-            for item in self.data:
+        if self.goto is None:
+            self.goto = dict()
+            # Create the initial set of edges, copying lookaheads
+            for item_id, item in self.id_to_item.items():
                 if item.at_end():
                     continue
                 X = item.items[item.position]
-                if X == grammar.end_of_text:
+                if X.is_end_of_text():
                     continue
                 xid = X.reg_info.index
-                if xid not in self.nonterminal_partition:
-                    self.nonterminal_partition[xid] = []
-                    self.nonterminal_by_id[xid] = X
-                self.nonterminal_partition[xid].append(item)
+                if xid not in self.goto:
+                    self.goto[xid] = GotoEdge(X)
+                edge = self.goto[xid]
+                next_item = grammar.MakeItem(item.lhs, item.rule, item.position+1)
+                edge.add(item,next_item,LookaheadSet(self.id_to_lookahead[item_id]))
+            
+        # The first time around, construct the destination item sets for each edge.
+        # On subsequent rounds, propagate lookaheads from our own ItemSet to next item sets.
+        goto_list =[]
+        changed = False
+        for edge in self.goto.values():
+            (item_set_changed, next_item_set) = edge.NextItemSet(grammar,by_index_memo=by_index_memo)
+            changed = changed | item_set_changed
+            goto_list.append((edge.x, next_item_set))
+
+        return (changed,goto_list)
+
+    def gotos0(self,grammar,by_index_memo=None):
+        """
+        Computes the goto mapping for this item set.
+
+        Returns a pair (changed,goto_list) where:
+            changed is True when
+                by_index_memo is not None and new item sets were created or lookaheads were modified.
+            goto_list is is a list of pairs (X, item_set_X), where:
+                X is a grammar symbol X (terminal or non-terminal), and
+                item_set_X is the closed ItemSet goto(self,X)
+                   representing the next parser state after having successfully recognized
+                   grammar symbol X
+                where X ranges over all grammar symbols X such that goto(self,X) is non-empty.
+
+        Args:
+           self
+           grammar: The grammar being traversed
+           by_index_memo: None, or a dictionary mapping an item-set's core index to the unique
+              LALR1 item set with that core.
+
+        Assumes self is closed.
+
+        That is, for any X, collect all items [A -> alpha . X beta, a] in the
+        current item set, and produce an ItemSet ISX from of the union of
+        [A -> alpha X . beta, a].
+
+        Here X may be a terminal or a nonterminal.
+
+        When by_index_memo is None, collect these ISX.
+        When by_index_memo is a dictionary mapping an item set's core index to an item set,
+        set ISX to by_index_memo[ISX.core_index], i.e. reuse the pre-existing item set
+        with the same core.
+
+        """
+        changed = False
+
+        # Partition items according to the next symbol to be consumed, X,
+        # i.e. the symbol immediately to the right of the dot.
+        partition = dict()
+        # Map an object ID to its nonterminal
+        nonterminal_by_id = dict()
+        for item_id, item in self.id_to_item.items():
+            if item.at_end():
+                continue
+            X = item.items[item.position]
+            if X.is_end_of_text():
+                continue
+            xid = X.reg_info.index
+            if X not in partition:
+                partition[xid] = []
+                nonterminal_by_id[xid] = X
+            partition[xid].append(item)
 
         # Now make a list of item sets from the partitions.
-        if self.goto is None:
-            self.goto = dict()
-            # Create and save the goto function the first time around.
-            for xid, list_of_items in self.nonterminal_partition.items():
-                collected_x_items = dict()
-                for i in list_of_items:
-                    advanced_item = grammar.MakeItem(i.lhs, i.rule, i.position+1)
-                    # Map to the same lookahead set. Needed for closure
-                    collected_x_items[advanced_item] = self.data[i]
-                x_item_set = ItemSet(collected_x_items).close(grammar)
-                self.goto[xid] = x_item_set
-            changed = True
+        goto_list = []
+        for xid, list_of_items in partition.items():
+            collected_x_items = dict()
+            for i in list_of_items:
+                grammar.dump()
+                advanced_item = grammar.MakeItem(i.lhs, i.rule, i.position+1)
+                print(" advanced item {}".format(str(advanced_item)))
+                # Map to the same lookahead set. Needed for closure
+                collected_x_items[advanced_item] = self.id_to_lookahead[advanced_item.reg_info.index]
+            x_item_set = ItemSet(collected_x_items).close(grammar)
 
-        if by_index_memo is not None:
-            # Propagate lookaheads from our own items to items in the next ItemSets
-            for xid, x_item_set in self.goto.items():
+            if by_index_memo is not None:
                 if x_item_set.core_index in by_index_memo:
                     original_item_set = by_index_memo[x_item_set.core_index]
                     changed = changed | original_item_set.merge(x_item_set)
                     x_item_set = original_item_set
-                    self.goto[xid] = x_item_set
+                else:
+                    changed = True
 
-        goto_list = []
-        for xid, x_item_set in self.goto.items():
-            goto_list.append((self.nonterminal_by_id[xid], x_item_set))
+            goto_list.append((nonterminal_by_id[xid], x_item_set))
+
         return (changed,goto_list)
 
 class ParseTable:
@@ -1503,7 +1639,10 @@ class Grammar:
         Register an object to give it a unique integer-based key.
         Return the first object registered with its key.
         """
-        return self.registry.register(registerable)
+        result = self.registry.register(registerable)
+        if result.reg_info.index is None:
+            raise RuntimeError("failed to register {}".format(str(registerable)))
+        return result
 
     def LL1(self):
         """
@@ -1581,7 +1720,7 @@ class Grammar:
             # Sort the work list so we get deterministic ordering, and therefore
             # deterministic itemset core numbering.
             for item_set in sorted(work_list):
-                (_,gotos) = item_set.gotos(self)
+                (_,gotos) = item_set.gotos2(self)
                 for (X, dest_item_set) in gotos:
                     if dest_item_set not in LR1_item_sets_result:
                         LR1_item_sets_result.add(dest_item_set)
@@ -1638,7 +1777,7 @@ class Grammar:
             work_list = sorted(LALR1_item_sets_result, reverse=True)
             for core_index in work_list:
                 item_set = by_index[core_index]
-                (changed,gotos) = item_set.gotos(self,by_index_memo=by_index)
+                (changed,gotos) = item_set.gotos2(self,by_index_memo=by_index)
                 keep_going = keep_going | changed
                 for (X, item_set_for_X) in gotos:
                     if item_set_for_X.core_index not in by_index:
@@ -1690,7 +1829,8 @@ class Grammar:
 
         for item_set in LALR1_item_sets_result:
             # Register Reduce and Accept actions
-            for item, lookahead in item_set.data.items():
+            for item_id, lookahead in item_set.id_to_lookahead.items():
+                item = item_set.id_to_item[item_id]
                 if item.is_accepting() and lookahead.includesEndOfText():
                     addAction(item_set, self.end_of_text, Accept())
                 if item.at_end() and (item.lhs != LANGUAGE):
@@ -1699,7 +1839,7 @@ class Grammar:
                         addAction(item_set, terminal, make_reduce(item))
 
             # Register Shift actions
-            (_,gotos) = item_set.gotos(self,by_index_memo=by_index)
+            (_,gotos) = item_set.gotos2(self,by_index_memo=by_index)
             for (X, item_set_for_X) in gotos:
                 if X.is_terminal():
                     # Can't be EndOfText by construction of the goto result
