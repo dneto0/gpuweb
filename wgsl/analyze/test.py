@@ -717,18 +717,18 @@ class Item_Basics(unittest.TestCase):
 
     def test_Item_OfEmpty_Good(self):
         g = _gl("e",_def("e",_empty()))
-        it = g.MakeItem("e",Grammar.Empty(),0)
+        it = g.MakeItem("e",g.MakeEmpty(),0)
         self.assertEqual(it.items, [])
         self.assertEqual(it.lhs, g.MakeSymbol("e"))
         self.assertEqual(it.position, 0)
 
     def test_Item_OfEmpty_PosTooSmall(self):
         g = _gl("e",_def("e",_empty()))
-        self.assertRaises(RuntimeError, self.make_item, g, "e", Grammar.Empty(), -1)
+        self.assertRaises(RuntimeError, self.make_item, g, "e", g.MakeEmpty(), -1)
 
     def test_Item_OfEmpty_PosTooBig(self):
         g = _gl("e",_def("e",_empty()))
-        self.assertRaises(RuntimeError, self.make_item, g, "e", Grammar.Empty(), 1)
+        self.assertRaises(RuntimeError, self.make_item, g, "e", g.MakeEmpty(), 1)
 
     def test_Item_OfFixed_Pos0(self):
         g = _gl("t",_def("t",_fixed('x')))
@@ -843,11 +843,8 @@ class Item_Basics(unittest.TestCase):
         self.assertRaises(RuntimeError, self.make_item, g, "c", g.MakeChoice([]), 0)
 
     def test_Item_OfRepeat1(self):
-        gs = _g(_def("c", _rep1(_sym("ddd"))),_def("ddd",_fixed("ddd")))
-        print(gs)
         g = _gl("c",_def("c", _rep1(_sym("ddd"))),_def("ddd",_fixed("ddd")))
-        # TODO(dneto): fails in traversing repepats...??
-        # self.assertRaises(RuntimeError, self.make_item, g, "c", g.MakeRepeat1([g.MakeSymbol("ddd")]), 0)
+        self.assertRaises(RuntimeError, self.make_item, g, "c", g.MakeRepeat1([g.MakeSymbol("ddd")]), 0)
 
     def test_Item_is_accepting(self):
         g = _gl("translation_unit",_def("translation_unit",_sym("S")),_def("S",_fixed("abc")))
@@ -863,15 +860,17 @@ class Item_Basics(unittest.TestCase):
 
 class Rule_Equality(unittest.TestCase):
     def test_Empty(self):
-        a = Grammar.Empty()
-        a2 = Grammar.Empty()
+        g = _gl("a",_def("a",_empty()))
+        a = g.MakeEmpty()
+        a2 = g.MakeEmpty()
         self.assertEqual(a,a)
         self.assertTrue(a == a)
         self.assertTrue(a == a2)
 
     def test_EndOfText(self):
-        a = Grammar.EndOfText()
-        a2 = Grammar.EndOfText()
+        g = _gl("a",_def("a",_empty()))
+        a = g.MakeEndOfText()
+        a2 = g.MakeEndOfText()
         self.assertEqual(a,a)
         self.assertTrue(a == a)
         self.assertTrue(a == a2)
@@ -918,11 +917,11 @@ class Rule_Equality(unittest.TestCase):
 
     def test_Choice(self):
         g = _gl("a",_def("a",_pattern("a")),_def("b",_pattern("b")))
-        a = g.MakeChoice([g.MakePattern('a'), Grammar.Empty()])
-        a2 = g.MakeChoice([g.MakePattern('a'), Grammar.Empty()])
+        a = g.MakeChoice([g.MakePattern('a'), g.MakeEmpty()])
+        a2 = g.MakeChoice([g.MakePattern('a'), g.MakeEmpty()])
         b = g.MakeChoice([g.MakePattern('a')])
-        c = g.MakeChoice([g.MakePattern('a'), Grammar.EndOfText()])
-        d = g.MakeChoice([g.MakeFixed('a'), Grammar.Empty()])
+        c = g.MakeChoice([g.MakePattern('a'), g.MakeEndOfText()])
+        d = g.MakeChoice([g.MakeFixed('a'), g.MakeEmpty()])
         self.assertEqual(a,a)
         self.assertTrue(a == a)
         self.assertTrue(a == a2)
@@ -932,11 +931,11 @@ class Rule_Equality(unittest.TestCase):
 
     def test_Seq(self):
         g = _gl("a",_def("a",_pattern("a")),_def("b",_pattern("b")))
-        a = g.MakeSeq([g.MakePattern('a'), Grammar.Empty()])
-        a2 = g.MakeSeq([g.MakePattern('a'), Grammar.Empty()])
+        a = g.MakeSeq([g.MakePattern('a'), g.MakeEmpty()])
+        a2 = g.MakeSeq([g.MakePattern('a'), g.MakeEmpty()])
         b = g.MakeSeq([g.MakePattern('a')])
-        c = g.MakeSeq([g.MakePattern('a'), Grammar.EndOfText()])
-        d = g.MakeSeq([g.MakeFixed('a'), Grammar.Empty()])
+        c = g.MakeSeq([g.MakePattern('a'), g.MakeEndOfText()])
+        d = g.MakeSeq([g.MakeFixed('a'), g.MakeEmpty()])
         self.assertEqual(a,a)
         self.assertTrue(a == a)
         self.assertTrue(a == a2)
@@ -946,8 +945,8 @@ class Rule_Equality(unittest.TestCase):
 
     def test_CrossProduct(self):
         g = _gl("a",_def("a",_pattern("a")))
-        empty = Grammar.Empty()
-        end = Grammar.EndOfText()
+        empty = g.MakeEmpty()
+        end = g.MakeEndOfText()
         fixed = g.MakeFixed('a')
         symbol = g.MakeSymbol('a')
         pattern = g.MakePattern('a')
@@ -1030,14 +1029,16 @@ class Rule_Equality(unittest.TestCase):
 
 class Rule_Less(unittest.TestCase):
     def test_Empty(self):
-        a = Grammar.Empty()
-        a2 = Grammar.Empty()
+        g = _gl("a",_def("a",_empty()))
+        a = g.MakeEmpty()
+        a2 = g.MakeEmpty()
         self.assertFalse(a < a)
         self.assertFalse(a < a2)
 
     def test_EndOfText(self):
-        a = Grammar.EndOfText()
-        a2 = Grammar.EndOfText()
+        g = _gl("a",_def("a",_empty()))
+        a = g.MakeEndOfText()
+        a2 = g.MakeEndOfText()
         self.assertFalse(a < a)
         self.assertFalse(a < a2)
 
@@ -1083,11 +1084,11 @@ class Rule_Less(unittest.TestCase):
 
     def test_Choice(self):
         g = _gl("a",_def("a",_empty()))
-        a = g.MakeChoice([g.MakePattern('a'), Grammar.Empty()])
-        a2 = g.MakeChoice([g.MakePattern('a'), Grammar.Empty()])
+        a = g.MakeChoice([g.MakePattern('a'), g.MakeEmpty()])
+        a2 = g.MakeChoice([g.MakePattern('a'), g.MakeEmpty()])
         b = g.MakeChoice([g.MakePattern('a')])
-        c = g.MakeChoice([g.MakePattern('a'), Grammar.EndOfText()])
-        d = g.MakeChoice([g.MakeFixed('a'), Grammar.Empty()])
+        c = g.MakeChoice([g.MakePattern('a'), g.MakeEndOfText()])
+        d = g.MakeChoice([g.MakeFixed('a'), g.MakeEmpty()])
         self.assertFalse(a < a)
         self.assertFalse(a < a2)
         self.assertFalse(a > b)
@@ -1097,23 +1098,19 @@ class Rule_Less(unittest.TestCase):
 
     def test_Seq(self):
         g = _gl("a",_def("a",_empty()))
-        a = g.MakeChoice([g.MakePattern('a'), Grammar.Empty()])
-        a = g.MakeSeq([g.MakePattern('a'), Grammar.Empty()])
-        a2 = g.MakeSeq([g.MakePattern('a'), Grammar.Empty()])
+        a = g.MakeSeq([g.MakePattern('a'), g.MakeEmpty()])
+        a2 = g.MakeSeq([g.MakePattern('a'), g.MakeEmpty()])
         b = g.MakeSeq([g.MakePattern('a')])
-        c = g.MakeSeq([g.MakePattern('a'), Grammar.EndOfText()])
-        d = g.MakeSeq([g.MakeFixed('a'), Grammar.Empty()])
-        self.assertFalse(a < a)
-        self.assertFalse(a < a2)
-        self.assertFalse(a > b)
-        self.assertTrue(b < a)
-        self.assertTrue(a < c)
-        self.assertTrue(d < a)
+        c = g.MakeSeq([g.MakePattern('a'), g.MakeEndOfText()])
+        d = g.MakeSeq([g.MakeFixed('a'), g.MakeEmpty()])
+        # With object registration, relative order is not meaningful
+        self.assertTrue(a == a2)
+        self.assertTrue(4 == len(set({a,b,c,d})))
 
     def test_CrossProduct(self):
         g = _gl("a",_def("a",_empty()))
-        empty = Grammar.Empty()
-        end = Grammar.EndOfText()
+        empty = g.MakeEmpty()
+        end = g.MakeEndOfText()
         fixed = g.MakeFixed('a')
         symbol = g.MakeSymbol('a')
         pattern = g.MakePattern('a')
@@ -1214,7 +1211,7 @@ class Item_is_kernel(unittest.TestCase):
 
     def test_Item_OfEmpty(self):
         g = _gl("e",_def("e",_empty()))
-        it = g.MakeItem("e",Grammar.Empty(),0)
+        it = g.MakeItem("e",g.MakeEmpty(),0)
         self.assertFalse(it.is_kernel())
 
     def test_Item_OfFixed_Pos0(self):
@@ -1259,17 +1256,17 @@ class Item_is_kernel(unittest.TestCase):
 
     def test_Item_OfLanguage_Pos0(self):
         g = _gl("a",_def("a",_fixed("a")))
-        it = g.MakeItem(Grammar.LANGUAGE,g.MakeSeq([g.MakeFixed('a'),Grammar.EndOfText()]),0)
+        it = g.MakeItem(Grammar.LANGUAGE,g.MakeSeq([g.MakeFixed('a'),g.MakeEndOfText()]),0)
         self.assertTrue(it.is_kernel())
 
     def test_Item_OfLanguage_Pos1(self):
         g = _gl("a",_def("a",_fixed("a")))
-        it = g.MakeItem(Grammar.LANGUAGE,g.MakeSeq([g.MakeFixed('a'),Grammar.EndOfText()]),1)
+        it = g.MakeItem(Grammar.LANGUAGE,g.MakeSeq([g.MakeFixed('a'),g.MakeEndOfText()]),1)
         self.assertTrue(it.is_kernel())
 
     def test_Item_OfLanguage_Pos2(self):
         g = _gl("a",_def("a",_fixed("a")))
-        it = g.MakeItem(Grammar.LANGUAGE,g.MakeSeq([g.MakeFixed('a'),Grammar.EndOfText()]),2)
+        it = g.MakeItem(Grammar.LANGUAGE,g.MakeSeq([g.MakeFixed('a'),g.MakeEndOfText()]),2)
         self.assertTrue(it.is_kernel())
 
 class ItemSet_Less(unittest.TestCase):
@@ -1385,8 +1382,8 @@ class ItemSet_is_accepting(unittest.TestCase):
         self.c = self.g.rules["c"]
         self.d = self.g.rules["d"]
         self.l_empty = Grammar.LookaheadSet({})
-        self.l_end = Grammar.LookaheadSet({Grammar.EndOfText()})
-        self.l_end_and = Grammar.LookaheadSet({self.g.MakeFixed('end'),Grammar.EndOfText()})
+        self.l_end = Grammar.LookaheadSet({self.g.MakeEndOfText()})
+        self.l_end_and = Grammar.LookaheadSet({self.g.MakeFixed('end'),self.g.MakeEndOfText()})
 
     def iL(self,pos=0):
         return self.g.MakeItem(Grammar.LANGUAGE,self.L[0],pos)
