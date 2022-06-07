@@ -1024,17 +1024,17 @@ class ItemSet:
 
         def NextItemSet(self,grammar,by_index_memo=None):
             """
-            Lazily creates an ItemSet out of the next_items tracked by this edge.
-            If by_index_memo is not None, then use the previously saved ItemSet with the
-            same core items, and merge the current lookaheads into it.
+            Lazily creates an unclosed ItemSet out of the next_items tracked by this edge.
+            If by_index_memo is not None, then find and return the previously saved
+            ItemSet with the same core items, if one exists there.
 
             Returns a pair (bool,ItemSet)
-               - where the bool is True if something changed
+               - True if the ItemSet was newly created
                - the destination ItemSet when following this edge
             """
             changed = False
-            if (self.next_item_set_cache is None) or (by_index_memo is not None):
-                # Create the item set out from the "next" items and associated lookaheads.
+            if self.next_item_set_cache is None:
+                # Create the item set from the "next" items and associated lookaheads.
                 d = dict()
                 for item_id, next_and_lookahead in self.next.items():
                     d[next_and_lookahead[0]] = next_and_lookahead[1]
@@ -1045,7 +1045,6 @@ class ItemSet:
                     changed = True
                 else:
                     original_IS = by_index_memo[next_IS.core_index]
-                    changed = original_IS.merge(next_IS)
                     self.next_item_set_cache = original_IS
             return (changed, self.next_item_set_cache)
 
@@ -1306,8 +1305,19 @@ class ItemSet:
         goto_list = []
         changed = changed_initial
         for edge in self.goto.values():
-            (item_set_changed, next_item_set) = edge.NextItemSet(grammar,by_index_memo=by_index_memo)
-            changed = changed | item_set_changed
+            (created, next_item_set) = edge.NextItemSet(grammar,by_index_memo=by_index_memo)
+            if created:
+                next_item_set.close(grammar)
+            else:
+                # Propagate lookaheads
+                for src_item_id, (dest_item,stale_lookahead) in edge.next.items():
+                    src_lookahead = self.id_to_lookahead[src_item_id]
+                    dest_lookahead = next_item_set.id_to_lookahead[dest_item.reg_info.index]
+                    changed = changed | dest_lookahead.merge(src_lookahead)
+                # Propagate to non-kernel items
+                next_item_set.close(grammar)
+
+            changed = changed | created
             goto_list.append((edge.x, next_item_set))
 
         return (changed,goto_list)
@@ -1389,10 +1399,10 @@ class ItemSet:
 
     def gotos(self,grammar,by_index_memo=None):
         #print("\ngotos begin\n{}".format(self))
-        result = self.gotos1(grammar,by_index_memo)
+        result = self.gotos2(grammar,by_index_memo)
         #print("gotos end changed? {}\n{}".format(str(result[0]),self))
         #for (grammarsym,item_set) in result[1]:
-        #    #print("  {} -> #{}".format(str(grammarsym),item_set.core_index))
+        #    print("  {} -> #{}".format(str(grammarsym),item_set.core_index))
         #print("")
         return result
 
