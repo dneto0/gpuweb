@@ -1359,8 +1359,8 @@ translation_unit -> C C · : {EndOfText}
 
 EX442_LALR1_ITEMS_CLOSED_EXPECTED = sorted(map(lambda x: x.rstrip(), """#0
 language -> · translation_unit EndOfText : {EndOfText}
-C -> · 'c' C : {'c' 'd' EndOfText}
-C -> · 'd' : {'c' 'd' EndOfText}
+C -> · 'c' C : {'c' 'd'}
+C -> · 'd' : {'c' 'd'}
 translation_unit -> · C C : {EndOfText}
 ===
 #1
@@ -1477,6 +1477,7 @@ class LALR1_items(unittest.TestCase):
         #print("\nexpected\n")
         #print("\n===\n".join(expected))
         #print("end expected\n")
+        self.maxDiff = None
         self.assertEqual(got_str, expected)
 
     def test_star(self):
@@ -1533,6 +1534,8 @@ class LALR1_actions(unittest.TestCase):
         expected = EX442_ACTIONS
         parse_table = g.LALR1()
         got = "".join(parse_table.action_parts())
+        #print("got actions\n"+got+"end got\n")
+        #print("expected actions\n"+expected+"end expected\n")
         self.assertEqual(got, expected)
 
 EX442_GOTOS = """[#0 C]: #2
