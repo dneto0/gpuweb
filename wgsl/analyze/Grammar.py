@@ -54,6 +54,19 @@ RBRACE = "}"
 # The name of the nonterminal for the entire language
 LANGUAGE = "language"
 
+# These just have to be different.
+CLASS_FIXED=0
+CLASS_PATTERN=1
+CLASS_SYMBOL=2
+CLASS_CHOICE=3
+CLASS_SEQ=4
+CLASS_REPEAT1=5
+CLASS_EMPTY=6
+CLASS_END_OF_TEXT=7
+CLASS_ITEM=8
+CLASS_ITEM_SET=9
+CLASSES_BUCKET_SIZE=10 # Use 10 for readability
+
 def raiseRE(s):
     raise RuntimeError(s)
 
@@ -202,6 +215,12 @@ class Rule(RegisterableObject):
     def __str__(self):
         return self.string_internal()
 
+    def combine_class_id(self,i):
+        # Combine class_id and i into a single number, hiding the class ID
+        # in the bottom decimal digit.
+        assert isinstance(i,int)
+        return self.class_id + CLASSES_BUCKET_SIZE * i
+
 
 class ContainerRule(Rule):
     """A ContainerRule is a rule with children"""
@@ -264,6 +283,32 @@ class ContainerRule(Rule):
     def __contains__(self,item):
         return self.children.__contains__(item)
 
+class Choice(ContainerRule):
+    def __init__(self,children,**kwargs):
+        self.class_id = CLASS_CHOICE
+        # Order does not matter among the children.
+        # Children must have been registered.
+        self.key = (self.class_id, frozenset([i.reg_info.index for i in children]))
+        super().__init__(children,**kwargs)
+
+class Seq(ContainerRule):
+    def __init__(self,children,**kwargs):
+        self.class_id = CLASS_SEQ
+        # Order does matter among the children.
+        # Store the tuple.
+        # Children must have been registered.
+        self.key = (self.class_id, tuple([i.reg_info.index for i in children]))
+        super().__init__(children,**kwargs)
+
+class Repeat1(ContainerRule):
+    def __init__(self,children,**kwargs):
+        if len(children) != 1:
+            raise RuntimeError("Repeat1 must have exactly one child: {}".format(str(children)))
+        self.class_id = CLASS_REPEAT1
+        # Children must have been registered.
+        self.key = (self.class_id,children[0].reg_info.index)
+        super().__init__(children,**kwargs)
+
 @functools.total_ordering
 class LeafRule(Rule):
     """
@@ -274,70 +319,40 @@ class LeafRule(Rule):
     def __init__(self,content,**kwargs):
         super().__init__(**kwargs)
         self.content = content
-        self.hash = str(self).__hash__()
-        self.register_conditionally(**kwargs)
-
-    def x__eq__(self,other):
-        return isinstance(other, self.__class__) and (self.content == other.content)
-
-    def x__hash__(self):
-        return self.hash
-
-    def x__lt__(self,other):
-        # Order by class
-        if self._class_less(other):
-            return True
-        if other._class_less(self):
-            return False
-        if self.content is None:
-            return other.content is not None
-        if other.content is None:
-            return True
-        return self.content < other.content
-
-class Token(LeafRule):
-    """A Token represents a non-empty contiguous sequence of code points"""
-    def __init__(self,content,**kwargs):
-        super().__init__(content,**kwargs)
-
-class Choice(ContainerRule):
-    def __init__(self,children,**kwargs):
-        super().__init__(children,**kwargs)
-        # Order does not matter among the children.
-        # Store them in order so we can more quickly test for equality
-        # and less-than.
-        self.ordered_children = sorted(self.children)
-
-class Seq(ContainerRule):
-    def __init__(self,children,**kwargs):
-        super().__init__(children,**kwargs)
-
-class Repeat1(ContainerRule):
-    def __init__(self,children,**kwargs):
-        super().__init__(children,**kwargs)
-        if len(children) != 1:
-            raise RuntimeError("Repeat1 must have exactly one child: {}".format(str(children)))
 
 class Symbol(LeafRule):
     def __init__(self,content,**kwargs):
-        super().__init__(content,**kwargs)
-
-class Fixed(Token):
-    def __init__(self,content,**kwargs):
-        super().__init__(content,**kwargs)
-        self.register_conditionally(**kwargs)
-
-class Pattern(Token):
-    def __init__(self,content,**kwargs):
+        self.class_id = CLASS_SYMBOL
+        self.key = self.combine_class_id(self.register_string(content,**kwargs))
         super().__init__(content,**kwargs)
 
 class Empty(LeafRule):
     def __init__(self,**kwargs):
+        self.class_id = CLASS_EMPTY
+        self.key = self.combine_class_id(0)
         super().__init__(None,**kwargs)
 
 class EndOfText(LeafRule):
     def __init__(self,**kwargs):
+        self.class_id = CLASS_END_OF_TEXT
+        self.key = self.combine_class_id(0)
         super().__init__(None,**kwargs)
+
+class Token(LeafRule):
+    """A Token represents a non-empty contiguous sequence of code points"""
+    def __init__(self,content,**kwargs):
+        self.key = self.combine_class_id(self.register_string(content,**kwargs))
+        super().__init__(content,**kwargs)
+
+class Fixed(Token):
+    def __init__(self,content,**kwargs):
+        self.class_id = CLASS_FIXED
+        super().__init__(content,**kwargs)
+
+class Pattern(Token):
+    def __init__(self,content,**kwargs):
+        self.class_id = CLASS_PATTERN
+        super().__init__(content,**kwargs)
 
 class LLAction:
     """
@@ -465,14 +480,17 @@ class Item(RegisterableObject):
     def __init__(self,lhs,rule,position,**kwargs):
         """
         Args:
-            lhs: the name of the nonterminal, as a Python string or a Symbol
-            rule: the Flat Production
+            lhs: the name of the nonterminal, as a Symbol. Preregistered
+            rule: the Flat Production. Preregistered
             position: Index of the position, where 0 is to the left
               of the first item in the choice
         """
-        super().__init__()
-        self.lhs = lhs if isinstance(lhs,Symbol) else Symbol(lhs)
+        self.class_id = CLASS_ITEM
+        self.lhs = lhs
         self.rule = rule
+        self.position = position
+        self.key = (self.class_id, lhs.reg_info.index, rule.reg_info.index, position)
+        super().__init__(**kwargs)
 
         # self.items is the sub-objects, as a list
         if rule.is_terminal():
@@ -486,45 +504,19 @@ class Item(RegisterableObject):
         else:
             raise RuntimeError("invalid item object: {}".format(str(rule)))
 
-        self.position = position
         if (self.position < 0) or (self.position > len(self.items)):
             raise RuntimeError("invalid position {} for production: {}".format(position, str(rule)))
 
         self.str = self.string_internal()
-        self.hash = self.str.__hash__()
-
-        self.register_conditionally(**kwargs)
 
     def string_internal(self):
-        parts = ["{} ->".format(self.lhs)]
+        parts = ["{} ->".format(self.lhs.content)]
         parts.extend([str(i) for i in self.items])
         parts.insert(1 + self.position, MIDDLE_DOT)
         return " ".join(parts)
 
     def __str__(self):
-        return self.str
-
-    def __eq__(self,other):
-        # Test position first. It's the quickest to check
-        return (self.position == other.position) and (self.lhs == other.lhs) and (self.rule == other.rule)
-
-    def __hash__(self):
-        return self.hash
-
-    def __lt__(self,other):
-        if self.lhs < other.lhs:
-            return True
-        if other.lhs < self.lhs:
-            return False
-        if self.rule < other.rule:
-            return True
-        if other.rule < self.rule:
-            return False
-        if self.position < other.position:
-            return True
-        if other.position < self.position:
-            return False
-        return False
+       return self.str
 
     def is_kernel(self):
         # A kernel item either:
@@ -1010,13 +1002,9 @@ class ItemSet:
     """
     class GotoEdge:
         """
-        A GotoEdge represents a transition from this ItemSet
-        to another ItemSet.  The transition embodies the state change
-        that occurs when matching a given symbol (terminal or nonterminal)
-
-        For a given source ItemSet, and a given terminal or nonterminal x, the
-        GotoEdge for x contains all [item,lookahead-set] pairs
-        of the form:  [ A -> alpha . x beta, lookahead-set ]
+        A GotoEdge represents a transition from a source ItemSet
+        to a destination ItemSet.  The transition embodies the state change
+        that occurs when matching a grammar terminal or nonterminal.
         """
         def __init__(self,x):
             self.x = x
@@ -1184,12 +1172,11 @@ class ItemSet:
 
         Returns: True when something new was added to the current set.
         """
-        raise error
         result = False
         for item_id, lookahead in self.id_to_lookahead.items():
-            if item_id not in other.id_to_lookeahead:
+            if item_id not in other.id_to_lookahead:
                 raise RuntimeError("item {} missing from other: {}".format(str(self.id_to_item[item_id]), str(other)))
-            result = result | lookahead.merge(other.id_to_lookeahead[item_id])
+            result = result | lookahead.merge(other.id_to_lookahead[item_id])
         return result
 
     def register_core(self,grammar):
@@ -1271,7 +1258,6 @@ class ItemSet:
                             dirty_dict[candidate_id] = self.id_to_lookahead[candidate_id]
         return self
 
-
     def gotos2(self,grammar,by_index_memo=None):
         """
         Computes the goto mapping for this item set.
@@ -1337,7 +1323,7 @@ class ItemSet:
 
         return (changed,goto_list)
 
-    def gotos0(self,grammar,by_index_memo=None):
+    def gotos1(self,grammar,by_index_memo=None):
         """
         Computes the goto mapping for this item set.
 
@@ -1385,7 +1371,7 @@ class ItemSet:
             if X.is_end_of_text():
                 continue
             xid = X.reg_info.index
-            if X not in partition:
+            if xid not in partition:
                 partition[xid] = []
                 nonterminal_by_id[xid] = X
             partition[xid].append(item)
@@ -1395,11 +1381,9 @@ class ItemSet:
         for xid, list_of_items in partition.items():
             collected_x_items = dict()
             for i in list_of_items:
-                grammar.dump()
                 advanced_item = grammar.MakeItem(i.lhs, i.rule, i.position+1)
-                print(" advanced item {}".format(str(advanced_item)))
                 # Map to the same lookahead set. Needed for closure
-                collected_x_items[advanced_item] = self.id_to_lookahead[advanced_item.reg_info.index]
+                collected_x_items[advanced_item] = self.id_to_lookahead[i.reg_info.index]
             x_item_set = ItemSet(collected_x_items).close(grammar)
 
             if by_index_memo is not None:
@@ -1413,6 +1397,9 @@ class ItemSet:
             goto_list.append((nonterminal_by_id[xid], x_item_set))
 
         return (changed,goto_list)
+
+    def gotos(self,grammar,by_index_memo=None):
+        return self.gotos1(grammar,by_index_memo)
 
 class ParseTable:
     """
@@ -1557,6 +1544,11 @@ class Grammar:
         # Augment the grammar:
         self.rules[LANGUAGE] = self.MakeSeq([self.MakeSymbol(start_symbol), self.end_of_text])
 
+    def MakeEmpty(self):
+        return self.empty
+    def MakeEndOfText(self):
+        return self.end_of_text
+
     def MakeFixed(self,content):
         return self.register(Fixed(content,reg=self))
 
@@ -1576,6 +1568,8 @@ class Grammar:
         return self.register(Symbol(content,reg=self))
 
     def MakeItem(self,lhs,rule,position):
+        # Upconvert a lhs to a Symbol if it's a Python string.
+        lhs = lhs if isinstance(lhs,Symbol) else self.MakeSymbol(lhs)
         return self.register(Item(lhs,rule,position,reg=self))
 
     def canonicalize(self):
@@ -1643,6 +1637,10 @@ class Grammar:
         if result.reg_info.index is None:
             raise RuntimeError("failed to register {}".format(str(registerable)))
         return result
+
+    def register_string(self,string):
+        """Returns a unique integer for the string"""
+        return self.registry.register_string(string)
 
     def LL1(self):
         """
@@ -1720,7 +1718,7 @@ class Grammar:
             # Sort the work list so we get deterministic ordering, and therefore
             # deterministic itemset core numbering.
             for item_set in sorted(work_list):
-                (_,gotos) = item_set.gotos2(self)
+                (_,gotos) = item_set.gotos(self)
                 for (X, dest_item_set) in gotos:
                     if dest_item_set not in LR1_item_sets_result:
                         LR1_item_sets_result.add(dest_item_set)
@@ -1777,7 +1775,7 @@ class Grammar:
             work_list = sorted(LALR1_item_sets_result, reverse=True)
             for core_index in work_list:
                 item_set = by_index[core_index]
-                (changed,gotos) = item_set.gotos2(self,by_index_memo=by_index)
+                (changed,gotos) = item_set.gotos(self,by_index_memo=by_index)
                 keep_going = keep_going | changed
                 for (X, item_set_for_X) in gotos:
                     if item_set_for_X.core_index not in by_index:
@@ -1833,13 +1831,13 @@ class Grammar:
                 item = item_set.id_to_item[item_id]
                 if item.is_accepting() and lookahead.includesEndOfText():
                     addAction(item_set, self.end_of_text, Accept())
-                if item.at_end() and (item.lhs != LANGUAGE):
+                if item.at_end() and (item.lhs.content != LANGUAGE):
                     # Register reductions
                     for terminal in lookahead:
                         addAction(item_set, terminal, make_reduce(item))
 
             # Register Shift actions
-            (_,gotos) = item_set.gotos2(self,by_index_memo=by_index)
+            (_,gotos) = item_set.gotos(self,by_index_memo=by_index)
             for (X, item_set_for_X) in gotos:
                 if X.is_terminal():
                     # Can't be EndOfText by construction of the goto result
