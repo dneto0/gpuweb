@@ -1280,10 +1280,10 @@ class ItemSet:
         with the same core.
 
         """
-        changed = False
 
         # Partition items according to the next symbol to be consumed, X,
         # i.e. the symbol immediately to the right of the dot.
+        changed_initial = False
         if self.goto is None:
             self.goto = dict()
             # Create the initial set of edges, copying lookaheads
@@ -1295,15 +1295,16 @@ class ItemSet:
                     continue
                 xid = X.reg_info.index
                 if xid not in self.goto:
-                    self.goto[xid] = GotoEdge(X)
+                    self.goto[xid] = self.GotoEdge(X)
                 edge = self.goto[xid]
                 next_item = grammar.MakeItem(item.lhs, item.rule, item.position+1)
                 edge.add(item,next_item,LookaheadSet(self.id_to_lookahead[item_id]))
+            changed_initial = True
             
         # The first time around, construct the destination item sets for each edge.
         # On subsequent rounds, propagate lookaheads from our own ItemSet to next item sets.
-        goto_list =[]
-        changed = False
+        goto_list = []
+        changed = changed_initial
         for edge in self.goto.values():
             (item_set_changed, next_item_set) = edge.NextItemSet(grammar,by_index_memo=by_index_memo)
             changed = changed | item_set_changed
@@ -1350,8 +1351,8 @@ class ItemSet:
         # Partition items according to the next symbol to be consumed, X,
         # i.e. the symbol immediately to the right of the dot.
         partition = dict()
-        # Map an object ID to its nonterminal
-        nonterminal_by_id = dict()
+        # Map an object ID to its grammar symbol (terminal or nonterminal)
+        grammarsym_by_id = dict()
         for item_id, item in self.id_to_item.items():
             if item.at_end():
                 continue
@@ -1361,7 +1362,7 @@ class ItemSet:
             xid = X.reg_info.index
             if xid not in partition:
                 partition[xid] = []
-                nonterminal_by_id[xid] = X
+                grammarsym_by_id[xid] = X
             partition[xid].append(item)
 
         # Now make a list of item sets from the partitions.
@@ -1371,8 +1372,8 @@ class ItemSet:
             for i in list_of_items:
                 advanced_item = grammar.MakeItem(i.lhs, i.rule, i.position+1)
                 # Map to the same lookahead set. Needed for closure
-                collected_x_items[advanced_item] = self.id_to_lookahead[i.reg_info.index]
-            x_item_set = ItemSet(collected_x_items).close(grammar)
+                collected_x_items[advanced_item] = LookaheadSet(self.id_to_lookahead[i.reg_info.index])
+            x_item_set = ItemSet(grammar,collected_x_items).close(grammar)
 
             if by_index_memo is not None:
                 if x_item_set.core_index in by_index_memo:
@@ -1382,12 +1383,18 @@ class ItemSet:
                 else:
                     changed = True
 
-            goto_list.append((nonterminal_by_id[xid], x_item_set))
+            goto_list.append((grammarsym_by_id[xid], x_item_set))
 
         return (changed,goto_list)
 
     def gotos(self,grammar,by_index_memo=None):
-        return self.gotos1(grammar,by_index_memo)
+        #print("\ngotos begin\n{}".format(self))
+        result = self.gotos1(grammar,by_index_memo)
+        #print("gotos end changed? {}\n{}".format(str(result[0]),self))
+        #for (grammarsym,item_set) in result[1]:
+        #    #print("  {} -> #{}".format(str(grammarsym),item_set.core_index))
+        #print("")
+        return result
 
 class ParseTable:
     """
@@ -1695,7 +1702,7 @@ class Grammar:
         # An ItemSet can be found by any of the items in its core.
         # Within an ItemSet, an item maps to its lookahead set.
 
-        root_item_set = ItemSet({root_item: LookaheadSet({self.end_of_text})}).close(self)
+        root_item_set = ItemSet(self, {root_item: LookaheadSet({self.end_of_text})}).close(self)
 
         LR1_item_sets_result = set({root_item_set})
 
@@ -1742,7 +1749,7 @@ class Grammar:
         # An ItemSet can be found by any of the items in its core.
         # Within an ItemSet, an item maps to its lookahead set.
 
-        root_item_set = ItemSet({root_item: LookaheadSet({self.end_of_text})}).close(self)
+        root_item_set = ItemSet(self, {root_item: LookaheadSet({self.end_of_text})}).close(self)
         by_index[root_item_set.core_index] = root_item_set
 
         LALR1_item_sets_result = set({root_item_set.core_index})
