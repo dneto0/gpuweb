@@ -507,8 +507,6 @@ class Item(RegisterableObject):
         if (self.position < 0) or (self.position > len(self.items)):
             raise RuntimeError("invalid position {} for production: {}".format(position, str(rule)))
 
-        self.str = self.string_internal()
-
     def string_internal(self):
         parts = ["{} ->".format(self.lhs.content)]
         parts.extend([str(i) for i in self.items])
@@ -516,7 +514,7 @@ class Item(RegisterableObject):
         return " ".join(parts)
 
     def __str__(self):
-       return self.str
+       return self.string_internal()
 
     def is_kernel(self):
         # A kernel item either:
