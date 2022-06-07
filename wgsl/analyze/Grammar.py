@@ -1057,8 +1057,9 @@ class ItemSet:
         for item, lookahead in dict(*args).items():
             self.internal_add(item, lookahead)
 
-        # We always expect every initial item to be a kernel item. But filter anyway
-        self.kernel_ids = frozenset(filter(lambda x: x.is_kernel(), self.id_to_item.values()))
+        # Create a hashable fingerprint of the core of this ItemSet
+        # We always expect every initial item to be a kernel item. But filter anyway.
+        self.kernel_item_ids = frozenset(filter(lambda x: x.is_kernel(), self.id_to_item.values()))
 
         # self.core_index is the unique index within the grammar for the core of this
         # item set.  Well defined only after calling the close() method.
@@ -1137,12 +1138,6 @@ class ItemSet:
         raise RuntimeError("don't call __setitem__ on ItemSet")
     def __delitem__(self,*args):
         raise RuntimeError("don't call __delitem__ on ItemSet")
-
-    def kernel_item_ids(self):
-        """
-        Returns a set of IDs for the kernel items in this itemset.  This ignores the lookaheads.
-        """
-        return self.kernel_ids
 
     def is_accepting(self):
         """
@@ -1623,7 +1618,7 @@ class Grammar:
         Returns its index.
         """
         assert isinstance(item_set,ItemSet)
-        core = item_set.kernel_item_ids()
+        core = item_set.kernel_item_ids
         if core in self.item_set_core_index:
             return self.item_set_core_index[core]
         # Register it
