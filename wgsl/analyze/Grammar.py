@@ -1039,8 +1039,8 @@ class ItemSet:
                 for item_id, next_and_lookahead in self.next.items():
                     d[next_and_lookahead[0]] = next_and_lookahead[1]
 
-                next_IS = ItemSet(d).close(grammar)
-                if (by_index_memo is None) or (next_ID.core_index not in by_index_memo):
+                next_IS = ItemSet(grammar,d).close(grammar)
+                if (by_index_memo is None) or (next_IS.core_index not in by_index_memo):
                     self.next_item_set_cache = next_IS
                     changed = True
                 else:
@@ -1050,11 +1050,9 @@ class ItemSet:
             return (changed, self.next_item_set_cache)
 
 
-    def __init__(self,*args):
-        # Mapping from item to its lookahead set.
-        # TODO: Use item object index instead of the item itself.
-        #self.data = dict(*args)
-
+    def __init__(self,grammar,*args):
+        assert isinstance(grammar,Grammar)
+        self.grammar = grammar
         # Maps item ID to item
         self.id_to_item = dict()
         # Maps item ID to its lookahead
@@ -1067,11 +1065,11 @@ class ItemSet:
 
         # self.core_index is the unique index within the grammar for the core of this
         # item set.  Well defined only after calling the close() method.
-        self.core_index = None
+        self.core_index = grammar.register_item_set(self)
 
         # In the LALR1 case, this is the goto function for this ItemSet.
         # Maps the ID of a nonterminal X to its GotoEdge.
-        self.goto = dict()
+        self.goto = None
 
     def internal_add(self,item,lookahead):
         """
@@ -1104,8 +1102,6 @@ class ItemSet:
 
     def __str__(self):
         content = self.content_str()
-        if self.core_index is None:
-            return content
         return "#{}\n{}".format(self.core_index,content)
 
     def short_str(self):
@@ -1115,18 +1111,16 @@ class ItemSet:
         """
         return "#{}".format(self.core_index)
 
-    # Methods affecting ordering and equality checks should not be affected by
-    # a cached index that may be updated later
     def __lt__(self,other):
-        # TODO: These are slow. Only use this in unit tests and LR1, not in LALR1.
+        # TODO: These are slow. Only use this for tests and printing.
         return self.content_str() < other.content_str()
 
     def __hash__(self):
-        # TODO: These are slow. Only use this in unit tests and LR1, not in LALR1.
+        # TODO: These are slow. Only use this for tests and printing.
         return self.content_str().__hash__()
 
     def __eq__(self,other):
-        # TODO: These are slow. Only use this in unit tests and LR1, not in LALR1.
+        # TODO: These are slow. Only use this for tests and printing.
         return self.content_str() == other.content_str()
 
     def pretty_key(self):
@@ -1179,10 +1173,6 @@ class ItemSet:
             result = result | lookahead.merge(other.id_to_lookahead[item_id])
         return result
 
-    def register_core(self,grammar):
-        self.core_index = grammar.register_item_set(self)
-        return self
-
     def close(self,grammar):
         """
         Compute the closure of this item set, and a unique index for its core.
@@ -1202,8 +1192,6 @@ class ItemSet:
         """
         def lookup(rule):
             return grammar.rules[rule.content] if isinstance(rule,Symbol) else rule
-
-        self.register_core(grammar)
 
         dirty_dict = self.id_to_lookahead.copy()
         while len(dirty_dict) > 0:
