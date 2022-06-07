@@ -1026,185 +1026,17 @@ class Rule_Equality(unittest.TestCase):
         self.assertFalse( seq == repeat1 )
         self.assertTrue( seq == seq )
 
-
-class Rule_Less(unittest.TestCase):
-    def test_Empty(self):
-        g = _gl("a",_def("a",_empty()))
-        a = g.MakeEmpty()
-        a2 = g.MakeEmpty()
-        self.assertFalse(a < a)
-        self.assertFalse(a < a2)
-
-    def test_EndOfText(self):
-        g = _gl("a",_def("a",_empty()))
-        a = g.MakeEndOfText()
-        a2 = g.MakeEndOfText()
-        self.assertFalse(a < a)
-        self.assertFalse(a < a2)
-
-    def test_Fixed(self):
-        g = _gl("a",_def("a",_empty()))
-        a = g.MakeFixed('a')
-        a2 = g.MakeFixed('a')
-        b = g.MakeFixed('b')
-        self.assertFalse(a < a)
-        self.assertFalse(a < a2)
-        self.assertTrue(a < b)
-        self.assertFalse(b < a)
-
-    def test_Symbol(self):
-        g = _gl("a",_def("a",_empty()))
-        a = g.MakeSymbol('a')
-        a2 = g.MakeSymbol('a')
-        b = g.MakeSymbol('b')
-        self.assertFalse(a < a)
-        self.assertFalse(a < a2)
-        self.assertTrue(a < b)
-        self.assertFalse(b < a)
-
-    def test_Pattern(self):
-        g = _gl("a",_def("a",_empty()))
-        a = g.MakePattern('a')
-        a2 = g.MakePattern('a')
-        b = g.MakePattern('b')
-        self.assertFalse(a < a)
-        self.assertFalse(a < a2)
-        self.assertTrue(a < b)
-        self.assertFalse(b < a)
-
-    def test_Repeat1(self):
-        g = _gl("a",_def("a",_empty()))
-        a = g.MakeRepeat1([g.MakePattern('a')])
-        a2 = g.MakeRepeat1([g.MakePattern('a')])
-        b = g.MakeRepeat1([g.MakePattern('b')])
-        self.assertFalse(a < a)
-        self.assertFalse(a < a2)
-        self.assertTrue(a < b)
-        self.assertFalse(b < a)
-
-    def test_Choice(self):
-        g = _gl("a",_def("a",_empty()))
-        a = g.MakeChoice([g.MakePattern('a'), g.MakeEmpty()])
-        a2 = g.MakeChoice([g.MakePattern('a'), g.MakeEmpty()])
-        b = g.MakeChoice([g.MakePattern('a')])
-        c = g.MakeChoice([g.MakePattern('a'), g.MakeEndOfText()])
-        d = g.MakeChoice([g.MakeFixed('a'), g.MakeEmpty()])
-        self.assertFalse(a < a)
-        self.assertFalse(a < a2)
-        self.assertFalse(a > b)
-        self.assertTrue(b < a)
-        self.assertTrue(a < c)
-        self.assertTrue(d < a)
-
-    def test_Seq(self):
-        g = _gl("a",_def("a",_empty()))
-        a = g.MakeSeq([g.MakePattern('a'), g.MakeEmpty()])
-        a2 = g.MakeSeq([g.MakePattern('a'), g.MakeEmpty()])
-        b = g.MakeSeq([g.MakePattern('a')])
-        c = g.MakeSeq([g.MakePattern('a'), g.MakeEndOfText()])
-        d = g.MakeSeq([g.MakeFixed('a'), g.MakeEmpty()])
-        # With object registration, relative order is not meaningful
-        self.assertTrue(a == a2)
-        self.assertTrue(4 == len(set({a,b,c,d})))
-
-    def test_CrossProduct(self):
-        g = _gl("a",_def("a",_empty()))
-        empty = g.MakeEmpty()
-        end = g.MakeEndOfText()
-        fixed = g.MakeFixed('a')
-        symbol = g.MakeSymbol('a')
-        pattern = g.MakePattern('a')
-        choice = g.MakeChoice([g.MakePattern('a')])
-        repeat1 = g.MakeRepeat1([g.MakePattern('a')])
-        seq = g.MakeSeq([g.MakePattern('a')])
-
-        self.assertFalse( empty < empty )
-        self.assertTrue( empty < end )
-        self.assertFalse( empty < fixed )
-        self.assertFalse( empty < symbol )
-        self.assertFalse( empty < pattern )
-        self.assertFalse( empty < choice )
-        self.assertFalse( empty < repeat1 )
-        self.assertFalse( empty < seq )
-
-        self.assertFalse( end < empty )
-        self.assertFalse( end < end )
-        self.assertFalse( end < fixed )
-        self.assertFalse( end < symbol )
-        self.assertFalse( end < pattern )
-        self.assertFalse( end < choice )
-        self.assertFalse( end < repeat1 )
-        self.assertFalse( end < seq )
-
-        self.assertTrue( fixed < empty )
-        self.assertTrue( fixed < end )
-        self.assertFalse( fixed < fixed )
-        self.assertFalse( fixed < symbol )
-        self.assertTrue( fixed < pattern )
-        self.assertFalse( fixed < choice )
-        self.assertFalse( fixed < repeat1 )
-        self.assertFalse( fixed < seq )
-
-        self.assertTrue( symbol < empty )
-        self.assertTrue( symbol < end )
-        self.assertTrue( symbol < fixed )
-        self.assertFalse( symbol < symbol )
-        self.assertTrue( symbol < pattern )
-        self.assertFalse( symbol < choice )
-        self.assertFalse( symbol < repeat1 )
-        self.assertFalse( symbol < seq )
-
-        self.assertTrue( pattern < empty )
-        self.assertTrue( pattern < end )
-        self.assertFalse( pattern < fixed )
-        self.assertFalse( pattern < symbol )
-        self.assertFalse( pattern < pattern )
-        self.assertFalse( pattern < choice )
-        self.assertFalse( pattern < repeat1 )
-        self.assertFalse( pattern < seq )
-
-        self.assertTrue( choice < empty )
-        self.assertTrue( choice < end )
-        self.assertTrue( choice < fixed )
-        self.assertTrue( choice < symbol )
-        self.assertTrue( choice < pattern )
-        self.assertFalse( choice < choice )
-        self.assertTrue( choice < repeat1 )
-        self.assertTrue( choice < seq )
-
-        self.assertTrue( repeat1 < empty )
-        self.assertTrue( repeat1 < end )
-        self.assertTrue( repeat1 < fixed )
-        self.assertTrue( repeat1 < symbol )
-        self.assertTrue( repeat1 < pattern )
-        self.assertFalse( repeat1 < choice )
-        self.assertFalse( repeat1 < repeat1 )
-        self.assertFalse( repeat1 < seq )
-
-        self.assertTrue( seq < empty )
-        self.assertTrue( seq < end )
-        self.assertTrue( seq < fixed )
-        self.assertTrue( seq < symbol )
-        self.assertTrue( seq < pattern )
-        self.assertFalse( seq < choice )
-        self.assertTrue( seq < repeat1 )
-        self.assertFalse( seq < seq )
-
     def test_Choice_internal_order(self):
         g = _gl("a",_def("a",_fixed("a")),_def("b",_fixed("b")))
         a1 = g.MakeChoice([g.MakeFixed('a'), g.MakeFixed('b')])
         a2 = g.MakeChoice([g.MakeFixed('b'), g.MakeFixed('a')])
         self.assertTrue(a1 == a2)
-        self.assertFalse(a1 < a2)
-        self.assertFalse(a2 < a1)
 
     def test_Seq_internal_order(self):
         g = _gl("a",_def("a",_fixed("a")))
         a1 = g.MakeSeq([g.MakeFixed('a'), g.MakeFixed('b')])
         a2 = g.MakeSeq([g.MakeFixed('b'), g.MakeFixed('a')])
         self.assertFalse(a1 == a2)
-        self.assertTrue(a1 < a2)
-        self.assertFalse(a2 < a1)
 
 
 class Item_is_kernel(unittest.TestCase):
@@ -1723,7 +1555,6 @@ class Grammar_registers_objects(unittest.TestCase):
         at = g.find('at')
         self.assertEqual(at.reg_info.registry, g.registry)
         self.assertEqual(at.reg_info.obj, at)
-        self.assertEqual(at.reg_info.str, "Fixed '@'")
         self.assertEqual(at.reg_info.index, 2)
 
 if __name__ == '__main__':
