@@ -69,8 +69,7 @@ class RegisterableObject:
     It has a reg_info object.
     """
     def __init__(self,**kwargs):
-        assert 'key' in dir(self)
-        assert 'reg' in kwargs
+        # assert 'key' in dir(self) #. This is surprisingly slow
         self.reg_info = None
         reg = kwargs['reg']
         self.register(reg)
