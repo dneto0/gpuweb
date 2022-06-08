@@ -1313,7 +1313,7 @@ class ItemSet:
 
     def gotos(self,grammar,by_index_memo=None):
         #print("\ngotos begin\n{}".format(self))
-        result = self.gotos2(grammar,by_index_memo)
+        result = self.gotos2(grammar,by_index_memo=by_index_memo)
         #print("gotos end changed? {}\n{}".format(str(result[0]),self))
         #for (grammarsym,item_set) in result[1]:
         #    print("  {} -> #{}".format(str(grammarsym),item_set.core_index))
