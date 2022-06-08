@@ -1782,8 +1782,9 @@ class Grammar:
                         addAction(item_set, terminal, make_reduce(item))
 
             # Register Shift actions
-            (_,gotos) = item_set.gotos(self,by_index_memo=by_index)
-            for (X, item_set_for_X) in gotos:
+            for xid, edge in item_set.goto.items():
+                X = self.findByIndex(xid)
+                item_set_for_X = edge.NextItemSet(self)[1]
                 if X.is_terminal():
                     # Can't be EndOfText by construction of the goto result
                     isinstance(X,Token) or raiseRE("internal error: expected a token")
