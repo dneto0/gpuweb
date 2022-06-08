@@ -1120,8 +1120,7 @@ class ItemSet:
 
     def pretty_key(self):
         # Use this for sorting for output
-        prefix = "_" if self.core_index is None else "#{:8d}\n".format(self.core_index)
-        return "{}{}".format(prefix,self.content_str())
+        return "#{:8d}{}".format(self.core_index,self.content_str())
 
     def copy(self):
         raise RuntimeError("don't run copy")
@@ -1774,9 +1773,9 @@ class Grammar:
         root_item_set = ItemSet(self, {root_item: LookaheadSet({self.end_of_text})}).close(self)
         by_index[root_item_set.core_index] = root_item_set
 
-        LALR1_item_sets_result = set({root_item_set.core_index})
+        item_set_core_ids = set({root_item_set.core_index})
 
-        dirty_set = LALR1_item_sets_result.copy()
+        dirty_set = item_set_core_ids.copy()
         keep_going = True
         #while len(dirty_set) > 0:
         while keep_going:
@@ -1789,20 +1788,20 @@ class Grammar:
             # Sort the work list so we get deterministic ordering, and therefore
             # deterministic itemset core numbering.
             # Go backwards to try to explore the most recently changed items first.
-            work_list = sorted(LALR1_item_sets_result, reverse=True)
+            work_list = sorted(item_set_core_ids, reverse=True)
             for core_index in work_list:
                 item_set = by_index[core_index]
                 (changed,gotos) = item_set.gotos(self,by_index_memo=by_index)
                 keep_going = keep_going | changed
                 for (X, item_set_for_X) in gotos:
                     if item_set_for_X.core_index not in by_index:
-                        LALR1_item_sets_result.add(item_set_for_X.core_index)
+                        item_set_core_ids.add(item_set_for_X.core_index)
                         by_index[item_set_for_X.core_index] = item_set_for_X
                         dirty_set.add(item_set_for_X.core_index)
                         keep_going = True
 
         # Now this is a list of item_sets
-        LALR1_item_sets_result = sorted({by_index[i] for i in LALR1_item_sets_result}, key=ItemSet.pretty_key)
+        sorted_item_set_core_ids = sorted(item_set_core_ids)
 
         # Part 2. Compute the action table and conflicts.
         # Do this as a second pass because it's conceivable that an item set may
@@ -1845,7 +1844,8 @@ class Grammar:
         # Maps (item_set, nonterminal) to the next item set
         nonterminal_goto = dict()
 
-        for item_set in LALR1_item_sets_result:
+        for item_set_core_id in sorted_item_set_core_ids:
+            item_set = by_index[item_set_core_id]
             # Register Reduce and Accept actions
             for item_id, lookahead in item_set.id_to_lookahead.items():
                 item = item_set.id_to_item[item_id]
@@ -1866,7 +1866,9 @@ class Grammar:
                 elif X.is_symbol():
                     nonterminal_goto[(item_set,X)] = item_set_for_X
 
-        return ParseTable(self,LALR1_item_sets_result, action_table, nonterminal_goto, reductions, conflicts)
+        item_sets = [by_index[i] for i in sorted_item_set_core_ids]
+
+        return ParseTable(self,item_sets, action_table, nonterminal_goto, reductions, conflicts)
 
     def LALR1_ItemSets(self, max_item_sets=None):
         """
