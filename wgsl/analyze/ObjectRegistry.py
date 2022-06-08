@@ -72,7 +72,7 @@ class RegisterableObject:
         # assert 'key' in dir(self) #. This is surprisingly slow
         self.reg_info = None
         reg = kwargs['reg']
-        self.register(reg)
+        reg.register(self)
 
     def register_string(self,string,**kwargs):
         assert isinstance(string,str)

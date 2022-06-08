@@ -501,28 +501,40 @@ class Item(RegisterableObject):
         if (self.position < 0) or (self.position > num_items):
             raise RuntimeError("invalid position {} for production: {}".format(position,str(rule)))
 
-
         # Build the item list lazily. We may spend a lot of effort making an Item
         # but immediately throw it away as a duplicate
         self.the_items = None
 
+    def precompute(self):
+        if self.the_items is None:
+            self.the_items = self.compute_items()
+            self.the_next = self.the_items[self.position] if self.position < len(self.the_items) else None
+            self.the_rest = self.the_items[self.position+1:]
+        return self
+
     def items(self):
+        return self.the_items
+    def next(self):
+        return self.the_next
+    def rest(self):
+        return self.the_rest
+
+    def compute_items(self):
         """"
         Returns the sub-items, as a list.
         """
-        if self.the_items is None:
-            rule = self.rule
-            # self.items is the sub-objects, as a list
-            if rule.is_terminal():
-                self.the_items = [rule]
-            elif rule.is_symbol():
-                self.the_items = [rule]
-            elif rule.is_empty():
-                self.the_items = []
-            elif isinstance(rule, Seq):
-                self.the_items = [i for i in rule]
-            else:
-                raise RuntimeError("invalid item object: {}".format(str(rule)))
+        rule = self.rule
+        # self.items is the sub-objects, as a list
+        if rule.is_terminal():
+            self.the_items = [rule]
+        elif rule.is_symbol():
+            self.the_items = [rule]
+        elif rule.is_empty():
+            self.the_items = []
+        elif isinstance(rule, Seq):
+            self.the_items = [i for i in rule]
+        else:
+            raise RuntimeError("invalid item object: {}".format(str(rule)))
         return self.the_items
 
     def string_internal(self):
@@ -1216,11 +1228,11 @@ class ItemSet:
                 item = self.id_to_item[item_id]
                 if item.at_end():
                     continue
-                B = item.items()[item.position]
+                B = item.next()
                 if not B.is_symbol():
                     continue
 
-                afterB = item.items()[item.position+1:]
+                afterB = item.rest()
 
                 # Compute lookahead.
                 afterB_firsts = first(grammar, afterB)
@@ -1299,7 +1311,7 @@ class ItemSet:
             for item_id, item in self.id_to_item.items():
                 if item.at_end():
                     continue
-                X = item.items()[item.position]
+                X = item.next()
                 if X.is_end_of_text():
                     continue
                 xid = X.reg_info.index
@@ -1533,7 +1545,11 @@ class Grammar:
     def MakeItem(self,lhs,rule,position):
         # Upconvert a lhs to a Symbol if it's a Python string.
         lhs = lhs if isinstance(lhs,Symbol) else self.MakeSymbol(lhs)
-        return self.register(Item(lhs,rule,position,reg=self))
+        candidate = Item(lhs,rule,position,reg=self)
+        # Avoid double-registering.
+        result = self.register(candidate)
+        result.precompute()
+        return result
 
     def canonicalize(self):
         self.rules = canonicalize_grammar(self,self.empty)
@@ -1665,7 +1681,7 @@ class Grammar:
         # The root item is the one representing the entire language.
         # Since the grammar is in canonical form, it's a Choice over a
         # single sequence.
-        root_item = self.MakeItem(LANGUAGE, self.rules[LANGUAGE][0],0)
+        root_item = self.MakeItem(LANGUAGE, self.rules[LANGUAGE][0],0).precompute()
 
         # An ItemSet can be found by any of the items in its core.
         # Within an ItemSet, an item maps to its lookahead set.
