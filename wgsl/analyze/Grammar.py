@@ -38,9 +38,6 @@ Represent and process a grammar:
 - Compute First and Follow sets
 - Compute LL(1) parser table and associated conflicts
 - Verify a language is LALR(1) with context-sensitive lookahead
-
-- WIP: hash and eq by integer-base tuples only
-   - TODO: Remove last bare creation of Symbol, in Item.__init__
 """
 
 import json
@@ -1403,20 +1400,26 @@ class ParseTable:
     """
     An LALR(1) parser table with fields:
 
-      .states:    The set of parser states, where each state is identified with
-                  an LALR(1) item set. Each ItemSet is closed and has a core index.
-      .action:    The parser action table, mapping (state,token) to an Action object.
-                  Any combination not in the table is a parse error.
-      .goto:      The goto table, mapping (state,nonterminal) to another state.
-      .reductions:A list of Reduce objects, in index order.
-      .conflicts: A list of Conflicts
+      .grammar:    The Grammar.  Use this to look up symbols and item sets by index.
+      .states:     The list of parser states, where each state is identified with
+                   an LALR(1) item set. Each ItemSet is closed and has a core index.
+      .action:     The parser action table, mapping (state.core_index,token) to an Action object.
+                   Any combination not in the table is a parse error.
+      .goto:       The goto table, mapping (state,nonterminal) to another state.
+      .reductions: A list of Reduce objects, in index order.
+      .conflicts:  A list of Conflicts
     """
-    def __init__(self,states,action_table,goto,reductions,conflicts):
+    def __init__(self,grammar,states,action_table,goto,reductions,conflicts):
+        self.grammar = grammar
         self.states = states
         self.action = action_table
         self.goto = goto
         self.reductions = reductions
         self.conflicts = conflicts
+
+        self.core_index_to_state = dict()
+        for s in self.states:
+            self.core_index_to_state[s.core_index] = s
 
     def has_conflicts(self):
         return len(self.conflicts) > 0
@@ -1436,10 +1439,16 @@ class ParseTable:
 
     def action_parts(self):
         parts = []
-        for state_terminal in sorted(self.action, key = lambda st: (st[0].core_index,str(st[1]))):
-            short_state = state_terminal[0].short_str()
-            terminal = str(state_terminal[1])
-            parts.append("[{} {}]: {}\n".format(short_state,terminal,self.action[state_terminal]))
+        def action_key_sort_value(state_id_terminal_id):
+            (state_id,terminal_id) = state_id_terminal_id
+            terminal_str = str(self.grammar.findByIndex(terminal_id))
+            return (state_id,terminal_str)
+        # Map terminal ids to terminal strings
+        for (state_id,terminal_id) in sorted(self.action, key=action_key_sort_value):
+            state_str = self.core_index_to_state[state_id].short_str()
+            terminal_str = str(self.grammar.findByIndex(terminal_id))
+            action = self.action[(state_id,terminal_id)]
+            parts.append("[{} {}]: {}\n".format(state_str,terminal_str,action))
         return parts
 
     def goto_parts(self):
@@ -1501,7 +1510,17 @@ class Grammar:
         return g
 
     def find(self, rule_name):
+        """
+        Finds a Rule by its Python string name.
+        """
         return self.rules[rule_name]
+
+    def findByIndex(self, obj_index):
+        """
+        Finds a registered object by its index.
+        Registered objects are either Item or Rule (including Token)
+        """
+        return self.registry.findByIndex(obj_index)
 
     def __init__(self, json_text, start_symbol, ignore='_reserved'):
         """
@@ -1791,30 +1810,33 @@ class Grammar:
         # of the item sets.
 
         conflicts = []
+        # Maps (item_set.core_index, terminal.reg_info.index) to an Action.
         action_table = dict()
         def addAction(item_set, terminal, action):
             isinstance(item_set, ItemSet) or raiseRE("expected ItemSet")
             terminal.is_terminal() or raiseRE("expected terminal: " + str(terminal))
             isinstance(action,Action) or raiseRE("expected action")
 
-            action_key = (item_set,terminal)
+            # Use indices, for speed.
+            # But also keep the terminal prompting this action.
+            action_key = (item_set.core_index,terminal.reg_info.index)
             if action_key not in action_table:
                 action_table[action_key] = action
             else:
-                prev = action_table[action_key]
-                if prev != action:
+                prev_action = action_table[action_key]
+                if prev_action != action:
                     # Record the conflict, and only keep the original.
-                    conflicts.append(Conflict(item_set,terminal,prev,action))
+                    conflicts.append(Conflict(item_set,terminal,prev_action,action))
 
-        # Maps an item to its reduction index.
+        # Maps an item index to its reduction index.
         reduced_items = dict()
         # List, where element i is the Reduce object with index i
         reductions = []
         def make_reduce(item):
-            if item in reduced_items:
-                return reductions[reduced_items[item]]
+            if item.reg_info.index in reduced_items:
+                return reductions[reduced_items[item.reg_info.index]]
             index = len(reduced_items)
-            reduced_items[item] = index
+            reduced_items[item.reg_info.index] = index
             result = Reduce(item,index)
             reductions.append(result)
             return result
@@ -1844,7 +1866,7 @@ class Grammar:
                 elif X.is_symbol():
                     nonterminal_goto[(item_set,X)] = item_set_for_X
 
-        return ParseTable(LALR1_item_sets_result, action_table, nonterminal_goto, reductions, conflicts)
+        return ParseTable(self,LALR1_item_sets_result, action_table, nonterminal_goto, reductions, conflicts)
 
     def LALR1_ItemSets(self, max_item_sets=None):
         """
