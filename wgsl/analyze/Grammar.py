@@ -1329,7 +1329,7 @@ class ParseTable:
                    an LALR(1) item set. Each ItemSet is closed and has a core index.
       .action:     The parser action table, mapping (state.core_index,token) to an Action object.
                    Any combination not in the table is a parse error.
-      .goto:       The goto table, mapping (state,nonterminal) to another state.
+      .goto:       The goto table, mapping (state.core_index,nonterminal) to another state.
       .reductions: A list of Reduce objects, in index order.
       .conflicts:  A list of Conflicts
     """
@@ -1377,10 +1377,11 @@ class ParseTable:
 
     def goto_parts(self):
         parts = []
-        for state_nonterminal in sorted(self.goto, key = lambda st: (st[0].core_index,str(st[1]))):
-            short_state = state_nonterminal[0].short_str()
-            nonterminal = str(state_nonterminal[1])
-            parts.append("[{} {}]: {}\n".format(short_state,nonterminal,self.goto[state_nonterminal].short_str()))
+        for state_id_nonterminal in sorted(self.goto, key = lambda st: (st[0],str(st[1]))):
+            short_state = self.core_index_to_state[state_id_nonterminal[0]].short_str()
+            nonterminal = str(state_id_nonterminal[1])
+            next_state_str = self.goto[state_id_nonterminal].short_str()
+            parts.append("[{} {}]: {}\n".format(short_state,nonterminal,next_state_str))
         return parts
 
     def conflict_parts(self):
@@ -1790,7 +1791,7 @@ class Grammar:
                     isinstance(X,Token) or raiseRE("internal error: expected a token")
                     addAction(item_set, X, Shift(item_set_for_X))
                 elif X.is_symbol():
-                    nonterminal_goto[(item_set,X)] = item_set_for_X
+                    nonterminal_goto[(item_set.core_index,X)] = item_set_for_X
 
         item_sets = [by_index[i] for i in sorted_item_set_core_ids]
 
