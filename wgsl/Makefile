@@ -37,8 +37,7 @@ analyze_test: $(ANALYZER)
 
 # Profile generation
 .PHONY: profile
-profile : lalr.wgsl.profile
-lalr.wgsl.profile: $(ANALYZER) $(WGSL_GRAMMAR)
+profile lalr.wgsl.profile : $(ANALYZER) $(WGSL_GRAMMAR)
 	python3 -m cProfile -o lalr.wgsl.profile $(ANALYZE_SCRIPT) -lalr grammar/src/grammar.json
 
 # Compute LR(1) item sets
