@@ -489,24 +489,45 @@ class Item(RegisterableObject):
         self.key = (self.class_id, lhs.reg_info.index, rule.reg_info.index, position)
         super().__init__(**kwargs)
 
-        # self.items is the sub-objects, as a list
-        if rule.is_terminal():
-            self.items = [rule]
-        elif rule.is_symbol():
-            self.items = [rule]
-        elif rule.is_empty():
-            self.items = []
+        if rule.is_empty():
+            num_items = 0
+        elif isinstance(rule, LeafRule):
+            num_items = 1
         elif isinstance(rule, Seq):
-            self.items = [i for i in rule]
+            num_items = len(rule)
         else:
             raise RuntimeError("invalid item object: {}".format(str(rule)))
 
-        if (self.position < 0) or (self.position > len(self.items)):
-            raise RuntimeError("invalid position {} for production: {}".format(position, str(rule)))
+        if (self.position < 0) or (self.position > num_items):
+            raise RuntimeError("invalid position {} for production: {}".format(position,str(rule)))
+
+
+        # Build the item list lazily. We may spend a lot of effort making an Item
+        # but immediately throw it away as a duplicate
+        self.the_items = None
+
+    def items(self):
+        """"
+        Returns the sub-items, as a list.
+        """
+        if self.the_items is None:
+            rule = self.rule
+            # self.items is the sub-objects, as a list
+            if rule.is_terminal():
+                self.the_items = [rule]
+            elif rule.is_symbol():
+                self.the_items = [rule]
+            elif rule.is_empty():
+                self.the_items = []
+            elif isinstance(rule, Seq):
+                self.the_items = [i for i in rule]
+            else:
+                raise RuntimeError("invalid item object: {}".format(str(rule)))
+        return self.the_items
 
     def string_internal(self):
         parts = ["{} ->".format(self.lhs.content)]
-        parts.extend([str(i) for i in self.items])
+        parts.extend([str(i) for i in self.items()])
         parts.insert(1 + self.position, MIDDLE_DOT)
         return " ".join(parts)
 
@@ -531,7 +552,7 @@ class Item(RegisterableObject):
         return (self.position == 1) and (self.lhs.content == LANGUAGE)
 
     def at_end(self):
-        return self.position == len(self.items)
+        return self.position == len(self.items())
 
 
 def json_hook(grammar,memo,tokens_only,dct):
@@ -1195,11 +1216,11 @@ class ItemSet:
                 item = self.id_to_item[item_id]
                 if item.at_end():
                     continue
-                B = item.items[item.position]
+                B = item.items()[item.position]
                 if not B.is_symbol():
                     continue
 
-                afterB = item.items[item.position+1:]
+                afterB = item.items()[item.position+1:]
 
                 # Compute lookahead.
                 afterB_firsts = first(grammar, afterB)
@@ -1234,7 +1255,7 @@ class ItemSet:
                             dirty_dict[candidate_id] = self.id_to_lookahead[candidate_id]
         return self
 
-    def gotos2(self,grammar,by_index_memo=None):
+    def gotos_internal(self,grammar,by_index_memo=None):
         """
         Computes the goto mapping for this item set.
 
@@ -1278,7 +1299,7 @@ class ItemSet:
             for item_id, item in self.id_to_item.items():
                 if item.at_end():
                     continue
-                X = item.items[item.position]
+                X = item.items()[item.position]
                 if X.is_end_of_text():
                     continue
                 xid = X.reg_info.index
@@ -1313,7 +1334,7 @@ class ItemSet:
 
     def gotos(self,grammar,by_index_memo=None):
         #print("\ngotos begin\n{}".format(self))
-        result = self.gotos2(grammar,by_index_memo=by_index_memo)
+        result = self.gotos_internal(grammar,by_index_memo=by_index_memo)
         #print("gotos end changed? {}\n{}".format(str(result[0]),self))
         #for (grammarsym,item_set) in result[1]:
         #    print("  {} -> #{}".format(str(grammarsym),item_set.core_index))

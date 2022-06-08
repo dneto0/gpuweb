@@ -718,7 +718,7 @@ class Item_Basics(unittest.TestCase):
     def test_Item_OfEmpty_Good(self):
         g = _gl("e",_def("e",_empty()))
         it = g.MakeItem("e",g.MakeEmpty(),0)
-        self.assertEqual(it.items, [])
+        self.assertEqual(it.items(), [])
         self.assertEqual(it.lhs, g.MakeSymbol("e"))
         self.assertEqual(it.position, 0)
 
@@ -736,7 +736,7 @@ class Item_Basics(unittest.TestCase):
         it = g.MakeItem("t",t,0)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 0)
-        self.assertEqual(it.items, [t])
+        self.assertEqual(it.items(), [t])
 
     def test_Item_OfFixed_Pos1(self):
         g = _gl("t",_def("t",_fixed('x')))
@@ -745,7 +745,7 @@ class Item_Basics(unittest.TestCase):
         self.assertEqual(it.lhs, g.MakeSymbol("t"))
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 1)
-        self.assertEqual(it.items, [t])
+        self.assertEqual(it.items(), [t])
 
     def test_Item_OfFixed_PosTooSmall(self):
         g = _gl("t",_def("t",_fixed('x')))
@@ -761,7 +761,7 @@ class Item_Basics(unittest.TestCase):
         it = g.MakeItem("t",t,0)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 0)
-        self.assertEqual(it.items, [t])
+        self.assertEqual(it.items(), [t])
 
     def test_Item_OfPattern_Pos1(self):
         g = _gl("t",_def("t",_pattern('[a-z]+')))
@@ -769,7 +769,7 @@ class Item_Basics(unittest.TestCase):
         it = g.MakeItem("t",t,1)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 1)
-        self.assertEqual(it.items, [t])
+        self.assertEqual(it.items(), [t])
 
     def test_Item_OfPattern_PosTooSmall(self):
         g = _gl("t",_def("t",_pattern('[a-z]+')))
@@ -785,7 +785,7 @@ class Item_Basics(unittest.TestCase):
         it = g.MakeItem("t",t,0)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 0)
-        self.assertEqual(it.items, [t])
+        self.assertEqual(it.items(), [t])
 
     def test_Item_OfSymbol_Pos1(self):
         g = _gl("t",_def("t",_sym('x')),_def("x",_fixed("X")))
@@ -793,7 +793,7 @@ class Item_Basics(unittest.TestCase):
         it = g.MakeItem("t",t,1)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 1)
-        self.assertEqual(it.items, [t])
+        self.assertEqual(it.items(), [t])
 
     def test_Item_OfSymbol_PosTooSmall(self):
         g = _gl("t",_def("t",_sym('x')),_def("x",_fixed("X")))
@@ -812,7 +812,7 @@ class Item_Basics(unittest.TestCase):
         it = g.MakeItem("t",t,0)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 0)
-        self.assertEqual(it.items, [i for i in t])
+        self.assertEqual(it.items(), [i for i in t])
 
     def test_Item_OfSeq_Pos1(self):
         g = _gl("t",_def("t", _seq(_fixed('x'),_sym('blah'))),_def("blah",_fixed("blah")))
@@ -820,7 +820,7 @@ class Item_Basics(unittest.TestCase):
         it = g.MakeItem("t",t,1)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 1)
-        self.assertEqual(it.items, [i for i in t])
+        self.assertEqual(it.items(), [i for i in t])
 
     def test_Item_OfSeq_Pos2(self):
         g = _gl("t",_def("t", _seq(_fixed('x'),_sym('blah'))),_def("blah",_fixed("blah")))
@@ -828,7 +828,7 @@ class Item_Basics(unittest.TestCase):
         it = g.MakeItem("t",t,2)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 2)
-        self.assertEqual(it.items, [i for i in t])
+        self.assertEqual(it.items(), [i for i in t])
 
     def test_Item_OfSeq_PosTooSmall(self):
         g = _gl("t",_def("t", _seq(_fixed('x'),_sym('blah'))),_def("blah",_fixed("blah")))
