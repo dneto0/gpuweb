@@ -71,6 +71,7 @@ class RegisterableObject:
     def __init__(self,**kwargs):
         assert 'key' in dir(self)
         assert 'reg' in kwargs
+        self.reg_info = None
         reg = kwargs['reg']
         self.register(reg)
 
@@ -128,7 +129,7 @@ class ObjectRegistry:
             If this object is the first such one, then it also
             populates the object's reg_info field.
         """
-        if ('reg_info' in dir(registerable)) and (registerable.reg_info.index is not None):
+        if registerable.reg_info is not None:
             # Assume immutability after it's been registered once.
             assert registerable.reg_info.registry is self
             assert registerable.reg_info.obj is not None
