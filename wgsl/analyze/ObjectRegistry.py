@@ -105,6 +105,8 @@ class ObjectRegistry:
     def __init__(self):
         # Maps an object key to the object with that key
         self.key_to_object = dict()
+        # Maps an object's index to the object
+        self.index_to_object = dict()
 
         # Maps strings to unique integers
         self.str_to_id = dict()
@@ -137,9 +139,14 @@ class ObjectRegistry:
         if key in self.key_to_object:
             return self.key_to_object[key]
 
-        registerable.reg_info = RegistryInfo(self, registerable, len(self.key_to_object))
+        index = len(self.key_to_object)
+        registerable.reg_info = RegistryInfo(self, registerable, index)
         self.key_to_object[key] = registerable
+        self.index_to_object[index] = registerable
         return registerable
+
+    def findByIndex(self,index):
+        return self.index_to_object[index]
 
     def __str__(self):
         objects = sorted(self.key_to_object.values(), key = lambda o: o.reg_info.index)
