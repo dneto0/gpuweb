@@ -505,7 +505,7 @@ class Item(RegisterableObject):
         # but immediately throw it away as a duplicate
         self.the_items = None
 
-    def precompute(self):
+    def precompute(self,grammar):
         if self.the_items is None:
             self.the_items = self.compute_items()
             self.the_next = self.the_items[self.position] if self.position < len(self.the_items) else None
@@ -513,10 +513,14 @@ class Item(RegisterableObject):
         return self
 
     def items(self):
+        # The ordered list of terminals/nonterminals in the production
         return self.the_items
     def next(self):
+        # Returns the terminal/nonterminal immediately after the dot, or None if the dot
+        # is at the ene
         return self.the_next
     def rest(self):
+        # The ordered list of terminals/nonterminals after the "next" terminal/nonterminal
         return self.the_rest
 
     def compute_items(self):
@@ -1547,7 +1551,7 @@ class Grammar:
         candidate = Item(lhs,rule,position,reg=self)
         # Avoid double-registering.
         result = self.register(candidate)
-        result.precompute()
+        result.precompute(self)
         return result
 
     def canonicalize(self):
@@ -1680,7 +1684,7 @@ class Grammar:
         # The root item is the one representing the entire language.
         # Since the grammar is in canonical form, it's a Choice over a
         # single sequence.
-        root_item = self.MakeItem(LANGUAGE, self.rules[LANGUAGE][0],0).precompute()
+        root_item = self.MakeItem(LANGUAGE, self.rules[LANGUAGE][0],0).precompute(self)
 
         # An ItemSet can be found by any of the items in its core.
         # Within an ItemSet, an item maps to its lookahead set.
@@ -1727,7 +1731,7 @@ class Grammar:
         # Mapping from a core index to an already-discovered item set.
         by_index = dict()
 
-        root_item = self.MakeItem(LANGUAGE, self.rules[LANGUAGE][0],0)
+        root_item = self.MakeItem(LANGUAGE, self.rules[LANGUAGE][0],0).precompute(self)
 
         # An ItemSet can be found by any of the items in its core.
         # Within an ItemSet, an item maps to its lookahead set.
