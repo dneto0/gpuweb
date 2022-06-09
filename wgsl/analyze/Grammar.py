@@ -1004,13 +1004,12 @@ class LookaheadSet(set):
         Adds the members of the other set.
         Returns: True when something was added to the current set.
         """
-        result = False
-        for i in other:
-            if i not in self:
-                super().add(i)
-                result = True
-        self.reset()
-        return result
+        extras = other.difference(self)
+        if len(extras) > 0:
+            self.update(extras)
+            self.reset()
+            return True
+        return False
 
     def add(self, element):
         raise RuntimeError("Don't do Lookahead.add")
