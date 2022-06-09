@@ -88,7 +88,7 @@ def raiseRE(s):
 #  Nonterminal: A grammar object which can expand to phrases, as defined by
 #    production rules.
 #
-#  Symbol: A name for a Terminal or Nonterminal.
+#  SymbolName: A name for a Terminal or Nonterminal.
 #
 #  Choice: A Rule which matches when any of several children matches
 #
@@ -101,13 +101,13 @@ def raiseRE(s):
 #
 #  Production: An expression of Choice, Sequence, Repeat1 expressions over
 #    Terminals, Nonterminals, and Empty.  In these expressions, a Nonterminal is
-#    represented by a Symbol for its name.
+#    represented by a SymbolName for its name.
 #
 #  Flat: A Production is "Flat" if it is one of:
 #      - a Terminal
-#      - a Symbol
+#      - a SymbolName
 #      - Empty
-#      - a Sequence over Terminals and Symbols
+#      - a Sequence over Terminals and SymbolNames
 #
 #  GrammarDict: a dictionary mapping over Python strings mapping:
 #    A Terminal name to its definition.
@@ -157,8 +157,8 @@ class Rule(RegisterableObject):
     def is_nonterminal(self):
         return isinstance(self, ContainerRule)
 
-    def is_symbol(self):
-        return isinstance(self, Symbol)
+    def is_symbol_name(self):
+        return isinstance(self, SymbolName)
 
     def derives_empty(self):
         """Returns True if this object is known to generate the empty string"""
@@ -171,7 +171,7 @@ class Rule(RegisterableObject):
         return False
 
     def _class_less(self,other):
-        rank = { Choice: 1, Seq: 2, Repeat1: 3, Symbol: 5, Fixed: 10, Pattern: 20, Empty: 100, EndOfText: 1000 }
+        rank = { Choice: 1, Seq: 2, Repeat1: 3, SymbolName: 5, Fixed: 10, Pattern: 20, Empty: 100, EndOfText: 1000 }
         return rank[self.__class__] < rank[other.__class__]
 
 
@@ -189,7 +189,7 @@ class Rule(RegisterableObject):
         def f(parts,obj,on_entry):
             if "content" in dir(obj):
                 if on_entry:
-                    if isinstance(obj, Symbol):
+                    if isinstance(obj, SymbolName):
                         parts.append(obj.content)
                     elif isinstance(obj, Fixed):
                         parts.append("'{}'".format(obj.content))
@@ -317,7 +317,7 @@ class LeafRule(Rule):
         super().__init__(**kwargs)
         self.content = content
 
-class Symbol(LeafRule):
+class SymbolName(LeafRule):
     def __init__(self,content,**kwargs):
         self.class_id = CLASS_SYMBOL
         self.key = self.combine_class_id(self.register_string(content,**kwargs))
@@ -468,7 +468,7 @@ class Item(RegisterableObject):
     Once created, it must not be changed.
 
     Internally:
-       self.lhs: a Symbol naming the LHS of the grammar production
+       self.lhs: a SymbolName naming the LHS of the grammar production
        self.rule: the Rule that is the RHS of the grammar production
        self.items: a list: sequence of items (Rules) in the production
        self.position: an integer index: the "dot" representing the current position
@@ -477,7 +477,7 @@ class Item(RegisterableObject):
     def __init__(self,lhs,rule,position,**kwargs):
         """
         Args:
-            lhs: the name of the nonterminal, as a Symbol. Preregistered
+            lhs: the name of the nonterminal, as a SymbolName. Preregistered
             rule: the Flat Production. Preregistered
             position: Index of the position, where 0 is to the left
               of the first item in the choice
@@ -541,7 +541,7 @@ class Item(RegisterableObject):
         Cache the result, as it does not change over time.
         """
         def lookup(rule):
-            return self.grammar.rules[rule.content] if rule.is_symbol() else rule
+            return self.grammar.rules[rule.content] if rule.is_symbol_name() else rule
         if self.the_items_generated_by_next is None:
             self.the_items_generated_by_next = []
             rhs = lookup(self.grammar.rules[self.the_next.content])
@@ -575,7 +575,7 @@ class Item(RegisterableObject):
         # self.items is the sub-objects, as a list
         if rule.is_terminal():
             self.the_items = [rule]
-        elif rule.is_symbol():
+        elif rule.is_symbol_name():
             self.the_items = [rule]
         elif rule.is_empty():
             self.the_items = []
@@ -659,7 +659,7 @@ def json_hook(grammar,memo,tokens_only,dct):
                 elif  type_entry == "REPEAT1":
                     result = grammar.MakeRepeat1([dct["content"]])
                 elif  type_entry == "SYMBOL":
-                    result = memoize(memo,dct["name"],grammar.MakeSymbol(dct["name"]))
+                    result = memoize(memo,dct["name"],grammar.MakeSymbolName(dct["name"]))
     return result
 
 def canonicalize_grammar(grammar,empty):
@@ -708,7 +708,7 @@ def canonicalize_grammar(grammar,empty):
                     Records a new rule with the given key and value.
 
                     Args:
-                        key: A Symbol whose name is the key into the result
+                        key: A SymbolName whose name is the key into the result
                             dictionary
                         values: A list of alternatives
 
@@ -719,7 +719,7 @@ def canonicalize_grammar(grammar,empty):
                     return key
                 for i in range(len(value)):
                     item = value[i]
-                    item_key = grammar.MakeSymbol("{}/{}".format(key,str(i)))
+                    item_key = grammar.MakeSymbolName("{}/{}".format(key,str(i)))
                     if isinstance(item,LeafRule):
                         parts.append(item)
                     elif isinstance(item,Repeat1):
@@ -743,7 +743,7 @@ def canonicalize_grammar(grammar,empty):
                         seq_parts = []
                         for j in range(len(item)):
                             seq_item = item[j]
-                            seq_item_key = grammar.MakeSymbol(
+                            seq_item_key = grammar.MakeSymbolName(
                                     "{}/{}.{}".format(key,str(i),str(j)))
                             if isinstance(seq_item,LeafRule):
                                 seq_parts.append(seq_item)
@@ -780,7 +780,7 @@ def compute_first_sets(grammar,rules):
         if rule.is_terminal() or rule.is_empty():
             # If X is a terminal, then First(X) is {X}
             rule.first = set({rule})
-        elif rule.is_symbol():
+        elif rule.is_symbol_name():
             pass
         else:
             # rule is a Choice node
@@ -791,7 +791,7 @@ def compute_first_sets(grammar,rules):
             names_of_non_terminals.append(key)
 
     def lookup(rule):
-        return rules[rule.content] if isinstance(rule,Symbol) else rule
+        return rules[rule.content] if isinstance(rule,SymbolName) else rule
 
     def dynamic_first(rule,depth):
         """
@@ -812,7 +812,7 @@ def compute_first_sets(grammar,rules):
             A new approximation to the First set for the given rule.
         """
 
-        if rule.is_symbol():
+        if rule.is_symbol_name():
             return rules[rule.content].first
         if rule.is_empty():
             return rule.first
@@ -878,7 +878,7 @@ def derives_empty(rules,phrase):
         True if the phrase derives the empty string.
     """
     def lookup(rule):
-        return rules[rule.content] if isinstance(rule,Symbol) else rule
+        return rules[rule.content] if isinstance(rule,SymbolName) else rule
 
     # Write out the loop so we can exit early.
     for i in phrase:
@@ -898,7 +898,7 @@ def first(grammar,phrase):
         The First set for the phrase
     """
     def lookup(rule):
-        return grammar.rules[rule.content] if isinstance(rule,Symbol) else rule
+        return grammar.rules[rule.content] if isinstance(rule,SymbolName) else rule
 
     # Map names of nonterminals to the nonterminals themselves
     phrase = [lookup(i) for i in phrase]
@@ -926,7 +926,7 @@ def compute_follow_sets(grammar):
     grammar.rules[grammar.start_symbol].follow = set({grammar.end_of_text})
 
     def lookup(rule):
-        return grammar.rules[rule.content] if isinstance(rule,Symbol) else rule
+        return grammar.rules[rule.content] if isinstance(rule,SymbolName) else rule
 
     def process_seq(key,seq,keep_going):
         """
@@ -977,7 +977,7 @@ def compute_follow_sets(grammar):
     while keep_going:
         keep_going = False
         for key, rule in grammar.rules.items():
-            if rule.is_terminal() or rule.is_symbol() or rule.is_empty():
+            if rule.is_terminal() or rule.is_symbol_name() or rule.is_empty():
                 continue
             # We only care about sequences
             for seq in filter(lambda i: isinstance(i,Seq), rule):
@@ -1259,7 +1259,7 @@ class ItemSet:
         Returns: self
         """
         def lookup(rule):
-            return grammar.rules[rule.content] if isinstance(rule,Symbol) else rule
+            return grammar.rules[rule.content] if isinstance(rule,SymbolName) else rule
 
         dirty_dict = self.id_to_lookahead.copy()
         while len(dirty_dict) > 0:
@@ -1276,7 +1276,7 @@ class ItemSet:
                 if item.at_end():
                     continue
                 B = item.next()
-                if not B.is_symbol():
+                if not B.is_symbol_name():
                     continue
 
                 # Compute lookahead. (A fresh LookaheadSet)
@@ -1550,7 +1550,7 @@ class Grammar:
         self.rules = self.json_grammar["rules"]
 
         # Augment the grammar:
-        self.rules[LANGUAGE] = self.MakeSeq([self.MakeSymbol(start_symbol), self.end_of_text])
+        self.rules[LANGUAGE] = self.MakeSeq([self.MakeSymbolName(start_symbol), self.end_of_text])
 
     def MakeEmpty(self):
         return self.empty
@@ -1572,12 +1572,12 @@ class Grammar:
     def MakeRepeat1(self,content):
         return self.register(Repeat1(content,reg=self))
 
-    def MakeSymbol(self,content):
-        return self.register(Symbol(content,reg=self))
+    def MakeSymbolName(self,content):
+        return self.register(SymbolName(content,reg=self))
 
     def MakeItem(self,lhs,rule,position):
-        # Upconvert a lhs to a Symbol if it's a Python string.
-        lhs = lhs if isinstance(lhs,Symbol) else self.MakeSymbol(lhs)
+        # Upconvert a lhs to a SymbolName if it's a Python string.
+        lhs = lhs if isinstance(lhs,SymbolName) else self.MakeSymbolName(lhs)
         candidate = Item(lhs,rule,position,reg=self)
         # Avoid double-registering.
         result = self.register(candidate)
@@ -1611,7 +1611,7 @@ class Grammar:
             """Returns a pretty string for a node"""
             if rule.is_terminal() or rule.is_empty():
                 return str(rule)
-            if rule.is_symbol():
+            if rule.is_symbol_name():
                 return rule.content
             if isinstance(rule,Choice):
                 return " | ".join([pretty_str(i) for i in rule])
@@ -1667,7 +1667,7 @@ class Grammar:
             an LL(1) parser table
                 Key is tuple (lhs,rhs) where lhs is the name of the nonterminal
                 and rhs is the Rule for the right-hands side being reduced:
-                It may be a Symbol, a Token, or a Sequence of Symbols and Tokens
+                It may be a SymbolName, a Token, or a Sequence of Symbols and Tokens
             a list of conflicts
         """
 
@@ -1861,7 +1861,7 @@ class Grammar:
                     # Can't be EndOfText by construction of the goto result
                     isinstance(X,Token) or raiseRE("internal error: expected a token")
                     addAction(item_set, X, Shift(item_set_for_X))
-                elif X.is_symbol():
+                elif X.is_symbol_name():
                     nonterminal_goto[(item_set.core_index,X)] = item_set_for_X
 
         item_sets = [by_index[i] for i in sorted_item_set_core_ids]
