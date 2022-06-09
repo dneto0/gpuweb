@@ -38,6 +38,8 @@ Represent and process a grammar:
 - Compute First and Follow sets
 - Compute LL(1) parser table and associated conflicts
 - Verify a language is LALR(1) with context-sensitive lookahead
+  - Compute the ParseTable for an LALR(1) grammar, and any
+    conflicts if they exist.
 """
 
 import json
@@ -226,7 +228,12 @@ class Rule(RegisterableObject):
 
 
 class ContainerRule(Rule):
-    """A ContainerRule is a rule with children"""
+    """
+    A ContainerRule is a rule with children
+
+    Once created, it must not change: don't add, replace, reorder, or remove
+    its objects.
+    """
     def __init__(self,children,**kwargs):
         super().__init__(**kwargs)
         self.children = children
@@ -315,51 +322,35 @@ class EndOfText(LeafRule):
         super().__init__(None,**kwargs)
 
 class Token(LeafRule):
-    """A Token represents a non-empty contiguous sequence of code points"""
+    """
+    A Token is a non-empty contiguous sequence of code points
+    """
     def __init__(self,content,**kwargs):
         self.key = self.combine_class_id(self.register_string(content,**kwargs))
         super().__init__(content,**kwargs)
 
 class Fixed(Token):
+    """
+    A Fixed is a token with a given sequence of code points.
+    """
     def __init__(self,content,**kwargs):
         self.class_id = CLASS_FIXED
         super().__init__(content,**kwargs)
 
 class Pattern(Token):
+    """
+    A Pattern represents a token matched by a regular expression.
+    """
     def __init__(self,content,**kwargs):
         self.class_id = CLASS_PATTERN
         super().__init__(content,**kwargs)
 
-class LLAction:
-    """
-    A parser action for a LL(1) grammar
-    """
-    def __init(self):
-        pass
-
-class LLReduce(LLAction):
-    """
-    A Reduce parser action for a LL(1) grammar
-
-    LLReduce('lhs',rhs) replaces the sequence of symbols in the RHS with
-    the non-terminal named 'lhs'.
-
-    Args:
-      non_terminal: the name of the non_terminal being reduced
-      rhs: a Rule: either a terminal, or a Seq of terminals and symbols
-    """
-    def __init__(self,non_terminal,rhs):
-        # The name of the non-terminal, as a Python string
-        self.non_terminal = non_terminal
-        self.rhs = rhs
-
-    def __str__(self):
-        return "{} -> {}".format(self.non_terminal, str(self.rhs))
-
 
 @functools.total_ordering
 class Action:
-    """ A parser action for an LALR(1) grammar """
+    """
+    A parser action for a bottom-up LR or LALR(1) parser.
+    """
 
     def __lt__(self,other):
         return self.compare_value() < other.compare_value()
@@ -381,6 +372,12 @@ class Action:
         return str(self)
 
 class Accept(Action):
+    """
+    An Accept action represents acceptance of the input string.
+
+    That is, the input string is part of the langauge, as we have
+    successfully matched it against the start symbol of the language.
+    """
     def __str__(self):
         return "acc"
 
@@ -388,6 +385,16 @@ class Accept(Action):
         return (0,0)
 
 class Shift(Action):
+    """
+    A Shift is an parser shift action.
+
+    It represents the event where:
+    - the parser has matched the next token against a lookahead token
+    - the parser should:
+       - consume that token,
+       - push that token onto its stack, and
+       - change state to the given state.
+    """
     def __init__(self,item_set):
         isinstance(item_set,ItemSet) or raiseRE("expected ItemSet")
         self.item_set = item_set # item_set is assumed closed, and has core index
@@ -400,6 +407,19 @@ class Shift(Action):
         return (1,self.index)
 
 class Reduce(Action):
+    """
+    A Reduce is an parser reduction action.
+
+    It represents the event where:
+    - the parser has just recognized the full right hand side of some production
+      for a nonterminal
+    - the parser should, where the production is [ N -> alpha ]:
+       - remove the top len(alpha) symbols and state IDs on its stack
+       - match those len(alpha) symbols to the symbols in alpha
+       - read the state id S on top of the stack, and push onto the stack:
+           nonterminal N, and 
+           goto[S, N] as the next state ID
+    """
     def __init__(self,item,index):
         """
         Args:
@@ -421,6 +441,9 @@ class Reduce(Action):
         return (2,self.index)
 
 class Conflict:
+    """
+    A Conflict is a parser conflict
+    """
     def __init__(self,item_set,terminal,prev_action,action):
         isinstance(item_set,ItemSet) or raiseRE("expected ItemSet")
         terminal.is_terminal() or raiseRE("expected terminal")
@@ -437,7 +460,7 @@ class Conflict:
 @functools.total_ordering
 class Item(RegisterableObject):
     """
-    An SLR Item is a non-terminal name, and a Flat Production with a
+    An Item is a non-terminal name, and a Flat Production with a
     single position marker.
 
     If there are N objects in the production, the marked position
@@ -502,7 +525,7 @@ class Item(RegisterableObject):
              but without the empty token
            - and when that rest of the production can derive empty, also add the
              tokens from the other lookahead set 'other_la'
-        This is needed for closing an ItemSet
+        This is needed for closing an ItemSet.
         """
         # First make a copy
         result = LookaheadSet(self.rest_firsts_without_empty)
@@ -585,7 +608,7 @@ class Item(RegisterableObject):
         Returns True when this item represents having accepted a valid
         sentence in the language
 
-        The agumented grammar always has 1 element:
+        Note: The agumented grammar always has 1 element:
            [ LANGUAGE -> translation_unit . EndOfText ]
         """
         return (self.position == 1) and (self.lhs.content == LANGUAGE)
@@ -600,6 +623,8 @@ def json_hook(grammar,memo,tokens_only,dct):
     the 'type' entry.
     Returns 'dct' itself when 'dct' has no type entry or has an unrecognized
     type entry.
+
+    We use Treesitter's conventions for representing a grammar in JSON form.
 
     Args:
       grammar: The grammar in which this node is created.
@@ -1052,7 +1077,6 @@ class ItemSet:
 
     An ItemSet can only be mutated via methods:
         - close, which can add items and modify lookaheads
-        - merge, which can only change lookaheads, but not the items
     """
     class GotoEdge:
         """
@@ -1166,15 +1190,15 @@ class ItemSet:
         return "#{}".format(self.core_index)
 
     def __lt__(self,other):
-        # TODO: These are slow. Only use this for tests and printing.
+        # Note: This is slow. Only use this for tests and printing.
         return self.content_str() < other.content_str()
 
     def __hash__(self):
-        # TODO: These are slow. Only use this for tests and printing.
+        # Note: This is slow. Only use this for tests and printing.
         return self.content_str().__hash__()
 
     def __eq__(self,other):
-        # TODO: These are slow. Only use this for tests and printing.
+        # Note: This is slow. Only use this for tests and printing.
         return self.content_str() == other.content_str()
 
     def pretty_key(self):
@@ -1268,6 +1292,10 @@ class ItemSet:
                    representing the next parser state after having successfully recognized
                    grammar symbol X
                 where X ranges over all grammar symbols X such that goto(self,X) is non-empty.
+
+        On first execution, this populates self.goto, which caches the GotoEdges.  That connectivity changes.
+        On subsequent executions, only propagates lookaheads from core items to the items
+        derived from those core items.
 
         Args:
            self
@@ -1445,6 +1473,9 @@ class Grammar:
         """
         Loads a grammar from text.
 
+        The text format is assumed to be JSON object representing a
+        Treesitter grammar.
+
         Args:
            json_text: The grammar in JSON form, as emitted by
              a Treesitter generation step.
@@ -1514,28 +1545,52 @@ class Grammar:
 
     def MakeEmpty(self):
         return self.empty
+
     def MakeEndOfText(self):
         return self.end_of_text
 
     def MakeFixed(self,content):
+        """
+        Returns a new Fixed object, unique up to equivalence of its string text.
+        """
         return self.register(Fixed(content,reg=self))
 
     def MakePattern(self,content):
+        """
+        Returns a new Pattern object, unique up to equivalence of its pattern text.
+        """
         return self.register(Pattern(content,reg=self))
 
     def MakeChoice(self,content):
+        """
+        Returns a new Choice object, unique up to equivalence of its members.
+        """
         return self.register(Choice(content,reg=self))
 
     def MakeSeq(self,content):
+        """
+        Returns a new Seq object, unique up to equivalence of its member sequence.
+        """
         return self.register(Seq(content,reg=self))
 
     def MakeRepeat1(self,content):
+        """
+        Returns a new Repeat1 object, unique up to equivalence of its member.
+        """
         return self.register(Repeat1(content,reg=self))
 
     def MakeSymbolName(self,content):
+        """
+        Returns a new SymbolName, unique up to equivalence of its string name.
+        """
         return self.register(SymbolName(content,reg=self))
 
     def MakeItem(self,lhs,rule,position):
+        """
+        Returns a new Item, unique up to equivalence of its left-hand side
+        nonterminal, right-hand side production rule, and its position within
+        that right-hand side.
+        """
         # Upconvert a lhs to a SymbolName if it's a Python string.
         lhs = lhs if isinstance(lhs,SymbolName) else self.MakeSymbolName(lhs)
         candidate = Item(lhs,rule,position,reg=self)
@@ -1546,12 +1601,23 @@ class Grammar:
         return result
 
     def canonicalize(self):
+        """
+        Rewrites this Grammar's rules so they are in Canonical Form.
+        """
         self.rules = canonicalize_grammar(self,self.empty)
 
     def compute_first(self):
+        """
+        Computes the First set for each rule, saving the result on each rule node.
+        Also computes .derives_empty
+        """
         compute_first_sets(self, self.rules)
 
     def compute_follow(self):
+        """
+        Computes the Follow set for each rule, saving the result on each rule node.
+        Assumes First sets have been computed.
+        """
         compute_follow_sets(self)
 
     def dump(self):
