@@ -88,6 +88,8 @@ def raiseRE(s):
 #  Nonterminal: A grammar object which can expand to phrases, as defined by
 #    production rules.
 #
+#  Symbol: a Terminal or a Nonterminal.
+#
 #  SymbolName: A name for a Terminal or Nonterminal.
 #
 #  Choice: A Rule which matches when any of several children matches
@@ -123,7 +125,7 @@ def raiseRE(s):
 #  Canonical Form: a GrammarDict where the Productions for Nonterminals are:
 #    A Choice over Flat Productions
 #
-#  Phrase: A sequence of Terminals and Nonterminals, or a single Empty
+#  Phrase: A sequence of Symbols (Terminals and Nonterminals), or a single Empty.
 #    It might have length 0, i.e. no objects at all.
 #
 #  Sentence: A sequence of Tokens. (Each Sentence is a Phrase.)
@@ -1226,24 +1228,11 @@ class ItemSet:
                     return True
         return False
 
-
-    def merge(self, other):
-        """
-        Adds the lookaheads from the other ItemSet to self.
-        Assumes the other ItemSet has the same items as self.
-
-        Returns: True when something new was added to the current set.
-        """
-        result = False
-        for item_id, lookahead in self.id_to_lookahead.items():
-            if item_id not in other.id_to_lookahead:
-                raise RuntimeError("item {} missing from other: {}".format(str(self.id_to_item[item_id]), str(other)))
-            result = result | lookahead.merge(other.id_to_lookahead[item_id])
-        return result
-
     def close(self,grammar):
         """
-        Compute the closure of this item set, and a unique index for its core.
+        Computes the closure of this item set, including propagation of lookaheads
+        from the core items to the items they generate
+        Updates this ItemSet in place.
 
         That is:
             if   [A -> alpha . B beta , x ] is in the item set, and
@@ -1252,9 +1241,6 @@ class ItemSet:
                  [ B -> . gamma, x ]  to this item set.
             There may be many such B's, rules containing them, productions for B,
             and lookahead tokens 'x'.
-
-        Once the closure is computed, register its core with the grammar, and save
-        it in self.core_index.
 
         Returns: self
         """
