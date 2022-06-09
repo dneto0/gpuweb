@@ -85,8 +85,12 @@ def raiseRE(s):
 #
 #  Terminal: One of: Token, EndOfText
 #
-#  Nonterminal: A grammar object which can expand to phrases, as defined by
-#    production rules.
+#  Nonterminal: A named grammar object which maps to a Production.
+#    In a Phrase, a nonterminal is represented by SymbolName
+#    whose content is the (Python string) name of the nonterminal.
+#    Conventionally, a single Nonterminal can have several productions.
+#    In our grammar representation, that is encoded as a Choice over those
+#    productions.
 #
 #  Symbol: a Terminal or a Nonterminal.
 #
@@ -113,7 +117,7 @@ def raiseRE(s):
 #
 #  GrammarDict: a dictionary mapping over Python strings mapping:
 #    A Terminal name to its definition.
-#    A Nonterminal name to its Productions.
+#    A Nonterminal name to its Production.
 #
 #  Grammar:
 #    A Python object of class Grammar, including members:
@@ -125,7 +129,7 @@ def raiseRE(s):
 #  Canonical Form: a GrammarDict where the Productions for Nonterminals are:
 #    A Choice over Flat Productions
 #
-#  Phrase: A sequence of Symbols (Terminals and Nonterminals), or a single Empty.
+#  Phrase: A single Empty, or a sequence of a mixture of Terminals or SymbolNames.
 #    It might have length 0, i.e. no objects at all.
 #
 #  Sentence: A sequence of Tokens. (Each Sentence is a Phrase.)
@@ -229,33 +233,6 @@ class ContainerRule(Rule):
 
     def ordered(self):
         return self.ordered_children if ('ordered_children' in dir(self)) else self.children
-
-    def x__eq__(self,other):
-        if not isinstance(other, self.__class__):
-            return False
-        if len(self.children) is not len(other.children):
-            return False
-        ours = self.ordered()
-        theirs = other.ordered()
-        return all([(ours[i] == theirs[i]) for i in range(len(ours))])
-
-    def x__lt__(self,other):
-        # Order by class
-        if self._class_less(other):
-            return True
-        if other._class_less(self):
-            return False
-        ours = self.ordered()
-        theirs = other.ordered()
-        for i in range(min(len(ours), len(theirs))):
-            if ours[i] < theirs[i]:
-                return True
-            if theirs[i] < ours[i]:
-                return False
-        return len(ours) < len(theirs)
-
-    def x__hash__(self):
-        return str(self).__hash__()
 
     # Emulate an indexable sequence by adding certain standard methods:
     def __len__(self):
@@ -1203,9 +1180,6 @@ class ItemSet:
     def pretty_key(self):
         # Use this for sorting for output
         return "#{:8d}{}".format(self.core_index,self.content_str())
-
-    def copy(self):
-        raise RuntimeError("don't run copy")
 
     # Make sure we don't use ItemSet as a raw dictionary
     def keys(self):

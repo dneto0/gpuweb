@@ -719,7 +719,7 @@ class Item_Basics(unittest.TestCase):
         g = _gl("e",_def("e",_empty()))
         it = g.MakeItem("e",g.MakeEmpty(),0)
         self.assertEqual(it.items(), [])
-        self.assertEqual(it.lhs, g.MakeSymbol("e"))
+        self.assertEqual(it.lhs, g.MakeSymbolName("e"))
         self.assertEqual(it.position, 0)
 
     def test_Item_OfEmpty_PosTooSmall(self):
@@ -742,7 +742,7 @@ class Item_Basics(unittest.TestCase):
         g = _gl("t",_def("t",_fixed('x')))
         t = g.MakeFixed('x')
         it = g.MakeItem("t",t,1)
-        self.assertEqual(it.lhs, g.MakeSymbol("t"))
+        self.assertEqual(it.lhs, g.MakeSymbolName("t"))
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 1)
         self.assertEqual(it.items(), [t])
@@ -781,7 +781,7 @@ class Item_Basics(unittest.TestCase):
 
     def test_Item_OfSymbol_Pos0(self):
         g = _gl("t",_def("t",_sym('x')),_def("x",_fixed("X")))
-        t = g.MakeSymbol('x')
+        t = g.MakeSymbolName('x')
         it = g.MakeItem("t",t,0)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 0)
@@ -789,7 +789,7 @@ class Item_Basics(unittest.TestCase):
 
     def test_Item_OfSymbol_Pos1(self):
         g = _gl("t",_def("t",_sym('x')),_def("x",_fixed("X")))
-        t = g.MakeSymbol('x')
+        t = g.MakeSymbolName('x')
         it = g.MakeItem("t",t,1)
         self.assertEqual(it.rule, t)
         self.assertEqual(it.position, 1)
@@ -797,14 +797,14 @@ class Item_Basics(unittest.TestCase):
 
     def test_Item_OfSymbol_PosTooSmall(self):
         g = _gl("t",_def("t",_sym('x')),_def("x",_fixed("X")))
-        self.assertRaises(RuntimeError, self.make_item, g, "t", g.MakeSymbol('x'), -1)
+        self.assertRaises(RuntimeError, self.make_item, g, "t", g.MakeSymbolName('x'), -1)
 
     def test_Item_OfSymbol_PosTooBig(self):
         g = _gl("t",_def("t",_sym('x')),_def("x",_fixed("X")))
-        self.assertRaises(RuntimeError, self.make_item, g, "t", g.MakeSymbol('x'), 2)
+        self.assertRaises(RuntimeError, self.make_item, g, "t", g.MakeSymbolName('x'), 2)
 
     def example_seq(self,g):
-        return g.MakeSeq([g.MakeFixed('x'), g.MakeSymbol('blah')])
+        return g.MakeSeq([g.MakeFixed('x'), g.MakeSymbolName('blah')])
 
     def test_Item_OfSeq_Pos0(self):
         g = _gl("t",_def("t", _seq(_fixed('x'),_sym('blah'))),_def("blah",_fixed("blah")))
@@ -844,7 +844,7 @@ class Item_Basics(unittest.TestCase):
 
     def test_Item_OfRepeat1(self):
         g = _gl("c",_def("c", _rep1(_sym("ddd"))),_def("ddd",_fixed("ddd")))
-        self.assertRaises(RuntimeError, self.make_item, g, "c", g.MakeRepeat1([g.MakeSymbol("ddd")]), 0)
+        self.assertRaises(RuntimeError, self.make_item, g, "c", g.MakeRepeat1([g.MakeSymbolName("ddd")]), 0)
 
     def test_Item_is_accepting(self):
         g = _gl("translation_unit",_def("translation_unit",_sym("S")),_def("S",_fixed("abc")))
@@ -885,11 +885,11 @@ class Rule_Equality(unittest.TestCase):
         self.assertTrue(a == a2)
         self.assertFalse(a == b)
 
-    def test_Symbol(self):
+    def test_SymbolName(self):
         g = _gl("a",_def("a",_sym("a")),_def("b",_sym("b")))
-        a = g.MakeSymbol('a')
-        a2 = g.MakeSymbol('a')
-        b = g.MakeSymbol('b')
+        a = g.MakeSymbolName('a')
+        a2 = g.MakeSymbolName('a')
+        b = g.MakeSymbolName('b')
         self.assertEqual(a,a)
         self.assertTrue(a == a)
         self.assertTrue(a == a2)
@@ -948,7 +948,7 @@ class Rule_Equality(unittest.TestCase):
         empty = g.MakeEmpty()
         end = g.MakeEndOfText()
         fixed = g.MakeFixed('a')
-        symbol = g.MakeSymbol('a')
+        symbol = g.MakeSymbolName('a')
         pattern = g.MakePattern('a')
         choice = g.MakeChoice([g.MakePattern('a')])
         repeat1 = g.MakeRepeat1([g.MakePattern('a')])
@@ -1068,12 +1068,12 @@ class Item_is_kernel(unittest.TestCase):
 
     def test_Item_OfSymbol_Pos0(self):
         g = _gl("e",_def("e",_sym("a")),_def("a",_fixed("a")))
-        it = g.MakeItem("e",g.MakeSymbol('a'),0)
+        it = g.MakeItem("e",g.MakeSymbolName('a'),0)
         self.assertFalse(it.is_kernel())
 
     def test_Item_OfSymbol_Pos1(self):
         g = _gl("e",_def("e",_sym("a")),_def("a",_fixed("a")))
-        it = g.MakeItem("e",g.MakeSymbol('a'),1)
+        it = g.MakeItem("e",g.MakeSymbolName('a'),1)
         self.assertTrue(it.is_kernel())
 
     def test_Item_OfSeq_Pos0(self):
