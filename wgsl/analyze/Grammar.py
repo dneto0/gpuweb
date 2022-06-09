@@ -510,18 +510,35 @@ class Item(RegisterableObject):
             self.the_items = self.compute_items()
             self.the_next = self.the_items[self.position] if self.position < len(self.the_items) else None
             self.the_rest = self.the_items[self.position+1:]
+            self.rest_derives_empty = derives_empty(grammar.rules, self.the_rest)
+            self.rest_firsts_without_empty = without_empty(first(grammar, self.the_rest))
         return self
+
+    def rest_lookahead_with_other_lookahead(self,other_la):
+        """
+        Returns a new LookaheadSet containing:
+           - the firsts tokens of the 'rest' of the production after the 'next' symbol,
+             but without the empty token
+           - and when that rest of the production can derive empty, also add the
+             tokens from the other lookahead set 'other_la'
+        This is needed for closing an ItemSet
+        """
+        # First make a copy
+        result = LookaheadSet(self.rest_firsts_without_empty)
+        if self.rest_derives_empty:
+            # When the_rest can derive an empty string, then the result could depend on the
+            # contents of the other lookahead
+            result.merge(other_la)
+        return result
 
     def items(self):
         # The ordered list of terminals/nonterminals in the production
         return self.the_items
+
     def next(self):
         # Returns the terminal/nonterminal immediately after the dot, or None if the dot
         # is at the ene
         return self.the_next
-    def rest(self):
-        # The ordered list of terminals/nonterminals after the "next" terminal/nonterminal
-        return self.the_rest
 
     def compute_items(self):
         """"
@@ -1235,18 +1252,8 @@ class ItemSet:
                 if not B.is_symbol():
                     continue
 
-                afterB = item.rest()
-
-                # Compute lookahead.
-                afterB_firsts = first(grammar, afterB)
-                afterB_derives_empty = derives_empty(grammar.rules, afterB)
-                new_item_lookahead = LookaheadSet(without_empty(afterB_firsts))
-                if afterB_derives_empty:
-                    # When afterB can derive an empty string, then the result could depend on `a`.
-                    new_item_lookahead.merge(lookahead)
-                else:
-                    # If afterB can't derive empty, then it's independent of `a`
-                    pass
+                # Compute lookahead. (A fresh LookaheadSet)
+                new_item_lookahead = item.rest_lookahead_with_other_lookahead(lookahead)
 
                 # For each production B -> B_prod in G'
                 rhs = lookup(grammar.rules[B.content])
