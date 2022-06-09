@@ -1451,7 +1451,7 @@ class ParseTable:
             parts.append("{}\n".format(str(c)))
         return parts
 
-    def __str__(self):
+    def all_parts(self):
         parts = []
         parts.append("=LALR1 item sets:\n")
         parts.extend(self.states_parts())
@@ -1461,12 +1461,17 @@ class ParseTable:
         parts.extend(self.action_parts())
         parts.append("\n=Goto:\n")
         parts.extend(self.goto_parts())
-
         if self.has_conflicts():
             parts.append("\n=Conflicts: {} conflicts\n".format(len(self.conflicts)))
             parts.extend(self.conflict_parts())
+        return parts
 
-        return "".join(parts)
+    def write(self,file):
+        for s in self.all_parts():
+            print(s,file=file,end='')
+
+    def __str__(self):
+        return "".join(self.all_parts())
 
 
 class Grammar:

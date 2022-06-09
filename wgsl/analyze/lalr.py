@@ -78,7 +78,7 @@ def main():
         print("=Grammar:\n")
         print(g.pretty_str())
         parse_table = g.LALR1(max_item_sets=args.limit)
-        print(str(parse_table))
+        parse_table.write(sys.stdout)
         if parse_table.has_conflicts():
             sys.exit(1)
         sys.exit(0)
