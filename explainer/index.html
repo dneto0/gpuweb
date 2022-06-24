@@ -1489,7 +1489,6 @@ Possible extra rowspan handling
 </style>
   <meta content="Bikeshed version 37b7e7e68, updated Fri May 27 15:08:11 2022 -0700" name="generator">
   <link href="https://gpuweb.github.io/gpuweb/explainer/" rel="canonical">
-  <meta content="ec33ac9dfff3e02fc52394771101c2c0b6b62dd1" name="document-revision">
 <style>/* style-autolinks */
 
 .css.css, .property.property, .descriptor.descriptor {
@@ -2056,7 +2055,7 @@ c-[il] { color: #000000 } /* Literal.Number.Integer.Long */
   <div class="head">
    <p data-fill-with="logo"></p>
    <h1 class="p-name no-ref" id="title">WebGPU Explainer</h1>
-   <h2 class="no-num no-toc no-ref heading settled" id="profile-and-date"><span class="content">Living Standard, <time class="dt-updated" datetime="2022-05-31">31 May 2022</time></span></h2>
+   <h2 class="no-num no-toc no-ref heading settled" id="profile-and-date"><span class="content">Living Standard, <time class="dt-updated" datetime="2022-06-24">24 June 2022</time></span></h2>
    <div data-fill-with="spec-metadata">
     <dl>
      <dt>This version:
@@ -3092,8 +3091,8 @@ preferred format.
 The exact format cannot be hidden, because the format is observable - e.g.,
 in the behavior of a <code>copyBufferToTexture</code> call and in compatibility rules with render pipelines
 (which specify a format, see <code>GPUColorTargetState.format</code>).</p>
-   <p>Desktop-lineage hardware usually prefers <code>bgra8unorm</code> (4 bytes in BGRA order),
-while mobile-lineage hardware usually prefers <code>rgba8unorm</code> (4 bytes in RGBA order).</p>
+   <p>Most hardware prefers <code>bgra8unorm</code> (4 bytes in BGRA order) or is agnostic, while some mobile and
+embedded devices (like Android phones) prefer <code>rgba8unorm</code> (4 bytes in RGBA order).</p>
    <p>For high-bit-depth, different systems may also prefer different formats,
 like <code>rgba16float</code> or <code>rgb10a2unorm</code>.</p>
    <h4 class="heading settled" data-level="3.10.4" id="canvas-output-multiple-displays"><span class="secno">3.10.4. </span><span class="content">Multiple Displays</span><a class="self-link" href="#canvas-output-multiple-displays"></a></h4>
