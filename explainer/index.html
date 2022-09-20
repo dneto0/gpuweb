@@ -1489,6 +1489,13 @@ Possible extra rowspan handling
 </style>
   <meta content="Bikeshed version 37b7e7e68, updated Fri May 27 15:08:11 2022 -0700" name="generator">
   <link href="https://gpuweb.github.io/gpuweb/explainer/" rel="canonical">
+<style>
+/* Our SVGs aren’t responsive to light/dark mode, so they’re opaque with a
+ * white or black background. Rounded corners make them a bit less jarring. */
+object[type="image/svg+xml"] {
+    border-radius: .5em;
+}
+</style>
 <style>/* style-autolinks */
 
 .css.css, .property.property, .descriptor.descriptor {
@@ -2055,7 +2062,7 @@ c-[il] { color: #000000 } /* Literal.Number.Integer.Long */
   <div class="head">
    <p data-fill-with="logo"></p>
    <h1 class="p-name no-ref" id="title">WebGPU Explainer</h1>
-   <h2 class="no-num no-toc no-ref heading settled" id="profile-and-date"><span class="content">Living Standard, <time class="dt-updated" datetime="2022-06-24">24 June 2022</time></span></h2>
+   <h2 class="no-num no-toc no-ref heading settled" id="profile-and-date"><span class="content">Living Standard, <time class="dt-updated" datetime="2022-09-20">20 September 2022</time></span></h2>
    <div data-fill-with="spec-metadata">
     <dl>
      <dt>This version:
@@ -2063,9 +2070,9 @@ c-[il] { color: #000000 } /* Literal.Number.Integer.Long */
      <dt>Issue Tracking:
      <dd><a href="#issues-index">Inline In Spec</a>
      <dt class="editor">Editors:
-     <dd class="editor p-author h-card vcard"><a class="p-name fn u-email email" href="mailto:kainino@google.com">Kai Ninomiya</a> (<a class="p-org org" href="https://www.google.com">Google</a>)
+     <dd class="editor p-author h-card vcard" data-editor-id="99487"><a class="p-name fn u-email email" href="mailto:kainino@google.com">Kai Ninomiya</a> (<a class="p-org org" href="https://www.google.com">Google</a>)
      <dd class="editor p-author h-card vcard"><a class="p-name fn u-email email" href="mailto:cwallez@google.com">Corentin Wallez</a> (<a class="p-org org" href="https://www.google.com">Google</a>)
-     <dd class="editor p-author h-card vcard"><a class="p-name fn u-email email" href="mailto:dmalyshau@mozilla.com">Dzmitry Malyshau</a> (<a class="p-org org" href="https://www.mozilla.org">Mozilla</a>)
+     <dd class="editor p-author h-card vcard" data-editor-id="96977"><a class="p-name fn u-email email" href="mailto:dmalyshau@mozilla.com">Dzmitry Malyshau</a> (<a class="p-org org" href="https://www.mozilla.org">Mozilla</a>)
      <dt>Participate:
      <dd><a href="https://github.com/gpuweb/gpuweb/issues/new?labels=explainer">File an issue</a> (<a href="https://github.com/gpuweb/gpuweb/labels/explainer">open issues</a>)
     </dl>
@@ -3223,7 +3230,7 @@ However investigation in WebGL show that GPU timings can be used to leak from su
    <div class="example" id="example-example"><a class="self-link" href="#example-example"></a> This is an example of an informative example. </div>
    <p> Informative notes begin with the word “Note”
             and are set apart from the normative text with <code>class="note"</code>, like this: </p>
-   <p class="note" role="note"> Note, this is an informative note. </p>
+   <p class="note" role="note"> Note, this is an informative note.</p>
   </div>
 <script>
 (function() {
