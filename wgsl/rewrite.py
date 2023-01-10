@@ -43,10 +43,15 @@ import sys
 EBNF_METACHARS="?+*|()"
 
 class Options:
-    def __init__(self,emit_text=False,emit_bs=False,emit_ebnf=False,sot_ebnf=True):
+    def __init__(self,emit_text=False,emit_bs=False,emit_ebnf=False,sot_ebnf=True,sot_bs=False):
         # True if the source of truth about the grammar rules is the EBNF.
         # If false, the source of truth is the bikeshed form of the grammar.
         self.sot_ebnf = sot_ebnf
+        self.sot_bs = sot_bs
+        if sot_ebnf and sot_bs:
+            raise RuntimeError("Can't have both EBNF and BS as sources of truth")
+        if sot_ebnf == sot_bs:
+            raise RuntimeError("At least one EBNF and BS must be a sources of truth")
         # Emit non-grammar text?
         self.emit_text = emit_text
         # Emit bikeshed text?
@@ -60,11 +65,14 @@ def ebnf_comment(s):
 
 TAG_TEXT='text'
 TAG_EBNF='ebnf'
-TAG_BS='bs'
+TAG_BS='bs' # The original bikeshed
+TAG_BS_NEW='bs_new' # The new bikeshed
 class TaggedLine:
     def __init__(self,tag,line):
         self.tag = tag
         self.line = line
+    def __str__(self):
+        return "{}: {}".format(self.tag, self.line)
 
 # Each line is in its own state.
 # INITIAL: outside of any grammar rule
@@ -97,7 +105,9 @@ class Rule(GrammarElement):
         self.alternatives = alternatives
 
     def bs_str(self):
-        return "{}\n{}".format(self.name,"\n".join([x.bs_str() for x in self.alternatives]))
+        header = "<div class='syntax' noexport='true'>\n  <dfn for=syntax>{}</dfn> :".format(self.name)
+        body = "".join([x.bs_str() for x in self.alternatives])
+        return "{}\n{}</div>\n".format(header,body)
 
     def ebnf_str(self):
         return "{}\n{}".format(self.name,"".join([x.ebnf_str() for x in self.alternatives]))
@@ -107,7 +117,7 @@ class Alternative(GrammarElement):
         self.elements = elements
 
     def bs_str(self):
-        return "\n | {}\n".format(" ".join([x.bs_str() for x in self.elements]))
+        return "\n    | {}\n".format(" ".join([x.bs_str() for x in self.elements]))
 
     def ebnf_str(self):
         return "| {}\n".format(" ".join([x.ebnf_str() for x in self.elements]))
@@ -287,7 +297,7 @@ class Processor:
         if isinstance(element,GrammarElement):
             # When both are present, EBNF should precede the BS
             self.result.append(TaggedLine(TAG_EBNF,element.ebnf_str()))
-            self.result.append(TaggedLine(TAG_BS,element.bs_str()))
+            self.result.append(TaggedLine(TAG_BS_NEW,element.bs_str()))
         elif isinstance(element,TaggedLine):
             self.result.append(element)
         else:
@@ -379,9 +389,12 @@ class Processor:
                 result.append(tl.line)
             if self.options.emit_ebnf and tl.tag == TAG_EBNF:
                 result.append(tl.line)
-            if self.options.emit_bs and tl.tag == TAG_BS:
+            if self.options.emit_bs and tl.tag == TAG_BS_NEW:
                 result.append(tl.line)
         return result
+
+    def __str__(self):
+        return "".join([str(x) for x in self.result])
 
 
 def main(argv):
@@ -411,12 +424,23 @@ def main(argv):
     argparser.add_argument('-t',
                            action='store_true',
                            help="Write non-grammar text")
+    direction_arg = argparser.add_mutually_exclusive_group()
+    direction_arg.add_argument('-f',
+                               action='store_true',
+                               help="Forward. Source of truth is EBNF. This is the default")
+    direction_arg.add_argument('-r',
+                               action='store_true',
+                               help="Reverse. Source of truth is Bikeshed")
     args = argparser.parse_args()
     if args.help:
         print(argparser.format_help())
         return 0
 
-    options = Options()
+    # Default to forward
+    if args.f == False and args.r == False:
+        args.f = True
+
+    options = Options(sot_ebnf = args.f, sot_bs = args.r)
     if args.a:
         options.emit_text = True
         options.emit_ebnf = True
@@ -432,8 +456,12 @@ def main(argv):
         lines = r.readlines()
 
     processor = Processor(options)
-
     processor.process(lines)
+
+    #print(">>>DUMP")
+    #print(processor)
+    #print("<<<DUMP")
+
     outlines = processor.filter()
     if args.i:
         with open(args.file,'w') as w:
