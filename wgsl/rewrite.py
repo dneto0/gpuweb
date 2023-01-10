@@ -33,8 +33,7 @@
 
 
 # TODO:
-#  Read grammar from ebnf
-#  Write ebnf
+#  Support using EBNF as source of truth
 
 import argparse
 import re
@@ -60,9 +59,9 @@ class Options:
         self.emit_ebnf = emit_ebnf
 
 def ebnf_comment(tag,s):
-    pre = ' '
+    pre = '\n' if '\n' in s else ' '
     post = '' if '\n' in s else ' '
-    return "<!--ebnf:{}{}{}{}ebnf-->\n".format(tag,pre,s,post)
+    return "<!--ebnf--:{}{}{}{}--ebnf-->\n".format(tag,pre,s,post)
 
 
 TAG_TEXT='text'
@@ -76,27 +75,6 @@ class TaggedLine:
         self.line = line
     def __str__(self):
         return "{}: {}".format(self.tag, self.line)
-
-# Each line is in its own state.
-# INITIAL: outside of any grammar rule
-# SAW_DIV: just saw the introducer 'div' element
-#       <div class='syntax' noexport='true'>
-#   Expecting "dfn for=syntax" -> SAW_DFN
-# SAW_DFN: just saw the introducer 'dfn' element
-#         <dfn for=syntax>translation_unit</dfn> :
-#   Expecting:
-#       blank,
-#       ALTERNATIVE:
-#       END_DIV -> INITIAL
-# Where ALTERNATIVE has pattern:
-#   | [=syntax/global_directive=] * ? 
-
-class StateEnum:
-    def __init__(self):
-        self.INITIAL = 0
-        self.SAW_DIV = 1
-        self.SAW_DFN = 1
-State = StateEnum()
 
 class GrammarElement:
     def __str__(self):
@@ -180,7 +158,7 @@ class SynTokenDef(GrammarElement):
         return "* <dfn for=syntax_sym lt='{}' noexport>`'{}'` {}</dfn>\n".format(self.linktext,self.literal,self.codepoints)
 
     def ebnf_str(self):
-        return ebnf_comment("syn","'{}'".format(self.literal))
+        return ebnf_comment("syn","{} {} {}".format(self.linktext,self.literal,self.codepoints))
 
 class PatternToken(GrammarElement):
     # A pattern token, e.g.   '/[rgba]/'
@@ -289,6 +267,49 @@ def match_alternative(line):
 
     return ok, result
 
+class CurrentDef:
+    def __init__(self):
+        self.name = '' # string
+        self.text = [] # list of string, containing the source-of-truth text
+        self.alternatives = [] # list of Alternative objects representing the body
+        # Invariant: self.text is non-empty whenever self.name is non-empty
+
+    def generate(self):
+        if len(self.alternatives) < 1:
+            raise RuntimeError("expected at least one alternative for {}".format(self.name))
+        return Rule(self.name, self.alternatives)
+
+# Each line is in its own state.
+# INITIAL: outside of any grammar rule
+# BS_EXPECT_RULE_HEADER: just saw the introducer 'div' element
+#       <div class='syntax' noexport='true'>
+#   Expecting "<dfn for=syntax" -> BS_EXPECT_ALTERNATIVE
+#   Expecting "<!--ebnf--:rule" -> EBNF_EXPECT_ALTERNATIVE
+# BS_EXPECT_ALTERNATIVE: just saw the 'dfn' rule header
+#         <dfn for=syntax>translation_unit</dfn> :
+#   Expecting:
+#       blank line
+#       An alternative, e.g. | blah blah blah
+#       "</div>" -> INITIAL
+# EBNF_EXPECT_RULE_HEADER: just saw the introducer
+#       <!--ebnf--:rule
+#   Expecting "\S+" -> EBNF_EXPECT_ALTERNATIVE
+#   Eample:  while_statement
+# EBNF_EXPECT_ALTERNATIVE: just saw rule name \S+
+#   Expecting:
+#       An alternative, e.g. | blah blah blah
+#       "--ebnf-->" -> INITIAL
+
+class StateEnum:
+    def __init__(self):
+        self.INITIAL = 'init'
+        self.BS_EXPECT_RULE_HEADER = 'bs_erh'
+        self.BS_EXPECT_ALTERNATIVE = 'bs_ea'
+        self.EBNF_EXPECT_RULE_HEADER = 'ebnf_erh'
+        self.EBNF_EXPECT_ALTERNATIVE = 'ebnf_ea'
+State = StateEnum()
+
+
 class Processor:
     def __init__(self,options):
         self.options = options
@@ -296,11 +317,17 @@ class Processor:
         self.result = []
 
         # Compiled regular expressions
-        self.start_div_re = re.compile("^\s*<div class='syntax'")
-        self.end_div_re = re.compile("^\s*</div>")
-        self.start_dfn_re = re.compile("^\s*<dfn for=syntax\W*>(\w+)<")
-        self.kw_dfn_re = re.compile("^\*\s*<dfn for=syntax_kw noexport>`(\w+)`</dfn>")
-        self.syn_dfn_re = re.compile("^\*\s*<dfn for=syntax_sym lt='(\w+)'\s+noexport>`'([^']+)'`\s+(.*)</dfn>")
+        self.bs_start_div_re = re.compile("^\s*<div class='syntax'")
+        self.bs_end_div_re = re.compile("^\s*</div>")
+        self.bs_start_dfn_re = re.compile("^\s*<dfn for=syntax\W*>(\w+)<")
+        self.bs_kw_dfn_re = re.compile("^\*\s*<dfn for=syntax_kw noexport>`(\w+)`</dfn>")
+        self.bs_syn_dfn_re = re.compile("^\*\s*<dfn for=syntax_sym lt='(\w+)'\s+noexport>`'([^']+)'`\s+(.*)</dfn>")
+
+        self.ebnf_start_div_re = re.compile("^\s*<!--ebnf--:rule\s*$")
+        self.ebnf_end_div_re = re.compile("^--ebnf-->")
+        self.ebnf_start_dfn_re = re.compile("^(\S+)")
+        self.ebnf_kw_dfn_re = re.compile("^<!--ebnf--:kw (\w+) --ebnf-->")
+        self.ebnf_syn_dfn_re = re.compile("^<!--ebnf--:syn (\w+) (\S+) (.*) --ebnf-->")
 
         self.reset()
 
@@ -317,79 +344,93 @@ class Processor:
         else:
             self.result.append(TaggedLine(TAG_TEXT,element))
 
+    def parse_kw_dfn(self,line):
+        bs_kw_dfn = self.bs_kw_dfn_re.match(line)
+        if bs_kw_dfn:
+            if self.options.sot_bs:
+                self.emit(KeywordDef(bs_kw_dfn.group(1)))
+            return True
+        ebnf_kw_dfn = self.ebnf_kw_dfn_re.match(line)
+        if ebnf_kw_dfn:
+            if self.options.sot_ebnf:
+                self.emit(KeywordDef(ebnf_kw_dfn.group(1)))
+            return True
+        return False
+
+    def parse_syn_dfn(self,line):
+        bs_syn_dfn = self.bs_syn_dfn_re.match(line)
+        if bs_syn_dfn:
+            if self.options.sot_bs:
+                self.emit(SynTokenDef(bs_syn_dfn.group(1),bs_syn_dfn.group(2),bs_syn_dfn.group(3)))
+            return True
+        ebnf_syn_dfn = self.ebnf_syn_dfn_re.match(line)
+        if ebnf_syn_dfn:
+            if self.options.sot_ebnf:
+                self.emit(SynTokenDef(ebnf_syn_dfn.group(1),ebnf_syn_dfn.group(2),ebnf_syn_dfn.group(3)))
+            return True
+        return False
+
     def process(self,lines):
         self.reset()
 
-        current_def = None
-        current_def_text = []
-        current_alternatives = []
-        def generate():
-            if len(current_alternatives) < 1:
-                raise RuntimeError("expected at least one alternative for {}".format(current_def))
-            return Rule(current_def, current_alternatives)
-
+        current_def = CurrentDef()
 
         state = State.INITIAL
         line_num = 0
         for line in lines:
             line_num += 1
-            #result.append("state {} {}".format(state,line.rstrip())+"\n")
+            #print("state {} {}".format(state,line.rstrip())+"\n")
 
             # Blank lines are not significant
             if len(line.rstrip()) == 0:
-                if len(current_def_text) > 0:
-                    current_def_text.append(line)
+                if len(current_def.text) > 0:
+                    current_def.text.append(line)
                 else:
                     self.emit(line)
                 continue
 
-            kw_dfn = self.kw_dfn_re.match(line)
-            if kw_dfn:
-                self.emit(KeywordDef(kw_dfn.group(1)))
+            if self.parse_kw_dfn(line):
                 continue
-            syn_dfn = self.syn_dfn_re.match(line)
-            if syn_dfn:
-                self.emit(SynTokenDef(syn_dfn.group(1),syn_dfn.group(2),syn_dfn.group(3)))
+            if self.parse_syn_dfn(line):
                 continue
 
-            if self.end_div_re.match(line):
+            if self.bs_end_div_re.match(line):
                 # Flush the current definition, then clear it
-                if current_def:
-                    self.emit(generate())
-                    for l in current_def_text:
+                if current_def.name:
+                    self.emit(current_def.generate())
+                    for l in current_def.text:
                         self.emit(TaggedLine(TAG_BS,l))
                     self.emit(TaggedLine(TAG_BS,line))
-                    current_def = None
-                    current_def_text = []
+                    current_def = CurrentDef()
                 else:
-                    # We went from INITIAL -> SAW_DIV and back directly to INITIAL
+                    # We went from INITIAL -> BS_EXPECT_RULE_HEADER and back directly to INITIAL
                     # Flush the false alarm "<div for=syntax..." line
-                    for l in current_def_text:
+                    for l in current_def.text:
                         self.emit(l)
-                    current_def_text = []
+                    current_def = CurrentDef()
                     # Write the current line
                     self.emit(line)
                 state = State.INITIAL
                 continue
 
             if state == State.INITIAL:
-                if self.start_div_re.match(line):
-                    state = State.SAW_DIV
-                    current_def_text = [line]
+                if self.bs_start_div_re.match(line):
+                    state = State.BS_EXPECT_RULE_HEADER
+                    current_def.text = [line]
                     continue
-            if state == State.SAW_DIV:
-                start_dfn = self.start_dfn_re.match(line)
+            if state == State.BS_EXPECT_RULE_HEADER:
+                start_dfn = self.bs_start_dfn_re.match(line)
                 if start_dfn:
-                    current_def = start_dfn.group(1)
-                    current_def_text.append(line)
-                    current_alternatives = []
-                    state = State.SAW_DFN
+                    current_def.name = start_dfn.group(1)
+                    current_def.text.append(line)
+                    current_def.alternatives = []
+                    state = State.BS_EXPECT_ALTERNATIVE
                     continue
-            if state == State.SAW_DFN:
-                current_def_text.append(line)
+            if state == State.BS_EXPECT_ALTERNATIVE:
+                current_def.text.append(line)
                 (ok,alt) = match_alternative(line)
                 if ok:
-                    current_alternatives.append(alt)
+                    current_def.alternatives.append(alt)
                     continue
                 else:
                     raise RuntimeError("{}: unrecognized alternative: {}".format(line_num,alt))
