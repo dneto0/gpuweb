@@ -59,12 +59,15 @@ class Options:
         # Emit EBNF grammar text?
         self.emit_ebnf = emit_ebnf
 
-def ebnf_comment(s):
-    return "<!--ebnf {} ebnf-->\n".format(s)
+def ebnf_comment(tag,s):
+    pre = ' '
+    post = '' if '\n' in s else ' '
+    return "<!--ebnf:{}{}{}{}ebnf-->\n".format(tag,pre,s,post)
 
 
 TAG_TEXT='text'
 TAG_EBNF='ebnf'
+TAG_EBNF_NEW='ebnf_new'
 TAG_BS='bs' # The original bikeshed
 TAG_BS_NEW='bs_new' # The new bikeshed
 class TaggedLine:
@@ -110,7 +113,7 @@ class Rule(GrammarElement):
         return "{}\n{}</div>\n".format(header,body)
 
     def ebnf_str(self):
-        return "{}\n{}".format(self.name,"".join([x.ebnf_str() for x in self.alternatives]))
+        return ebnf_comment("rule","{}\n{}".format(self.name,"".join([x.ebnf_str() for x in self.alternatives])))
 
 class Alternative(GrammarElement):
     def __init__(self,elements):
@@ -150,10 +153,10 @@ class KeywordDef(GrammarElement):
         self.name = name
 
     def bs_str(self):
-        return "* <dfn for=syntax_kw noexport>`{}`</dfn>".format(self.name,self.name)
+        return "* <dfn for=syntax_kw noexport>`{}`</dfn>\n".format(self.name,self.name)
 
     def ebnf_str(self):
-        return ebnf_comment("kw:"+self.name)
+        return ebnf_comment("kw",self.name)
 
 class SynToken(GrammarElement):
     # A syntactic token, e.g.   '>>=' with link text shift_right_equal
@@ -174,10 +177,10 @@ class SynTokenDef(GrammarElement):
         self.codepoints = codepoints
 
     def bs_str(self):
-        return "* <dfn for=syntax_sym lt='{}' noexport>`'{}' {}`</dfn>".format(self.linktext,self.literal,self.codepoints)
+        return "* <dfn for=syntax_sym lt='{}' noexport>`'{}'` {}</dfn>\n".format(self.linktext,self.literal,self.codepoints)
 
     def ebnf_str(self):
-        return ebnf_comment("'{}'".format(self.literal))
+        return ebnf_comment("syn","'{}'".format(self.literal))
 
 class PatternToken(GrammarElement):
     # A pattern token, e.g.   '/[rgba]/'
@@ -185,7 +188,18 @@ class PatternToken(GrammarElement):
         self.pattern = pattern
 
     def bs_str(self):
-        return self.pattern
+        return "`{}`".format(self.pattern)
+
+    def ebnf_str(self):
+        return "'{}'".format(self.pattern)
+
+class FixedToken(GrammarElement):
+    # A fixed text token, e.g.   'invariant'
+    def __init__(self,pattern):
+        self.pattern = pattern
+
+    def bs_str(self):
+        return "`'{}'`".format(self.pattern)
 
     def ebnf_str(self):
         return "'{}'".format(self.pattern)
@@ -222,7 +236,7 @@ def consume_part(line):
     # Match a literal string 
     pattern = re.match("^`'(\S+)'`\s*(.*)",line)
     if pattern:
-        return (True,PatternToken(pattern.group(1)),pattern.group(2))
+        return (True,FixedToken(pattern.group(1)),pattern.group(2))
 
     # Match [=syntax/vec_prefix=]
     ref = re.match("^\[=syntax/(\w+)=\]\s*(.*)",line)
@@ -296,7 +310,7 @@ class Processor:
     def emit(self,element):
         if isinstance(element,GrammarElement):
             # When both are present, EBNF should precede the BS
-            self.result.append(TaggedLine(TAG_EBNF,element.ebnf_str()))
+            self.result.append(TaggedLine(TAG_EBNF_NEW,element.ebnf_str()))
             self.result.append(TaggedLine(TAG_BS_NEW,element.bs_str()))
         elif isinstance(element,TaggedLine):
             self.result.append(element)
@@ -376,8 +390,10 @@ class Processor:
                 (ok,alt) = match_alternative(line)
                 if ok:
                     current_alternatives.append(alt)
+                    continue
                 else:
                     raise RuntimeError("{}: unrecognized alternative: {}".format(line_num,alt))
+            self.emit(line)
 
         return self.result
 
@@ -387,7 +403,7 @@ class Processor:
         for tl in self.result:
             if self.options.emit_text and tl.tag == TAG_TEXT:
                 result.append(tl.line)
-            if self.options.emit_ebnf and tl.tag == TAG_EBNF:
+            if self.options.emit_ebnf and tl.tag == TAG_EBNF_NEW:
                 result.append(tl.line)
             if self.options.emit_bs and tl.tag == TAG_BS_NEW:
                 result.append(tl.line)
