@@ -32,9 +32,39 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
+# TODO:
+#  Read grammar from ebnf
+#  Write ebnf
+
 import argparse
 import re
 import sys
+
+EBNF_METACHARS="?+*|()"
+
+class Options:
+    def __init__(self,emit_text=False,emit_bs=False,emit_ebnf=False,sot_ebnf=True):
+        # True if the source of truth about the grammar rules is the EBNF.
+        # If false, the source of truth is the bikeshed form of the grammar.
+        self.sot_ebnf = sot_ebnf
+        # Emit non-grammar text?
+        self.emit_text = emit_text
+        # Emit bikeshed text?
+        self.emit_bs = emit_bs
+        # Emit EBNF grammar text?
+        self.emit_ebnf = emit_ebnf
+
+def ebnf_comment(s):
+    return "<!--ebnf {} ebnf-->\n".format(s)
+
+
+TAG_TEXT='text'
+TAG_EBNF='ebnf'
+TAG_BS='bs'
+class TaggedLine:
+    def __init__(self,tag,line):
+        self.tag = tag
+        self.line = line
 
 # Each line is in its own state.
 # INITIAL: outside of any grammar rule
@@ -50,9 +80,12 @@ import sys
 # Where ALTERNATIVE has pattern:
 #   | [=syntax/global_directive=] * ? 
 
-INITIAL=0
-SAW_DIV=1
-SAW_DFN=2
+class StateEnum:
+    def __init__(self):
+        self.INITIAL = 0
+        self.SAW_DIV = 1
+        self.SAW_DFN = 1
+State = StateEnum()
 
 class GrammarElement:
     def __str__(self):
@@ -67,17 +100,17 @@ class Rule(GrammarElement):
         return "{}\n{}".format(self.name,"\n".join([x.bs_str() for x in self.alternatives]))
 
     def ebnf_str(self):
-        return "{}\n{}".format(self.name,"\n".join([x.ebnf_str() for x in self.alternatives]))
+        return "{}\n{}".format(self.name,"".join([x.ebnf_str() for x in self.alternatives]))
 
 class Alternative(GrammarElement):
     def __init__(self,elements):
         self.elements = elements
 
     def bs_str(self):
-        return " | {}".format(" ".join([x.bs_str() for x in self.elements]))
+        return "\n | {}\n".format(" ".join([x.bs_str() for x in self.elements]))
 
     def ebnf_str(self):
-        return "| {}".format(" ".join([x.ebnf_str() for x in self.elements]))
+        return "| {}\n".format(" ".join([x.ebnf_str() for x in self.elements]))
 
 class Symbol(GrammarElement):
     # The name of a syntax rule, e.g. translation_unit
@@ -90,8 +123,8 @@ class Symbol(GrammarElement):
     def ebnf_str(self):
         return self.name
 
-class Keyword(GrammarElement):
-    # A keyword, e.g. 'while'
+class KeywordUse(GrammarElement):
+    # A use of a keyword, e.g. 'true'
     def __init__(self,name):
         self.name = name
 
@@ -100,6 +133,17 @@ class Keyword(GrammarElement):
 
     def ebnf_str(self):
         return self.name
+
+class KeywordDef(GrammarElement):
+    # A keyword, e.g. 'while'
+    def __init__(self,name):
+        self.name = name
+
+    def bs_str(self):
+        return "* <dfn for=syntax_kw noexport>`{}`</dfn>".format(self.name,self.name)
+
+    def ebnf_str(self):
+        return ebnf_comment("kw:"+self.name)
 
 class SynToken(GrammarElement):
     # A syntactic token, e.g.   '>>=' with link text shift_right_equal
@@ -111,7 +155,19 @@ class SynToken(GrammarElement):
         return "<a for=syntax_sym lt={}>`'{}'`</a>".format(self.linktext,self.literal)
 
     def ebnf_str(self):
-        return self.literal
+        return "'{}'".format(self.literal)
+
+class SynTokenDef(GrammarElement):
+    def __init__(self,linktext,literal,codepoints):
+        self.linktext = linktext
+        self.literal = literal
+        self.codepoints = codepoints
+
+    def bs_str(self):
+        return "* <dfn for=syntax_sym lt='{}' noexport>`'{}' {}`</dfn>".format(self.linktext,self.literal,self.codepoints)
+
+    def ebnf_str(self):
+        return ebnf_comment("'{}'".format(self.literal))
 
 class PatternToken(GrammarElement):
     # A pattern token, e.g.   '/[rgba]/'
@@ -122,10 +178,10 @@ class PatternToken(GrammarElement):
         return self.pattern
 
     def ebnf_str(self):
-        return self.pattern
+        return "'{}'".format(self.pattern)
 
 class Meta(GrammarElement):
-    # A grammar metacharcter, e.g. ( ) + ? *
+    # A grammar metacharcter, e.g. ( ) + ? * |
     def __init__(self,name):
         self.name = name
 
@@ -144,17 +200,17 @@ def consume_part(line):
     """
 
     # Match ebnf meta characters ? + * ( ) |
-    meta = re.match("^([\?\*\+\(\)|])\s*(.*)",line)
+    meta = re.match('^([\\'+'\\'.join(EBNF_METACHARS)+'])\s*(.*)',line)
     if meta:
         return (True,Meta(meta.group(1)),meta.group(2))
 
     # Match a regular expression for a pattern token
-    pattern = re.match("^(`/\S+/[uy]*`)\s*(.*)",line)
+    pattern = re.match("^`(/\S+/[uy]*)`\s*(.*)",line)
     if pattern:
         return (True,PatternToken(pattern.group(1)),pattern.group(2))
 
     # Match a literal string 
-    pattern = re.match("^(`'\S+'`)\s*(.*)",line)
+    pattern = re.match("^`'(\S+)'`\s*(.*)",line)
     if pattern:
         return (True,PatternToken(pattern.group(1)),pattern.group(2))
 
@@ -166,7 +222,7 @@ def consume_part(line):
     # Match <a for=syntax_kw lt=ptr>`'ptr'`</a>
     kw = re.match("^<a for=syntax_kw\s+lt=\w+>`'([^']+)'`</a>\s*(.*)",line)
     if kw:
-        return (True,Keyword(kw.group(1)),kw.group(2))
+        return (True,KeywordUse(kw.group(1)),kw.group(2))
 
     # Match <a for=syntax_sym lt=semicolon>`';'`</a>
     sym = re.match("^<a\s+for=syntax_sym\s+lt=(\w+)>`'([^']+)'`</a>\s*(.*)",line)
@@ -209,57 +265,123 @@ def match_alternative(line):
 
     return ok, result
 
-def process_file_to_ebnf(lines):
-    result = []
-    start_div_re = re.compile("^\s*<div class='syntax'")
-    end_div_re = re.compile("^\s*</div>")
-    start_dfn_re = re.compile("^\s*<dfn for=syntax\W*>(\w+)<")
+class Processor:
+    def __init__(self,options):
+        self.options = options
+        # List of tagged output lines
+        self.result = []
 
-    current_def = None
-    current_alternatives = []
-    def emit():
-        if len(current_alternatives) < 1:
-            raise RuntimeError("expected at least one alternative for {}".format(current_def))
-        rule = Rule(current_def, current_alternatives)
-        result.append(str(rule)+"\n")
+        # Compiled regular expressions
+        self.start_div_re = re.compile("^\s*<div class='syntax'")
+        self.end_div_re = re.compile("^\s*</div>")
+        self.start_dfn_re = re.compile("^\s*<dfn for=syntax\W*>(\w+)<")
+        self.kw_dfn_re = re.compile("^\*\s*<dfn for=syntax_kw noexport>`(\w+)`</dfn>")
+        self.syn_dfn_re = re.compile("^\*\s*<dfn for=syntax_sym lt='(\w+)'\s+noexport>`'([^']+)'`\s+(.*)</dfn>")
 
-    state = INITIAL
-    line_num = 0
-    for line in lines:
-        line_num += 1
-        #result.append("state {} {}".format(state,line.rstrip())+"\n")
+        self.reset()
 
-        # Blank lines are not significant
-        if len(line.rstrip()) == 0:
-            continue
-        if end_div_re.match(line):
-            state = INITIAL
-            # Flush the current definition, then clear it
-            if current_def:
-                emit()
-                current_def = None
-            continue
-        if state == INITIAL:
-            if start_div_re.match(line):
-                state = SAW_DIV
+    def reset(self):
+        self.result = []
+
+    def emit(self,element):
+        if isinstance(element,GrammarElement):
+            # When both are present, EBNF should precede the BS
+            self.result.append(TaggedLine(TAG_EBNF,element.ebnf_str()))
+            self.result.append(TaggedLine(TAG_BS,element.bs_str()))
+        elif isinstance(element,TaggedLine):
+            self.result.append(element)
+        else:
+            self.result.append(TaggedLine(TAG_TEXT,element))
+
+    def process(self,lines):
+        self.reset()
+
+        current_def = None
+        current_def_text = []
+        current_alternatives = []
+        def generate():
+            if len(current_alternatives) < 1:
+                raise RuntimeError("expected at least one alternative for {}".format(current_def))
+            return Rule(current_def, current_alternatives)
+
+
+        state = State.INITIAL
+        line_num = 0
+        for line in lines:
+            line_num += 1
+            #result.append("state {} {}".format(state,line.rstrip())+"\n")
+
+            # Blank lines are not significant
+            if len(line.rstrip()) == 0:
+                if len(current_def_text) > 0:
+                    current_def_text.append(line)
+                else:
+                    self.emit(line)
                 continue
-        if state == SAW_DIV:
-            start_dfn = start_dfn_re.match(line)
-            if start_dfn:
-                current_def = start_dfn.group(1)
-                current_alternatives = []
-                state = SAW_DFN
+
+            kw_dfn = self.kw_dfn_re.match(line)
+            if kw_dfn:
+                self.emit(KeywordDef(kw_dfn.group(1)))
                 continue
-        if state == SAW_DFN:
-            (ok,alt) = match_alternative(line)
-            if ok:
-                current_alternatives.append(alt)
-            else:
-                raise RuntimeError("{}: unrecognized alternative: {}".format(line_num,alt))
+            syn_dfn = self.syn_dfn_re.match(line)
+            if syn_dfn:
+                self.emit(SynTokenDef(syn_dfn.group(1),syn_dfn.group(2),syn_dfn.group(3)))
+                continue
 
-    return result
-        
+            if self.end_div_re.match(line):
+                # Flush the current definition, then clear it
+                if current_def:
+                    self.emit(generate())
+                    for l in current_def_text:
+                        self.emit(TaggedLine(TAG_BS,l))
+                    self.emit(TaggedLine(TAG_BS,line))
+                    current_def = None
+                    current_def_text = []
+                else:
+                    # We went from INITIAL -> SAW_DIV and back directly to INITIAL
+                    # Flush the false alarm "<div for=syntax..." line
+                    for l in current_def_text:
+                        self.emit(l)
+                    current_def_text = []
+                    # Write the current line
+                    self.emit(line)
+                state = State.INITIAL
+                continue
 
+            if state == State.INITIAL:
+                if self.start_div_re.match(line):
+                    state = State.SAW_DIV
+                    current_def_text = [line]
+                    continue
+            if state == State.SAW_DIV:
+                start_dfn = self.start_dfn_re.match(line)
+                if start_dfn:
+                    current_def = start_dfn.group(1)
+                    current_def_text.append(line)
+                    current_alternatives = []
+                    state = State.SAW_DFN
+                    continue
+            if state == State.SAW_DFN:
+                current_def_text.append(line)
+                (ok,alt) = match_alternative(line)
+                if ok:
+                    current_alternatives.append(alt)
+                else:
+                    raise RuntimeError("{}: unrecognized alternative: {}".format(line_num,alt))
+
+        return self.result
+
+    def filter(self):
+        """Returns the processed output, filtered by options"""
+        result = []
+        for tl in self.result:
+            if self.options.emit_text and tl.tag == TAG_TEXT:
+                result.append(tl.line)
+            if self.options.emit_ebnf and tl.tag == TAG_EBNF:
+                result.append(tl.line)
+            if self.options.emit_bs and tl.tag == TAG_BS:
+                result.append(tl.line)
+        return result
 
 
 def main(argv):
@@ -277,14 +399,42 @@ def main(argv):
     argparser.add_argument('-i',
                            action='store_true',
                            help="Overwrite the original file instead of outputting to stdout")
+    argparser.add_argument('-a',
+                           action='store_true',
+                           help="Write all kinds of outputs")
+    argparser.add_argument('-b',
+                           action='store_true',
+                           help="Write Bikeshed grammar")
+    argparser.add_argument('-e',
+                           action='store_true',
+                           help="Write EBNF")
+    argparser.add_argument('-t',
+                           action='store_true',
+                           help="Write non-grammar text")
     args = argparser.parse_args()
     if args.help:
         print(argparser.format_help())
         return 0
 
+    options = Options()
+    if args.a:
+        options.emit_text = True
+        options.emit_ebnf = True
+        options.emit_bs = True
+    if args.b:
+        options.emit_bs = True
+    if args.e:
+        options.emit_ebnf = True
+    if args.t:
+        options.emit_text = True
+
     with open(args.file,'r') as r:
         lines = r.readlines()
-    outlines = process_file_to_ebnf(lines)
+
+    processor = Processor(options)
+
+    processor.process(lines)
+    outlines = processor.filter()
     if args.i:
         with open(args.file,'w') as w:
             w.writelines(outlines)
