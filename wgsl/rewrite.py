@@ -61,7 +61,7 @@ class Options:
 def ebnf_comment(tag,s):
     pre = '\n' if '\n' in s else ' '
     post = '' if '\n' in s else ' '
-    return "<!--ebnf--:{}{}{}{}--ebnf-->\n".format(tag,pre,s,post)
+    return "<!--:ebnf:{}{}{}{}:ebnf:-->\n".format(tag,pre,s,post)
 
 
 TAG_TEXT='text'
@@ -123,7 +123,7 @@ class KeywordUse(GrammarElement):
         return "<a for=syntax_kw lt={}>`'{}'`</a>".format(self.name,self.name)
 
     def ebnf_str(self):
-        return self.name
+        return "kw:"+self.name
 
 class KeywordDef(GrammarElement):
     # A keyword, e.g. 'while'
@@ -194,7 +194,7 @@ class Meta(GrammarElement):
         return self.name
 
 
-def consume_part(line):
+def consume_part(options,line):
     """Parses a line of text, attempting to match an object
     at the beginning.
 
@@ -207,29 +207,53 @@ def consume_part(line):
         return (True,Meta(meta.group(1)),meta.group(2))
 
     # Match a regular expression for a pattern token
-    pattern = re.match("^`(/\S+/[uy]*)`\s*(.*)",line)
-    if pattern:
-        return (True,PatternToken(pattern.group(1)),pattern.group(2))
+    for quote in ('`', "'"):
+        the_re = "^{}(/\S+/[uy]*){}\s*(.*)".format(quote,quote)
+        pattern = re.match(the_re,line)
+        if pattern:
+            return (True,PatternToken(pattern.group(1)),pattern.group(2))
+    if True:
+        # Legacy swizzlename has `'/[rgba]/'`
+        the_re = "^`'(/\S+/[uy]*)'`\s*(.*)"
+        pattern = re.match(the_re,line)
+        if pattern:
+            return (True,PatternToken(pattern.group(1)),pattern.group(2))
 
     # Match a literal string 
-    pattern = re.match("^`'(\S+)'`\s*(.*)",line)
-    if pattern:
-        return (True,FixedToken(pattern.group(1)),pattern.group(2))
+    for quote in ('`', ""):
+        the_re = "^{}'([a-zA-Z0-9_]+)'{}\s*(.*)".format(quote,quote)
+        pattern = re.match(the_re,line)
+        if pattern:
+            return (True,FixedToken(pattern.group(1)),pattern.group(2))
 
-    # Match [=syntax/vec_prefix=]
+    # For BS, match <a for=syntax_kw lt=ptr>`'ptr'`</a>
+    kw = re.match("^<a for=syntax_kw\s+lt=\w+>`'([^']+)'`</a>\s*(.*)",line)
+    if kw:
+        return (True,KeywordUse(kw.group(1)),kw.group(2))
+    # For EBNF, match kw:while
+    kw = re.match("^kw:(\w+)\s*(.*)",line)
+    if kw:
+        return (True,KeywordUse(kw.group(1)),kw.group(2))
+
+    # For BS, match things like [=syntax/vec_prefix=]
     ref = re.match("^\[=syntax/(\w+)=\]\s*(.*)",line)
     if ref:
         return (True,Symbol(ref.group(1)),ref.group(2))
 
-    # Match <a for=syntax_kw lt=ptr>`'ptr'`</a>
-    kw = re.match("^<a for=syntax_kw\s+lt=\w+>`'([^']+)'`</a>\s*(.*)",line)
-    if kw:
-        return (True,KeywordUse(kw.group(1)),kw.group(2))
+    # For EBNF, match things like while
+    ref = re.match("^(\w+)\s*(.*)",line)
+    if ref:
+        return (True,Symbol(ref.group(1)),ref.group(2))
 
-    # Match <a for=syntax_sym lt=semicolon>`';'`</a>
+    # For BS, match <a for=syntax_sym lt=semicolon>`';'`</a>
     sym = re.match("^<a\s+for=syntax_sym\s+lt=(\w+)>`'([^']+)'`</a>\s*(.*)",line)
     if sym:
         return (True,SynToken(sym.group(1),sym.group(2)),sym.group(3))
+    # For EBNF, match things like ';'
+    sym = re.match("^'(\S+)'\s*(.*)",line)
+    if sym:
+        madeup='syn:'+sym.group(1)
+        return (True,SynToken(madeup,sym.group(1)),sym.group(2))
 
     return (False,None,line)
 
@@ -245,7 +269,7 @@ def consume_bar(line):
         return (True,m.group(1))
     return (False,None)
 
-def match_alternative(line):
+def match_alternative(options,line):
     """Parses a text line, attempting to produce a rule alternative.
     Returns: (True,Alternative)
         or   (False, rest-of-line)
@@ -257,7 +281,7 @@ def match_alternative(line):
     if ok:
         parts = []
         while (ok and len(rest)>0):
-            (ok,part,rest) = consume_part(rest)
+            (ok,part,rest) = consume_part(options,rest)
             if ok:
                 parts.append(part)
             else:
@@ -284,7 +308,7 @@ class CurrentDef:
 # BS_EXPECT_RULE_HEADER: just saw the introducer 'div' element
 #       <div class='syntax' noexport='true'>
 #   Expecting "<dfn for=syntax" -> BS_EXPECT_ALTERNATIVE
-#   Expecting "<!--ebnf--:rule" -> EBNF_EXPECT_ALTERNATIVE
+#   Expecting "<!--:ebnf:rule" -> EBNF_EXPECT_ALTERNATIVE
 # BS_EXPECT_ALTERNATIVE: just saw the 'dfn' rule header
 #         <dfn for=syntax>translation_unit</dfn> :
 #   Expecting:
@@ -292,13 +316,13 @@ class CurrentDef:
 #       An alternative, e.g. | blah blah blah
 #       "</div>" -> INITIAL
 # EBNF_EXPECT_RULE_HEADER: just saw the introducer
-#       <!--ebnf--:rule
+#       <!--:ebnf:rule
 #   Expecting "\S+" -> EBNF_EXPECT_ALTERNATIVE
 #   Eample:  while_statement
 # EBNF_EXPECT_ALTERNATIVE: just saw rule name \S+
 #   Expecting:
 #       An alternative, e.g. | blah blah blah
-#       "--ebnf-->" -> INITIAL
+#       ":ebnf:-->" -> INITIAL
 
 class StateEnum:
     def __init__(self):
@@ -317,17 +341,17 @@ class Processor:
         self.result = []
 
         # Compiled regular expressions
-        self.bs_start_div_re = re.compile("^\s*<div class='syntax'")
-        self.bs_end_div_re = re.compile("^\s*</div>")
+        self.bs_start_rule_re = re.compile("^\s*<div class='syntax'")
+        self.bs_end_rule_re = re.compile("^\s*</div>")
         self.bs_start_dfn_re = re.compile("^\s*<dfn for=syntax\W*>(\w+)<")
         self.bs_kw_dfn_re = re.compile("^\*\s*<dfn for=syntax_kw noexport>`(\w+)`</dfn>")
         self.bs_syn_dfn_re = re.compile("^\*\s*<dfn for=syntax_sym lt='(\w+)'\s+noexport>`'([^']+)'`\s+(.*)</dfn>")
 
-        self.ebnf_start_div_re = re.compile("^\s*<!--ebnf--:rule\s*$")
-        self.ebnf_end_div_re = re.compile("^--ebnf-->")
+        self.ebnf_start_rule_re = re.compile("^\s*<!--:ebnf:rule\s*$")
+        self.ebnf_end_rule_re = re.compile("^:ebnf:-->")
         self.ebnf_start_dfn_re = re.compile("^(\S+)")
-        self.ebnf_kw_dfn_re = re.compile("^<!--ebnf--:kw (\w+) --ebnf-->")
-        self.ebnf_syn_dfn_re = re.compile("^<!--ebnf--:syn (\w+) (\S+) (.*) --ebnf-->")
+        self.ebnf_kw_dfn_re = re.compile("^<!--:ebnf:kw (\w+) :ebnf:-->")
+        self.ebnf_syn_dfn_re = re.compile("^<!--:ebnf:syn (\w+) (\S+) (.*) :ebnf:-->")
 
         self.reset()
 
@@ -379,7 +403,11 @@ class Processor:
         line_num = 0
         for line in lines:
             line_num += 1
-            #print("state {} {}".format(state,line.rstrip())+"\n")
+
+            if self.parse_kw_dfn(line):
+                continue
+            if self.parse_syn_dfn(line):
+                continue
 
             # Blank lines are not significant
             if len(line.rstrip()) == 0:
@@ -389,48 +417,91 @@ class Processor:
                     self.emit(line)
                 continue
 
-            if self.parse_kw_dfn(line):
-                continue
-            if self.parse_syn_dfn(line):
-                continue
-
-            if self.bs_end_div_re.match(line):
+            if self.bs_end_rule_re.match(line):
                 # Flush the current definition, then clear it
-                if current_def.name:
-                    self.emit(current_def.generate())
-                    for l in current_def.text:
-                        self.emit(TaggedLine(TAG_BS,l))
-                    self.emit(TaggedLine(TAG_BS,line))
-                    current_def = CurrentDef()
-                else:
-                    # We went from INITIAL -> BS_EXPECT_RULE_HEADER and back directly to INITIAL
-                    # Flush the false alarm "<div for=syntax..." line
-                    for l in current_def.text:
-                        self.emit(l)
-                    current_def = CurrentDef()
-                    # Write the current line
-                    self.emit(line)
+                if self.options.sot_bs:
+                    if current_def.name:
+                        self.emit(current_def.generate())
+                        for l in current_def.text:
+                            self.emit(TaggedLine(TAG_BS,l))
+                        self.emit(TaggedLine(TAG_BS,line))
+                        current_def = CurrentDef()
+                    else:
+                        # We went from INITIAL -> BS_EXPECT_RULE_HEADER and back directly to INITIAL
+                        # Flush the false alarm "<div for=syntax..." line
+                        for l in current_def.text:
+                            self.emit(l)
+                        current_def = CurrentDef()
+                        # Write the current line
+                        self.emit(line)
+                state = State.INITIAL
+                continue
+            if self.ebnf_end_rule_re.match(line):
+                # Flush the current definition, then clear it
+                if self.options.sot_ebnf:
+                    if current_def.name:
+                        self.emit(current_def.generate())
+                        for l in current_def.text:
+                            self.emit(TaggedLine(TAG_EBNF,l))
+                        self.emit(TaggedLine(TAG_EBNF,line))
+                        current_def = CurrentDef()
+                    else:
+                        # We went from INITIAL -> EBNFEXPECT_RULE_HEADER and back directly to INITIAL
+                        # Flush the false alarm
+                        for l in current_def.text:
+                            self.emit(l)
+                        current_def = CurrentDef()
+                        # Write the current line
+                        self.emit(line)
                 state = State.INITIAL
                 continue
 
             if state == State.INITIAL:
-                if self.bs_start_div_re.match(line):
+                if self.bs_start_rule_re.match(line):
                     state = State.BS_EXPECT_RULE_HEADER
                     current_def.text = [line]
                     continue
+                if self.ebnf_start_rule_re.match(line):
+                    state = State.EBNF_EXPECT_RULE_HEADER
+                    current_def.text = [line]
+                    continue
+            # Procdss contents of BS rules
             if state == State.BS_EXPECT_RULE_HEADER:
                 start_dfn = self.bs_start_dfn_re.match(line)
                 if start_dfn:
-                    current_def.name = start_dfn.group(1)
-                    current_def.text.append(line)
-                    current_def.alternatives = []
+                    if self.options.sot_bs:
+                        current_def.name = start_dfn.group(1)
+                        current_def.text.append(line)
+                        current_def.alternatives = []
                     state = State.BS_EXPECT_ALTERNATIVE
                     continue
             if state == State.BS_EXPECT_ALTERNATIVE:
-                current_def.text.append(line)
-                (ok,alt) = match_alternative(line)
+                if self.options.sot_bs:
+                    current_def.text.append(line)
+                (ok,alt) = match_alternative(self.options,line)
                 if ok:
-                    current_def.alternatives.append(alt)
+                    if self.options.sot_bs:
+                        current_def.alternatives.append(alt)
+                    continue
+                else:
+                    raise RuntimeError("{}: unrecognized alternative: {}".format(line_num,alt))
+            # Procdss contents of EBNF rules
+            if state == State.EBNF_EXPECT_RULE_HEADER:
+                start_dfn = self.ebnf_start_dfn_re.match(line)
+                if start_dfn:
+                    if self.options.sot_ebnf:
+                        current_def.name = start_dfn.group(1)
+                        current_def.text.append(line)
+                        current_def.alternatives = []
+                    state = State.EBNF_EXPECT_ALTERNATIVE
+                    continue
+            if state == State.EBNF_EXPECT_ALTERNATIVE:
+                if self.options.sot_ebnf:
+                    current_def.text.append(line)
+                (ok,alt) = match_alternative(self.options,line)
+                if ok:
+                    if self.options.sot_ebnf:
+                        current_def.alternatives.append(alt)
                     continue
                 else:
                     raise RuntimeError("{}: unrecognized alternative: {}".format(line_num,alt))
