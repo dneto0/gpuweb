@@ -33,7 +33,9 @@
 
 
 # TODO:
-#  Support using EBNF as source of truth
+#  When ebnd if source of truth:
+#       Don't drop empty lines
+#       Don't drop </div>
 
 import argparse
 import re
@@ -67,14 +69,21 @@ def ebnf_comment(tag,s):
 TAG_TEXT='text'
 TAG_EBNF='ebnf'
 TAG_EBNF_NEW='ebnf_new'
-TAG_BS='bs' # The original bikeshed
-TAG_BS_NEW='bs_new' # The new bikeshed
+TAG_BS='bs' # The original bikeshed grammar text
+TAG_BS_NEW='bs_new' # The new bikeshed grammar text
 class TaggedLine:
     def __init__(self,tag,line):
         self.tag = tag
         self.line = line
     def __str__(self):
-        return "{}: {}".format(self.tag, self.line)
+        if isinstance(self.line,GrammarElement):
+            if (self.tag == TAG_BS) or (self.tag == TAG_BS_NEW):
+                text = self.line.bs_str()
+            elif (self.tag == TAG_EBNF) or (self.tag == TAG_EBNF_NEW):
+                text = self.line.ebnf_str()
+        else:
+            text = self.line
+        return text
 
 class GrammarElement:
     def __str__(self):
@@ -136,6 +145,13 @@ class KeywordDef(GrammarElement):
     def ebnf_str(self):
         return ebnf_comment("kw",self.name)
 
+# Maps a syntax literal string to its link text name.
+# When all we have is the EBNF text, the link text for a syntactic token
+# is only given in its full definition, which occurs late in the file.
+# Use this dictionary to store the link text, to be looked up later
+# when generating new bikeshed grammar text.
+syn_token_name = dict()
+
 class SynToken(GrammarElement):
     # A syntactic token, e.g.   '>>=' with link text shift_right_equal
     def __init__(self,linktext,literal):
@@ -143,6 +159,10 @@ class SynToken(GrammarElement):
         self.literal = literal
 
     def bs_str(self):
+        # Hack: update the link text
+        global syn_token_name
+        if self.literal in syn_token_name:
+            self.linktext = syn_token_name[self.literal]
         return "<a for=syntax_sym lt={}>`'{}'`</a>".format(self.linktext,self.literal)
 
     def ebnf_str(self):
@@ -153,6 +173,8 @@ class SynTokenDef(GrammarElement):
         self.linktext = linktext
         self.literal = literal
         self.codepoints = codepoints
+        global syn_token_name
+        syn_token_name[literal] = linktext
 
     def bs_str(self):
         return "* <dfn for=syntax_sym lt='{}' noexport>`'{}'` {}</dfn>\n".format(self.linktext,self.literal,self.codepoints)
@@ -361,8 +383,8 @@ class Processor:
     def emit(self,element):
         if isinstance(element,GrammarElement):
             # When both are present, EBNF should precede the BS
-            self.result.append(TaggedLine(TAG_EBNF_NEW,element.ebnf_str()))
-            self.result.append(TaggedLine(TAG_BS_NEW,element.bs_str()))
+            self.result.append(TaggedLine(TAG_EBNF_NEW,element))
+            self.result.append(TaggedLine(TAG_BS_NEW,element))
         elif isinstance(element,TaggedLine):
             self.result.append(element)
         else:
@@ -514,15 +536,17 @@ class Processor:
         result = []
         for tl in self.result:
             if self.options.emit_text and tl.tag == TAG_TEXT:
-                result.append(tl.line)
+                result.append(str(tl))
             if self.options.emit_ebnf and tl.tag == TAG_EBNF_NEW:
-                result.append(tl.line)
+                result.append(str(tl))
             if self.options.emit_bs and tl.tag == TAG_BS_NEW:
-                result.append(tl.line)
+                result.append(str(tl))
         return result
 
     def __str__(self):
-        return "".join([str(x) for x in self.result])
+        parts = ["".join([str(x) for x in self.result])]
+        parts.append("syn_token_name {}".format(str(syn_token_name)))
+        return "\n".join(parts)
 
 
 def main(argv):
@@ -537,6 +561,9 @@ def main(argv):
                            nargs='?',
                            default='index.bs',
                            help="Bikeshed source to be processed")
+    argparser.add_argument('--dump', '-d',
+                           action='store_true',
+                           help="Dump internal state.")
     argparser.add_argument('-i',
                            action='store_true',
                            help="Overwrite the original file instead of outputting to stdout")
@@ -586,9 +613,10 @@ def main(argv):
     processor = Processor(options)
     processor.process(lines)
 
-    #print(">>>DUMP")
-    #print(processor)
-    #print("<<<DUMP")
+    if args.dump:
+        print(">>>DUMP")
+        print(processor)
+        print("<<<DUMP")
 
     outlines = processor.filter()
     if args.i:
