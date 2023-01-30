@@ -33,7 +33,7 @@
 
 
 # TODO:
-#  When ebnd if source of truth:
+#  When ebnf if source of truth:
 #       Don't drop empty lines
 #       Don't drop </div>
 
