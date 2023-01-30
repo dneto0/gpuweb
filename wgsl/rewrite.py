@@ -34,7 +34,7 @@
 
 # TODO:
 #  When ebnf if source of truth:
-#       Don't drop </div>
+#       Fix the emission of syntax tokens
 
 import argparse
 import re
@@ -86,6 +86,9 @@ class TaggedLine:
         else:
             text = self.line
         return text
+
+    def tagged(self):
+        return "{}.{}".format(self.tag,str(self))
 
 class GrammarElement:
     def __str__(self):
@@ -453,6 +456,7 @@ class Processor:
             if self.parse_syn_dfn(line):
                 continue
 
+            """
             if self.bs_end_rule_re.match(line):
                 # Flush the current definition, then clear it
                 if self.options.sot_bs:
@@ -464,9 +468,12 @@ class Processor:
                     else:
                         # We're seeing a </div> that is some non-grammar division in the spec.
                         self.flush_with(line)
+                else:
+                    #self.flush_with(line)
                 self.current_def = CurrentDef()
                 state = State.INITIAL
                 continue
+                """
             if self.ebnf_end_rule_re.match(line):
                 # Flush the current definition, then clear it
                 if self.options.sot_ebnf:
@@ -507,6 +514,27 @@ class Processor:
                     state = State.BS_EXPECT_ALTERNATIVE
                     continue
             if state == State.BS_EXPECT_ALTERNATIVE:
+                if self.bs_end_rule_re.match(line):
+                    # We saw </div>
+                    if self.options.sot_bs:
+                        if len(self.current_def.name) > 0:
+                            # It's one of our own rules.
+                            # Emit it as one of our own rules.
+                            self.emit(self.current_def.generate())
+                            for l in self.current_def.text:
+                                self.emit(TaggedLine(TAG_BS,l))
+                            self.emit(TaggedLine(TAG_BS,line))
+                        else:
+                            # Emit it as ordinary text.
+                            self.flush_with(line)
+                    else:
+                        # BS is not the source of truth, but we're parsing BS syntax div
+                        # Forget it. Alternately we could have saved it as an old TAG_BS
+                        pass
+                    self.current_def = CurrentDef()
+                    state = State.INITIAL
+                    continue
+                # Match a rule alternative
                 if self.options.sot_bs:
                     self.current_def.text.append(line)
                 (ok,alt) = match_alternative(self.options,line)
@@ -527,6 +555,23 @@ class Processor:
                     state = State.EBNF_EXPECT_ALTERNATIVE
                     continue
             if state == State.EBNF_EXPECT_ALTERNATIVE:
+                """
+                if self.ebnf_end_rule_re.match(line):
+                    # Flush the current definition, then clear it
+                    if self.options.sot_ebnf:
+                        if self.current_def.name:
+                            self.emit(self.current_def.generate())
+                            for l in self.current_def.text:
+                                self.emit(TaggedLine(TAG_EBNF,l))
+                            self.emit(TaggedLine(TAG_EBNF,line))
+                        else:
+                            # We went from INITIAL -> EBNF_EXPECT_RULE_HEADER and back directly to INITIAL
+                            # Flush the false alarm
+                            self.flush_with(line)
+                    self.current_def = CurrentDef()
+                    state = State.INITIAL
+                    continue
+                    """
                 if self.options.sot_ebnf:
                     self.current_def.text.append(line)
                 (ok,alt) = match_alternative(self.options,line)
@@ -554,7 +599,7 @@ class Processor:
         return result
 
     def __str__(self):
-        parts = ["".join([str(x) for x in self.result])]
+        parts = ["".join([x.tagged() for x in self.result])]
         parts.append("syn_token_name {}".format(str(syn_token_name)))
         return "\n".join(parts)
 
@@ -627,10 +672,10 @@ def main(argv):
     processor.process(lines)
 
     if args.dump:
-        print(">>>DUMP")
-        print(options)
-        print(processor)
-        print("<<<DUMP")
+        print(">>>DUMP", file=sys.stderr)
+        print(options, file=sys.stderr)
+        print(processor, file=sys.stderr)
+        print("<<<DUMP", file=sys.stderr)
 
     outlines = processor.filter()
     if args.i:

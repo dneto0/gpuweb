@@ -1,0 +1,33 @@
+
+Another blank above
+
+<div class=foo>
+some text
+</div>
+
+
+Blank above
+<div class='syntax' noexport='true'>
+  <dfn for=syntax>ident_pattern_token</dfn> :
+
+    | `/([_\p{XID_Start}][\p{XID_Continue}]+)|([\p{XID_Start}])/uy`
+</div>
+
+<div class='syntax' noexport='true'>
+  <dfn for=syntax>attribute</dfn> :
+
+    | <a for=syntax_sym lt=attr>`'@'`</a> `'align'` <a for=syntax_sym lt=paren_left>`'('`</a> [=syntax/expression=] [=syntax/attrib_end=]
+</div>
+<div class='syntax' noexport='true'>
+  <dfn for=syntax>attrib_end</dfn> :
+
+    | <a for=syntax_sym lt=comma>`','`</a> ? <a for=syntax_sym lt=paren_right>`')'`</a>
+</div>
+
+<div class='syntax' noexport='true'>
+  <dfn for=syntax>while_statement</dfn> :
+
+    | <a for=syntax_kw lt=while>`'while'`</a> [=syntax/ident_pattern_token=]
+</div>
+Blank below
+
