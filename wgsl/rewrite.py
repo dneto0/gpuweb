@@ -34,7 +34,6 @@
 
 # TODO:
 #  When ebnf if source of truth:
-#       Don't drop empty lines
 #       Don't drop </div>
 
 import argparse
@@ -316,18 +315,6 @@ def match_alternative(options,line):
 
     return ok, result
 
-class CurrentDef:
-    def __init__(self):
-        self.name = '' # string
-        self.text = [] # list of string, containing the source-of-truth text
-        self.alternatives = [] # list of Alternative objects representing the body
-        # Invariant: self.text is non-empty whenever self.name is non-empty
-
-    def generate(self):
-        if len(self.alternatives) < 1:
-            raise RuntimeError("expected at least one alternative for {}".format(self.name))
-        return Rule(self.name, self.alternatives)
-
 # Each line is in its own state.
 # INITIAL: outside of any grammar rule
 # BS_EXPECT_RULE_HEADER: just saw the introducer 'div' element
@@ -356,8 +343,20 @@ class StateEnum:
         self.BS_EXPECT_ALTERNATIVE = 'bs_ea'
         self.EBNF_EXPECT_RULE_HEADER = 'ebnf_erh'
         self.EBNF_EXPECT_ALTERNATIVE = 'ebnf_ea'
+
 State = StateEnum()
 
+class CurrentDef:
+    def __init__(self):
+        self.name = '' # string
+        self.text = [] # list of string, containing the source-of-truth text
+        self.alternatives = [] # list of Alternative objects representing the body
+        # Invariant: self.text is non-empty whenever self.name is non-empty
+
+    def generate(self):
+        if len(self.alternatives) < 1:
+            raise RuntimeError("expected at least one alternative for {}".format(self.name))
+        return Rule(self.name, self.alternatives)
 
 class Processor:
     def __init__(self,options):
@@ -381,6 +380,8 @@ class Processor:
         self.reset()
 
     def reset(self):
+        self.state = State.INITIAL
+        self.current_def = CurrentDef()
         self.result = []
 
     def emit(self,element):
@@ -392,6 +393,18 @@ class Processor:
             self.result.append(element)
         else:
             self.result.append(TaggedLine(TAG_TEXT,element))
+
+    def append_text(self,line):
+        if len(self.current_def.text) > 0:
+            self.current_def.text.append(line)
+        else:
+            self.emit(line)
+
+    def flush(self):
+        # Emit the rest of the pending definition
+        for l in self.current_def.text:
+            self.emit(line)
+        self.current_def.text = []
 
     def parse_kw_dfn(self,line):
         bs_kw_dfn = self.bs_kw_dfn_re.match(line)
@@ -422,114 +435,113 @@ class Processor:
     def process(self,lines):
         self.reset()
 
-        current_def = CurrentDef()
-
         state = State.INITIAL
         line_num = 0
         for line in lines:
             line_num += 1
+            if self.options.verbose:
+                print("{0:5d} {1:6s}: {2:s}".format(line_num,state,line), file=sys.stderr)
+
+            # Blank lines are not significant
+            if len(line.rstrip()) == 0:
+                self.append_text(line)
+                continue
 
             if self.parse_kw_dfn(line):
                 continue
             if self.parse_syn_dfn(line):
                 continue
 
-            # Blank lines are not significant
-            if len(line.rstrip()) == 0:
-                if len(current_def.text) > 0:
-                    current_def.text.append(line)
-                else:
-                    self.emit(line)
-                continue
-
             if self.bs_end_rule_re.match(line):
                 # Flush the current definition, then clear it
                 if self.options.sot_bs:
-                    if current_def.name:
-                        self.emit(current_def.generate())
-                        for l in current_def.text:
+                    if self.current_def.name:
+                        self.emit(self.current_def.generate())
+                        for l in self.current_def.text:
                             self.emit(TaggedLine(TAG_BS,l))
                         self.emit(TaggedLine(TAG_BS,line))
-                        current_def = CurrentDef()
                     else:
                         # We went from INITIAL -> BS_EXPECT_RULE_HEADER and back directly to INITIAL
                         # Flush the false alarm "<div for=syntax..." line
-                        for l in current_def.text:
-                            self.emit(l)
-                        current_def = CurrentDef()
+                        self.flush()
                         # Write the current line
                         self.emit(line)
+                self.current_def = CurrentDef()
                 state = State.INITIAL
                 continue
             if self.ebnf_end_rule_re.match(line):
                 # Flush the current definition, then clear it
                 if self.options.sot_ebnf:
-                    if current_def.name:
-                        self.emit(current_def.generate())
-                        for l in current_def.text:
+                    if self.current_def.name:
+                        self.emit(self.current_def.generate())
+                        for l in self.current_def.text:
                             self.emit(TaggedLine(TAG_EBNF,l))
                         self.emit(TaggedLine(TAG_EBNF,line))
-                        current_def = CurrentDef()
                     else:
-                        # We went from INITIAL -> EBNFEXPECT_RULE_HEADER and back directly to INITIAL
+                        # We went from INITIAL -> EBNF_EXPECT_RULE_HEADER and back directly to INITIAL
                         # Flush the false alarm
-                        for l in current_def.text:
-                            self.emit(l)
-                        current_def = CurrentDef()
+                        self.flush()
                         # Write the current line
                         self.emit(line)
+                self.current_def = CurrentDef()
                 state = State.INITIAL
                 continue
 
             if state == State.INITIAL:
                 if self.bs_start_rule_re.match(line):
+                    for l in self.current_def.text:
+                        self.emit(l)
                     state = State.BS_EXPECT_RULE_HEADER
-                    current_def.text = [line]
+                    self.current_def.text = [line]
                     continue
                 if self.ebnf_start_rule_re.match(line):
+                    for l in self.current_def.text:
+                        self.emit(l)
                     state = State.EBNF_EXPECT_RULE_HEADER
-                    current_def.text = [line]
+                    self.current_def.text = [line]
                     continue
-            # Procdss contents of BS rules
+            # Process contents of BS rules
             if state == State.BS_EXPECT_RULE_HEADER:
                 start_dfn = self.bs_start_dfn_re.match(line)
                 if start_dfn:
                     if self.options.sot_bs:
-                        current_def.name = start_dfn.group(1)
-                        current_def.text.append(line)
-                        current_def.alternatives = []
+                        self.current_def.name = start_dfn.group(1)
+                        self.current_def.text.append(line)
+                        self.current_def.alternatives = []
                     state = State.BS_EXPECT_ALTERNATIVE
                     continue
             if state == State.BS_EXPECT_ALTERNATIVE:
                 if self.options.sot_bs:
-                    current_def.text.append(line)
+                    self.current_def.text.append(line)
                 (ok,alt) = match_alternative(self.options,line)
                 if ok:
                     if self.options.sot_bs:
-                        current_def.alternatives.append(alt)
+                        self.current_def.alternatives.append(alt)
                     continue
                 else:
                     raise RuntimeError("{}: unrecognized alternative: {}".format(line_num,alt))
-            # Procdss contents of EBNF rules
+            # Process contents of EBNF rules
             if state == State.EBNF_EXPECT_RULE_HEADER:
                 start_dfn = self.ebnf_start_dfn_re.match(line)
                 if start_dfn:
                     if self.options.sot_ebnf:
-                        current_def.name = start_dfn.group(1)
-                        current_def.text.append(line)
-                        current_def.alternatives = []
+                        self.current_def.name = start_dfn.group(1)
+                        self.current_def.text.append(line)
+                        self.current_def.alternatives = []
                     state = State.EBNF_EXPECT_ALTERNATIVE
                     continue
             if state == State.EBNF_EXPECT_ALTERNATIVE:
                 if self.options.sot_ebnf:
-                    current_def.text.append(line)
+                    self.current_def.text.append(line)
                 (ok,alt) = match_alternative(self.options,line)
                 if ok:
                     if self.options.sot_ebnf:
-                        current_def.alternatives.append(alt)
+                        self.current_def.alternatives.append(alt)
                     continue
                 else:
                     raise RuntimeError("{}: unrecognized alternative: {}".format(line_num,alt))
+
+            self.flush()
             self.emit(line)
 
         return self.result
