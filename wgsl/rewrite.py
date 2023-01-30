@@ -251,7 +251,10 @@ def consume_part(options,line):
         the_re = "^{}'([a-zA-Z0-9_]+)'{}\s*(.*)".format(quote,quote)
         pattern = re.match(the_re,line)
         if pattern:
-            return (True,FixedToken(pattern.group(1)),pattern.group(2))
+            if re.fullmatch("_+",pattern.group(1)):
+                pass
+            else:
+                return (True,FixedToken(pattern.group(1)),pattern.group(2))
 
     # For BS, match <a for=syntax_kw lt=ptr>`'ptr'`</a>
     kw = re.match("^<a for=syntax_kw\s+lt=\w+>`'([^']+)'`</a>\s*(.*)",line)
