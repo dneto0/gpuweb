@@ -441,7 +441,7 @@ class Processor:
         for line in lines:
             line_num += 1
             if self.options.verbose:
-                print("{0:5d} {1:6s}: {2:s}".format(line_num,state,line.rstrip()), file=sys.stderr)
+                print("{0:5d} {1:6s}: ({2:s}) {3:s}".format(line_num,state,self.current_def.name,line.rstrip()), file=sys.stderr)
 
             # Blank lines are not significant
             if len(line.rstrip()) == 0:
