@@ -44,7 +44,8 @@ import sys
 EBNF_METACHARS="?+*|()"
 
 class Options:
-    def __init__(self,emit_text=False,emit_bs=False,emit_ebnf=False,sot_ebnf=True,sot_bs=False):
+    def __init__(self,emit_text=False,emit_bs=False,emit_ebnf=False,sot_ebnf=True,sot_bs=False,verbose=False):
+        self.verbose = verbose
         # True if the source of truth about the grammar rules is the EBNF.
         # If false, the source of truth is the bikeshed form of the grammar.
         self.sot_ebnf = sot_ebnf
@@ -59,6 +60,8 @@ class Options:
         self.emit_bs = emit_bs
         # Emit EBNF grammar text?
         self.emit_ebnf = emit_ebnf
+    def __str__(self):
+        return "Options({},{})".format( ("sot_bs" if self.sot_bs else ""), ("sot_ebnf" if self.sot_ebnf else ""))
 
 def ebnf_comment(tag,s):
     pre = '\n' if '\n' in s else ' '
@@ -557,6 +560,9 @@ def main(argv):
     argparser.add_argument('--help', '-h',
                            action='store_true',
                            help="show this help and exit")
+    argparser.add_argument('--verbose', '-v',
+                           action='store_true',
+                           help="Be verbose")
     argparser.add_argument('file',
                            nargs='?',
                            default='index.bs',
@@ -595,7 +601,7 @@ def main(argv):
     if args.f == False and args.r == False:
         args.f = True
 
-    options = Options(sot_ebnf = args.f, sot_bs = args.r)
+    options = Options(sot_ebnf = args.f, sot_bs = args.r, verbose=args.verbose)
     if args.a:
         options.emit_text = True
         options.emit_ebnf = True
@@ -615,6 +621,7 @@ def main(argv):
 
     if args.dump:
         print(">>>DUMP")
+        print(options)
         print(processor)
         print("<<<DUMP")
 
