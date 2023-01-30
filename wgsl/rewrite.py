@@ -400,10 +400,11 @@ class Processor:
         else:
             self.emit(line)
 
-    def flush(self):
+    def flush_with(self,line):
         # Emit the rest of the pending definition
         for l in self.current_def.text:
-            self.emit(line)
+            self.emit(l)
+        self.emit(line)
         self.current_def.text = []
 
     def parse_kw_dfn(self,line):
@@ -440,7 +441,7 @@ class Processor:
         for line in lines:
             line_num += 1
             if self.options.verbose:
-                print("{0:5d} {1:6s}: {2:s}".format(line_num,state,line), file=sys.stderr)
+                print("{0:5d} {1:6s}: {2:s}".format(line_num,state,line.rstrip()), file=sys.stderr)
 
             # Blank lines are not significant
             if len(line.rstrip()) == 0:
@@ -461,11 +462,8 @@ class Processor:
                             self.emit(TaggedLine(TAG_BS,l))
                         self.emit(TaggedLine(TAG_BS,line))
                     else:
-                        # We went from INITIAL -> BS_EXPECT_RULE_HEADER and back directly to INITIAL
-                        # Flush the false alarm "<div for=syntax..." line
-                        self.flush()
-                        # Write the current line
-                        self.emit(line)
+                        # We're seeing a </div> that is some non-grammar division in the spec.
+                        self.flush_with(line)
                 self.current_def = CurrentDef()
                 state = State.INITIAL
                 continue
@@ -480,9 +478,7 @@ class Processor:
                     else:
                         # We went from INITIAL -> EBNF_EXPECT_RULE_HEADER and back directly to INITIAL
                         # Flush the false alarm
-                        self.flush()
-                        # Write the current line
-                        self.emit(line)
+                        self.flush_with(line)
                 self.current_def = CurrentDef()
                 state = State.INITIAL
                 continue
@@ -541,8 +537,7 @@ class Processor:
                 else:
                     raise RuntimeError("{}: unrecognized alternative: {}".format(line_num,alt))
 
-            self.flush()
-            self.emit(line)
+            self.flush_with(line)
 
         return self.result
 
