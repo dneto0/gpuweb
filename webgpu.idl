@@ -1,4 +1,4 @@
-// Copyright (C) [2022] World Wide Web Consortium,
+// Copyright (C) [2023] World Wide Web Consortium,
 // (Massachusetts Institute of Technology, European Research Consortium for
 // Informatics and Mathematics, Keio University, Beihang).
 // All Rights Reserved.
@@ -114,8 +114,8 @@ enum GPUFeatureName {
     "timestamp-query",
     "indirect-first-instance",
     "shader-f16",
-    "bgra8unorm-storage",
-    "rg11b10ufloat-renderable"
+    "rg11b10ufloat-renderable",
+    "bgra8unorm-storage"
 };
 
 [Exposed=(Window, DedicatedWorker), SecureContext]
@@ -393,7 +393,6 @@ enum GPUTextureFormat {
 
 [Exposed=(Window, DedicatedWorker), SecureContext]
 interface GPUExternalTexture {
-    readonly attribute boolean expired;
 };
 GPUExternalTexture includes GPUObjectBase;
 
@@ -558,7 +557,7 @@ dictionary GPUPipelineLayoutDescriptor : GPUObjectDescriptorBase {
 
 [Exposed=(Window, DedicatedWorker), SecureContext]
 interface GPUShaderModule {
-    Promise<GPUCompilationInfo> compilationInfo();
+    Promise<GPUCompilationInfo> getCompilationInfo();
 };
 GPUShaderModule includes GPUObjectBase;
 
@@ -591,6 +590,21 @@ interface GPUCompilationMessage {
 [Exposed=(Window, DedicatedWorker), Serializable, SecureContext]
 interface GPUCompilationInfo {
     readonly attribute FrozenArray<GPUCompilationMessage> messages;
+};
+
+[Exposed=(Window, DedicatedWorker), SecureContext, Serializable]
+interface GPUPipelineError : DOMException {
+    constructor(DOMString message, GPUPipelineErrorInit options);
+    readonly attribute GPUPipelineErrorReason reason;
+};
+
+dictionary GPUPipelineErrorInit {
+    required GPUPipelineErrorReason reason;
+};
+
+enum GPUPipelineErrorReason {
+    "validation",
+    "internal"
 };
 
 enum GPUAutoLayoutMode {
