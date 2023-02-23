@@ -43,17 +43,18 @@ class Case:
     """
     A test case
     """
-    def __init__(self,text,expect_pass=True):
+    def __init__(self,text,expect_pass=True,name=""):
         self.text = text
         self.expect_pass = (expect_pass == True)
+        self.name = name
 
     def __str__(self):
         expectation = "expect_pass" if self.expect_pass else "expect_fail"
-        return "Case:{}:\n---\n{}\n---".format(expectation,self.text)
+        return "Case:{}:{}\n---\n{}\n---".format(expectation,self.name,self.text)
 
 class XFail(Case):
-    def __init__(self,text):
-        super().__init__(text,expect_pass=False)
+    def __init__(self,text,name=''):
+        super().__init__(text,expect_pass=False,name=name)
 
 simple_cases = [
     XFail("this fails"),
@@ -89,7 +90,21 @@ simple_cases = [
 ]
 
 equals_cases = [
-    Case("var c: array<f32,select(1,2,x==b)>;"),
+    XFail("var c: array<f32,select(1,2,x=b)>;",name="embedded assignment ="),
+    XFail("var c: array<f32,select(1,2,x+=b)>;",name="embedded assignment +="),
+    XFail("var c: array<f32,select(1,2,x-=b)>;",name="embedded assignment -="),
+    XFail("var c: array<f32,select(1,2,x*=b)>;",name="embedded assignment *="),
+    XFail("var c: array<f32,select(1,2,x/=b)>;",name="embedded assignment /="),
+    XFail("var c: array<f32,select(1,2,x%=b)>;",name="embedded assignment %="),
+    XFail("var c: array<f32,select(1,2,x&=b)>;",name="embedded assignment &="),
+    XFail("var c: array<f32,select(1,2,x|=b)>;",name="embedded assignment |="),
+    XFail("var c: array<f32,select(1,2,x^=b)>;",name="embedded assignment ^="),
+    XFail("var c: array<f32,select(1,2,x>>=b)>;",name="embedded assignment >>="),
+    XFail("var c: array<f32,select(1,2,x<<=b)>;",name="embedded assignment <<="),
+    Case("var c: array<f32,select(1,2,x==b)>;",name="embedded =="),
+    Case("var c: array<f32,select(1,2,x>=b)>;",name="embedded >="),
+    Case("var c: array<f32,select(1,2,x<=b)>;",name="embedded <="),
+    Case("var c: array<f32,select(1,2,x!=b)>;",name="embedded !="),
 ]
 
 cases = simple_cases + equals_cases
