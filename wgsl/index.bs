@@ -1067,7 +1067,7 @@ Let |UnclosedCandidate| be a record type containing:
     * |position|, a location in the source text
     * |depth|, an integer, the expression nesting depth at |position|
 
-Let |TemplateList| be record type containing:
+Let |TemplateList| be a record type containing:
     * |start_position|, the source location of the `'<'` (U+003C) code point that starts this template list.
     * |end_position|, the source location of the `'>'` (U+003E) code point that ends this template list.
 
@@ -1109,7 +1109,7 @@ Let |TemplateList| be record type containing:
         * Set |NestingDepth| to 0 or |NestingDepth| &minus; 1, whichever is larger.
         * Advance |CurrentPosition| past this code point, and start the next iteration of the loop.
     * If `';'` (U+003B) or `'{'` (U+007B) or `'='` (U+003D) or `':'` (U+003A) appears at |CurrentPosition| then:
-        * Note: These cannot contain an expression, and therefore cannot appear in a template list.
+        * Note: These cannot appear in the middle of an expression, and therefore cannot appear in a template list.
              Clear pending unclosed candidates.
         * Set |NestingDepth| to 0.
         * Remove all entries from the |Pending| stack.

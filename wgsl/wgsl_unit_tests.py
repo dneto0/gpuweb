@@ -55,7 +55,7 @@ class XFail(Case):
     def __init__(self,text):
         super().__init__(text,expect_pass=False)
 
-cases = [
+simple_cases = [
     XFail("this fails"),
     XFail("#version 450"),
     Case("const pi = 3.14;"),
@@ -87,6 +87,13 @@ cases = [
     Case("fn m(){x--;}"),
     Case("fn m(){x();}"),
 ]
+
+equals_cases = [
+    Case("var c: array<f32,select(1,2,x==b)>;"),
+]
+
+cases = simple_cases + equals_cases
+cases = equals_cases
 
 class Options:
     def __init__(self,shared_lib):
