@@ -61,9 +61,9 @@ def GetCases():
     import wgsl_unit_tests_equals
     import wgsl_unit_tests_template
     cases = []
-    #cases.extend(wgsl_unit_tests_simple.cases)
+    cases.extend(wgsl_unit_tests_simple.cases)
     cases.extend(wgsl_unit_tests_equals.cases)
-    #cases.extend(wgsl_unit_tests_template.cases)
+    cases.extend(wgsl_unit_tests_template.cases)
     return cases
 
 class Options:

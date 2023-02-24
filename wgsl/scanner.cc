@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <vector>
 
-#define ENABLE_LOGGING 1
+#define ENABLE_LOGGING 0
 
 #if ENABLE_LOGGING
 #define LOG(msg, ...) printf(msg "\n", ##__VA_ARGS__)
@@ -694,12 +694,13 @@ struct Scanner {
     // The current expression nesting depth.
     size_t expr_depth = 0;
 
-    // A stack of '<' tokens.
+    // A stack of '<' tokens. Each is a candidate for the start of a template list.
     // Used to pair '<' and '>' tokens at the same expression depth.
     struct StackEntry {
       size_t index;       // Index of the opening '>' in lt_is_tmpl
       size_t expr_depth;  // The value of 'expr_depth' for the opening '<'
     };
+    // The stack of unclosed candidates for template-list starts.
     std::vector<StackEntry> lt_stack;
 
     LOG("classify_template_args() '<'");
@@ -724,6 +725,12 @@ struct Scanner {
         continue;
       }
 
+      // A template list can't contain an assignment or a compound assignment.
+      // There is logic below which clears the stack when reaching one of those.
+      // It looks for a '=' code point.  But we still want to allow
+      // comparison operations inside expresisons. So we must pre-emptively
+      // allow operators: == >= <= !=
+
       if (lexer.match('>')) {
         LOG("classify_template_args() '>'");
         if (!lt_stack.empty() && lt_stack.back().expr_depth == expr_depth) {
@@ -734,7 +741,17 @@ struct Scanner {
         } else {
           LOG("   non-template '>'");
           state.gt_is_tmpl.push_back(false);
+          // Pre-emptvely allow >= as a comparison operator:
+          // Skip over '=', if present.
+          lexer.match('=');
         }
+        continue;
+      }
+
+      // Pre-emptively allow the != operator.
+      // As a side effect, allow unary negation operator !
+      if (lexer.match('!')) {
+        lexer.match('=');
         continue;
       }
 
@@ -759,10 +776,28 @@ struct Scanner {
         continue;
       }
 
-      if (lexer.match_anyof({';', '{', '=', ':'})) {
+      if (lexer.match('=')) {
+        // A subtle point. The '=' we just matched might be the start of a
+        // syntactic token, or the end of a compound-assignment operator like +=
+        // In either case, it's fine to proceed with the logic below.
+
+        if (lexer.match('=')) {
+          // Pre-emptively allow equality ==
+          continue;
+        }
+        // A template list can't contain an assignment, because an expression
+        // can't contain an assignment.
+        // This might be a regular assignment, or the tail end of a compound
+        // assignment.
+        expr_depth = 0;
+        lt_stack.clear();
+        continue;
+      }
+
+      if (lexer.match_anyof({';', '{', ':'})) {
         LOG("   expression terminator");
-        // Expression terminating tokens. No opening template list can
-        // hold these tokens, so clear the stack and expression depth.
+        // Expression terminating tokens. No template list can
+        // hold these code points, so clear the stack and expression depth.
         expr_depth = 0;
         lt_stack.clear();
         continue;
@@ -834,6 +869,7 @@ struct Scanner {
 
       // TODO(dneto): should also skip comments, both line comments
       // and block comments.
+      // https://github.com/gpuweb/gpuweb/issues/3876
       lexer.skip_whitespace();
       if (lexer.peek() == '<') {
         if (state.lt_is_tmpl.empty()) {
