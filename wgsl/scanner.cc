@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <vector>
 
-#define ENABLE_LOGGING 0
+#define ENABLE_LOGGING 1
 
 #if ENABLE_LOGGING
 #define LOG(msg, ...) printf(msg "\n", ##__VA_ARGS__)
