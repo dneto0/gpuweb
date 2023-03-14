@@ -695,7 +695,7 @@ c-[il] { color: #000000 } /* Literal.Number.Integer.Long */
     <div data-fill-with="spec-metadata">
      <dl>
       <dt>This version:
-      <dd><a class="u-url" href="https://gpuweb.github.io/gpuweb/wgsl/">https://gpuweb.github.io/gpuweb/wgsl/</a><br><a href="https://github.com/gpuweb/gpuweb/blob/e267d15e2b530092999cc454145cfc00e7008c19/wgsl/index.bs">https://github.com/gpuweb/gpuweb/blob/e267d15e2b530092999cc454145cfc00e7008c19/wgsl/index.bs</a>
+      <dd><a class="u-url" href="https://gpuweb.github.io/gpuweb/wgsl/">https://gpuweb.github.io/gpuweb/wgsl/</a><br><a href="https://github.com/gpuweb/gpuweb/blob/696c2275606ef0bfde3ddefd475c73e11b631313/wgsl/index.bs">https://github.com/gpuweb/gpuweb/blob/696c2275606ef0bfde3ddefd475c73e11b631313/wgsl/index.bs</a>
       <dt>Latest published version:
       <dd><a href="https://www.w3.org/TR/WGSL/">https://www.w3.org/TR/WGSL/</a>
       <dt>Feedback:
@@ -819,11 +819,12 @@ Learn more about <a href="http://www.w3.org/community/">W3C Community and Busine
         <li><a href="#storable-types"><span class="secno">5.4.1</span> <span class="content">Storable Types</span></a>
         <li><a href="#host-shareable-types"><span class="secno">5.4.2</span> <span class="content">Host-shareable Types</span></a>
         <li><a href="#ref-ptr-types"><span class="secno">5.4.3</span> <span class="content">Reference and Pointer Types</span></a>
-        <li><a href="#originating-variable-section"><span class="secno">5.4.4</span> <span class="content">Originating Variable</span></a>
-        <li><a href="#invalid-mem-reference"><span class="secno">5.4.5</span> <span class="content">Invalid Memory Reference</span></a>
-        <li><a href="#ref-ptr-use-cases"><span class="secno">5.4.6</span> <span class="content">Use Cases for References and Pointers</span></a>
-        <li><a href="#forming-references-and-pointers"><span class="secno">5.4.7</span> <span class="content">Forming Reference and Pointer Values</span></a>
-        <li><a href="#pointers-other-languages"><span class="secno">5.4.8</span> <span class="content">Comparison with References and Pointers in Other Languages</span></a>
+        <li><a href="#valid-invalid-memory-references"><span class="secno">5.4.4</span> <span class="content">Valid and Invalid Memory References</span></a>
+        <li><a href="#originating-variable-section"><span class="secno">5.4.5</span> <span class="content">Originating Variable</span></a>
+        <li><a href="#out-of-bounds-access-sec"><span class="secno">5.4.6</span> <span class="content">Out of Bounds Access</span></a>
+        <li><a href="#ref-ptr-use-cases"><span class="secno">5.4.7</span> <span class="content">Use Cases for References and Pointers</span></a>
+        <li><a href="#forming-references-and-pointers"><span class="secno">5.4.8</span> <span class="content">Forming Reference and Pointer Values</span></a>
+        <li><a href="#pointers-other-languages"><span class="secno">5.4.9</span> <span class="content">Comparison with References and Pointers in Other Languages</span></a>
        </ol>
       <li>
        <a href="#texture-sampler-types"><span class="secno">5.5</span> <span class="content">Texture and Sampler Types</span></a>
@@ -1449,7 +1450,7 @@ in a shader stage:</p>
     <li data-md>
      <p>Meet the <a href="#uniformity">uniformity</a> requirements of certain primitive operations, including texture sampling and control barriers.</p>
     <li data-md>
-     <p>Coordinate potentially conflicting accesses to shared variables, to avoid race conditions.</p>
+     <p>Coordinate potentially conflicting accesses to shared variables, to avoid data races.</p>
    </ul>
    <p>WGSL sometimes permits several possible behaviors for a given feature.
 This is a portability hazard, as different implementations may exhibit the different behaviors.
@@ -1644,7 +1645,7 @@ and other information available to the particular pipeline creation API method.<
      <p>A <dfn class="dfn-paneled" data-dfn-type="dfn" data-export id="dynamic-error">dynamic error</dfn> is an error occurring during shader execution.
 These errors may or may not be detectable.</p>
    </ul>
-   <p class="note" role="note"><span class="marker">Note:</span> For example, a race condition may not be detectable.</p>
+   <p class="note" role="note"><span class="marker">Note:</span> For example, a data race may not be detectable.</p>
    <p>Each requirement <a data-link-type="dfn" href="#behavioral-requirements" id="ref-for-behavioral-requirements">will</a> be checked at the earliest opportunity.
 That is:</p>
    <ul>
@@ -4823,60 +4824,123 @@ a particular memory view is associated with a unique reference value and also a 
    <blockquote class="algorithm" data-algorithm="pointer reference correspondence"> Each pointer value <var>p</var> of type ptr&lt;<var>AS</var>,<var>T</var>,<var>AM</var>> corresponds to a unique reference value <var>r</var> of type ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>>,
 and vice versa,
 where <var>p</var> and <var>r</var> describe the same memory view. </blockquote>
-   <h4 class="heading settled" data-level="5.4.4" id="originating-variable-section"><span class="secno">5.4.4. </span><span class="content">Originating Variable</span><a class="self-link" href="#originating-variable-section"></a></h4>
-   <p>In WGSL a reference value always corresponds to the memory view
-for some or all of the memory locations for some variable.
+   <h4 class="heading settled" data-level="5.4.4" id="valid-invalid-memory-references"><span class="secno">5.4.4. </span><span class="content">Valid and Invalid Memory References</span><a class="self-link" href="#valid-invalid-memory-references"></a></h4>
+   <p>A <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type②">reference</a> value is either <a data-link-type="dfn" href="#valid-reference" id="ref-for-valid-reference">valid</a> or <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference">invalid</a>.</p>
+   <p>References are formed as described in detail in <a href="#forming-references-and-pointers">§ 5.4.8 Forming Reference and Pointer Values</a>.
+Generally, a <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="valid-reference">valid reference</dfn> is formed by:</p>
+   <ul>
+    <li data-md>
+     <p>naming a variable, or</p>
+    <li data-md>
+     <p>applying the <a data-link-type="dfn" href="#indirection" id="ref-for-indirection">indirection</a> (unary <code>*</code>) operation to a <a data-link-type="dfn" href="#valid-pointer" id="ref-for-valid-pointer">valid pointer</a>, or</p>
+    <li data-md>
+     <p>forming a <a data-link-type="dfn" href="#composite-reference-component-expression" id="ref-for-composite-reference-component-expression">composite reference component expression</a> around a valid reference,
+where the index in an indexing phrase, if used, is within bounds for the type.</p>
+   </ul>
+   <p>Generally, an <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="invalid-memory-reference">invalid memory reference</dfn> is formed by:</p>
+   <ul>
+    <li data-md>
+     <p>applying the indirection operator to an <a data-link-type="dfn" href="#invalid-pointer" id="ref-for-invalid-pointer">invalid pointer</a>, or</p>
+    <li data-md>
+     <p>forming a <a data-link-type="dfn" href="#composite-reference-component-expression" id="ref-for-composite-reference-component-expression①">composite reference component expression</a> around an invalid reference,
+or by indexing with an out-of-bounds index.</p>
+   </ul>
+   <p>A pointer value always corresponds to a reference value, so an <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="valid-pointer">valid pointer</dfn> is a pointer that corresponds to a <a data-link-type="dfn" href="#valid-reference" id="ref-for-valid-reference①">valid reference</a>,
+and an <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="invalid-pointer">invalid pointer</dfn> is a pointer that corresponds to an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference①">invalid memory reference</a>.</p>
+   <h4 class="heading settled" data-level="5.4.5" id="originating-variable-section"><span class="secno">5.4.5. </span><span class="content">Originating Variable</span><a class="self-link" href="#originating-variable-section"></a></h4>
+   <p>A <a data-link-type="dfn" href="#valid-reference" id="ref-for-valid-reference②">valid reference</a> corresponds to the memory view for some or all of the memory locations for some variable.
 This defines the <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="originating-variable">originating variable</dfn> for the reference value.</p>
-   <p>A pointer value always corresponds to a reference value, and so the originating variable
-of a pointer is the same as the originating variable of the corresponding reference.</p>
+   <p>The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable">originating variable</a> of a <a data-link-type="dfn" href="#valid-pointer" id="ref-for-valid-pointer①">valid pointer</a> is the same as the originating variable of the corresponding valid reference.</p>
    <p class="note" role="note"><span class="marker">Note:</span> The originating variable is a dynamic concept.
 The originating variable for a formal parameter of a function depends on the <a data-link-type="dfn" href="#call-site" id="ref-for-call-site①">call sites</a> for the function.
 Different call sites may supply pointers into different originating variables.</p>
-   <h4 class="heading settled" data-level="5.4.5" id="invalid-mem-reference"><span class="secno">5.4.5. </span><span class="content">Invalid Memory Reference</span><a class="self-link" href="#invalid-mem-reference"></a></h4>
-   <p>An operation that accesses one or more <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations②">memory locations</a> outside those
-associated with the operation’s <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view⑥">memory view</a> is an <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="out-of-bounds-access">out of bounds access</dfn>.
-Any reference or pointer that, when accessed, would produce an out of bounds
-access is an <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="invalid-memory-reference">invalid memory reference</dfn>.</p>
-   <p><a data-link-type="dfn" href="#load-rule" id="ref-for-load-rule①">Loads</a> from an invalid reference return one of:</p>
+   <div class="note" role="note">
+     <span class="marker">Note:</span> A reference can correspond to memory locations inside a variable, and still be invalid.
+This can occur when an index is too large for the type being indexed, but the referenced locations
+would be inside a subsequent sibling data member. 
+    <p>In the following example, the reference <code>the_particle.position[i]</code> is valid if and only if <code>i</code> is 0 or 1.
+When <code>i</code> is 2, the reference will be an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference②">invalid memory reference</a>, but would otherwise correspond
+the memory locations for <code>the_particle.color_index</code>.</p>
+    <div class="example wgsl no-marker" id="example-4a91bc5e">
+     <a class="self-link" href="#example-4a91bc5e"></a>
+     <div class="marker">EXAMPLE: Invalid memory reference still inside a variable</div>
+<pre class="highlight"><c- k>struct</c-> <c- nc>Particle</c-> <c- p>{</c->
+   <c- n>position</c->: <c- nc>vec2f</c-><c- p>,</c->
+   <c- n>velocity</c->: <c- nc>vec2f</c-><c- p>,</c->
+   <c- n>color_index</c->: <c- b>i32</c-><c- p>,</c->
+<c- p>}</c->
+<c- n>var</c-><c- o>&lt;</c-><c- n>private</c-><c- o>></c-> <c- n>the_particle</c->: <c- nc>Particle</c-><c- p>;</c->
+<c- k>fn</c-> <c- nf>particle_velocity_component</c-><c- p>(</c-><c- n>p</c->: <c- nc>Particle</c-><c- p>,</c-> <c- n>i</c->: <c- b>i32</c-><c- p>)</c-> <c- p>{</c->
+  <c- a>let</c-> <c- n>result</c-> <c- o>=</c-> <c- n>the_particle</c-><c- p>.</c-><c- n>velocity</c-><c- p>[</c-><c- n>i</c-><c- p>];</c-> <c- c1>// A valid reference when i is 0 or 1.</c->
+<c- p>}</c->
+</pre>
+    </div>
+   </div>
+   <h4 class="heading settled" data-level="5.4.6" id="out-of-bounds-access-sec"><span class="secno">5.4.6. </span><span class="content">Out of Bounds Access</span><a class="self-link" href="#out-of-bounds-access-sec"></a></h4>
+   <p>An operation that <a data-link-type="dfn" href="#memory-access" id="ref-for-memory-access①">accesses</a> an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference③">invalid memory reference</a> is an <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="out-of-bounds-access">out of bounds access</dfn>.
+It is a <a data-link-type="dfn" href="#dynamic-error" id="ref-for-dynamic-error">dynamic error</a> to perform an <a data-link-type="dfn" href="#out-of-bounds-access" id="ref-for-out-of-bounds-access">out of bounds access</a>.</p>
+   <p>An out of bounds access, if performed as written, would typically:</p>
    <ul>
     <li data-md>
-     <p>when the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable">originating variable</a> is a <a data-link-type="dfn" href="#uniform-buffer" id="ref-for-uniform-buffer③">uniform buffer</a> or a <a data-link-type="dfn" href="#storage-buffer" id="ref-for-storage-buffer⑤">storage buffer</a>,
-the value from any <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations③">memory location(s)</a> of the WebGPU <code class="idl"><a data-link-type="idl" href="https://gpuweb.github.io/gpuweb/#gpubuffer" id="ref-for-gpubuffer">GPUBuffer</a></code> bound to the originating variable</p>
+     <p>read or write <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations②">memory locations</a> outside of a variable, or</p>
     <li data-md>
-     <p>when the originating variable is not a <a data-link-type="dfn" href="#uniform-buffer" id="ref-for-uniform-buffer④">uniform buffer</a> or <a data-link-type="dfn" href="#storage-buffer" id="ref-for-storage-buffer⑥">storage buffer</a>,
-a value from any <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations④">memory location(s)</a> in the originating variable</p>
+     <p>interpret the contents of those locations as the wrong <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①⓪">store type</a>, or</p>
     <li data-md>
-     <p>the <a data-link-type="dfn" href="#zero-value" id="ref-for-zero-value">zero value</a> for store type of the reference</p>
-    <li data-md>
-     <p>if the loaded value is a vector, the value (0, 0, 0, x), where x is:</p>
-     <ul>
-      <li data-md>
-       <p>0, 1, or the maximum positive value for integer components</p>
-      <li data-md>
-       <p>0.0 or 1.0 for floating-point components</p>
-     </ul>
+     <p>cause an unintended data race.</p>
    </ul>
-   <a data-link-type="dfn" href="#statement-assignment" id="ref-for-statement-assignment①">Stores</a> to an invalid reference may do one of: 
-   <ul>
-    <li data-md>
-     <p>when the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①">originating variable</a> is a <a data-link-type="dfn" href="#storage-buffer" id="ref-for-storage-buffer⑦">storage buffer</a>,
+   <div class="note" role="note">
+     <span class="marker">Note:</span>An out of bounds access causes a dynamic error,
+which allows for many possible outcomes. 
+    <p>Those outcomes include, but are not limited to, the following:</p>
+    <dl>
+     <dt data-md><dfn data-dfn-type="dfn" data-noexport id="trap">Trap<a class="self-link" href="#trap"></a></dfn>
+     <dd data-md>
+      <p>The shader invocation immediately terminates, and <a data-link-type="dfn" href="#shader-stage-output" id="ref-for-shader-stage-output①">shader stage outputs</a> are set to zero values.</p>
+     <dt data-md><dfn data-dfn-type="dfn" data-noexport id="invalid-load">Invalid Load<a class="self-link" href="#invalid-load"></a></dfn>
+     <dd data-md>
+      <p><a data-link-type="dfn" href="#load-rule" id="ref-for-load-rule①">Loads</a> from an invalid reference may return one of:</p>
+      <ul>
+       <li data-md>
+        <p>when the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①">originating variable</a> is a <a data-link-type="dfn" href="#uniform-buffer" id="ref-for-uniform-buffer③">uniform buffer</a> or a <a data-link-type="dfn" href="#storage-buffer" id="ref-for-storage-buffer⑤">storage buffer</a>,
+the value from any <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations③">memory location(s)</a> of the WebGPU <code class="idl"><a data-link-type="idl" href="https://gpuweb.github.io/gpuweb/#gpubuffer" id="ref-for-gpubuffer">GPUBuffer</a></code> bound to the originating variable</p>
+       <li data-md>
+        <p>when the originating variable is not a <a data-link-type="dfn" href="#uniform-buffer" id="ref-for-uniform-buffer④">uniform buffer</a> or <a data-link-type="dfn" href="#storage-buffer" id="ref-for-storage-buffer⑥">storage buffer</a>,
+a value from any <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations④">memory location(s)</a> in the originating variable</p>
+       <li data-md>
+        <p>the <a data-link-type="dfn" href="#zero-value" id="ref-for-zero-value">zero value</a> for store type of the reference</p>
+       <li data-md>
+        <p>if the loaded value is a vector, the value (0, 0, 0, x), where x is:</p>
+        <ul>
+         <li data-md>
+          <p>0, 1, or the maximum positive value for integer components</p>
+         <li data-md>
+          <p>0.0 or 1.0 for floating-point components</p>
+        </ul>
+      </ul>
+     <dt data-md><dfn data-dfn-type="dfn" data-noexport id="invalid-store">Invalid Store<a class="self-link" href="#invalid-store"></a></dfn>
+     <dd data-md>
+      <p><a data-link-type="dfn" href="#statement-assignment" id="ref-for-statement-assignment①">Stores</a> to an invalid reference may do one of:</p>
+      <ul>
+       <li data-md>
+        <p>when the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable②">originating variable</a> is a <a data-link-type="dfn" href="#storage-buffer" id="ref-for-storage-buffer⑦">storage buffer</a>,
 store the value to any <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations⑤">memory location(s)</a> of the
-WebGPU <code class="idl"><a data-link-type="idl" href="https://gpuweb.github.io/gpuweb/#gpubuffer" id="ref-for-gpubuffer①">GPUBuffer</a></code> bound to the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable②">originating variable</a></p>
-    <li data-md>
-     <p>when the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable③">originating variable</a> is not a <a data-link-type="dfn" href="#storage-buffer" id="ref-for-storage-buffer⑧">storage buffer</a>,
+WebGPU <code class="idl"><a data-link-type="idl" href="https://gpuweb.github.io/gpuweb/#gpubuffer" id="ref-for-gpubuffer①">GPUBuffer</a></code> bound to the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable③">originating variable</a></p>
+       <li data-md>
+        <p>when the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable④">originating variable</a> is not a <a data-link-type="dfn" href="#storage-buffer" id="ref-for-storage-buffer⑧">storage buffer</a>,
 store the value to any <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations⑥">memory locations(s)</a> in the
 originating variable</p>
-    <li data-md>
-     <p>not be executed</p>
-   </ul>
-   It is a <a data-link-type="dfn" href="#dynamic-error" id="ref-for-dynamic-error">dynamic error</a> if <a href="#atomic-rmw">read-modify-write atomics</a> that
-operate on an invalid memory reference load and store from different <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations⑦">memory locations</a> if they access memory. 
-   <p class="note" role="note"><span class="marker">Note:</span> An invalid memory reference can occur even if the bytes accessed would
-still be within memory locations of the originating variable.
-Each access into a <a data-link-type="dfn" href="#composite" id="ref-for-composite②">composite</a> type must be made by a valid memory reference.
-See <a href="#composite-value-decomposition-expr">§ 7.5 Composite Value Decomposition Expressions</a>.</p>
-   <p class="note" role="note"><span class="marker">Note:</span> <a data-link-type="dfn" href="#uniform-buffer" id="ref-for-uniform-buffer⑤">Uniform buffers</a> do not support stores.</p>
-   <h4 class="heading settled" data-level="5.4.6" id="ref-ptr-use-cases"><span class="secno">5.4.6. </span><span class="content">Use Cases for References and Pointers</span><a class="self-link" href="#ref-ptr-use-cases"></a></h4>
+       <li data-md>
+        <p>not be executed.</p>
+      </ul>
+    </dl>
+    <p>A data race may occur if an invalid load or store is redirected to access different
+locations inside a variable in a shared address space.
+For example, the accesses of several concurrently executing invocations may be redirected
+to the first element in an array.  If at least access is a write, and they are not
+otherwise synchronized, then the result is a data race, and hence a dynamic error.</p>
+    <p class="note" role="note"><span class="marker">Note:</span> <a data-link-type="dfn" href="#uniform-buffer" id="ref-for-uniform-buffer⑤">Uniform buffers</a> do not support stores.</p>
+   </div>
+   <h4 class="heading settled" data-level="5.4.7" id="ref-ptr-use-cases"><span class="secno">5.4.7. </span><span class="content">Use Cases for References and Pointers</span><a class="self-link" href="#ref-ptr-use-cases"></a></h4>
    <p>References and pointers are distinguished by how they are used:</p>
    <ul>
     <li data-md>
@@ -4884,7 +4948,7 @@ See <a href="#composite-value-decomposition-expr">§ 7.5 Composite Value Decom
     <li data-md>
      <p>The <a data-link-type="dfn" href="#address-of" id="ref-for-address-of">address-of</a> operation (unary <code>&amp;</code>) converts a reference value to its corresponding pointer value.</p>
     <li data-md>
-     <p>The <a data-link-type="dfn" href="#indirection" id="ref-for-indirection">indirection</a> operation (unary <code>*</code>) converts a pointer value to its corresponding reference value.</p>
+     <p>The <a data-link-type="dfn" href="#indirection" id="ref-for-indirection①">indirection</a> operation (unary <code>*</code>) converts a pointer value to its corresponding reference value.</p>
     <li data-md>
      <p>A <a data-link-type="dfn" href="#let-declaration" id="ref-for-let-declaration">let-declaration</a> can be of pointer type, but not of reference type.</p>
     <li data-md>
@@ -5033,46 +5097,59 @@ This often requires using an <a data-link-type="dfn" href="#address-of" id="ref-
 <c- p>}</c->
 </pre>
    </div>
-   <h4 class="heading settled" data-level="5.4.7" id="forming-references-and-pointers"><span class="secno">5.4.7. </span><span class="content">Forming Reference and Pointer Values</span><a class="self-link" href="#forming-references-and-pointers"></a></h4>
+   <h4 class="heading settled" data-level="5.4.8" id="forming-references-and-pointers"><span class="secno">5.4.8. </span><span class="content">Forming Reference and Pointer Values</span><a class="self-link" href="#forming-references-and-pointers"></a></h4>
    <p>A reference value is formed in one of the following ways:</p>
    <ul>
     <li data-md>
      <p>The <a data-link-type="dfn" href="#identifier" id="ref-for-identifier⑤">identifier</a> <a data-link-type="dfn" href="#resolves" id="ref-for-resolves⑤">resolving</a> to an <a data-link-type="dfn" href="#in-scope" id="ref-for-in-scope③">in-scope</a> variable <em>v</em> denotes the reference value for <em>v</em>'s memory.</p>
      <ul>
       <li data-md>
-       <p>The resolved variable is the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable④">originating variable</a> for the reference.</p>
+       <p>It is a <a data-link-type="dfn" href="#valid-reference" id="ref-for-valid-reference③">valid reference</a>.</p>
+      <li data-md>
+       <p>The resolved variable is the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable⑤">originating variable</a> for the reference.</p>
      </ul>
     <li data-md>
-     <p>Use the <a data-link-type="dfn" href="#indirection" id="ref-for-indirection①">indirection</a> (unary <code>*</code>) operation on a pointer.</p>
+     <p>Use the <a data-link-type="dfn" href="#indirection" id="ref-for-indirection②">indirection</a> (unary <code>*</code>) operation on a pointer.</p>
      <ul>
+      <li data-md>
+       <p>It is a <a data-link-type="dfn" href="#valid-reference" id="ref-for-valid-reference④">valid reference</a> if and only if the pointer is <a data-link-type="dfn" href="#valid-pointer" id="ref-for-valid-pointer②">valid</a>.</p>
       <li data-md>
        <p>The originating variable of the result is defined as the originating variable of the pointer.</p>
      </ul>
     <li data-md>
-     <p>Use a <dfn data-dfn-type="dfn" data-noexport id="composite-reference-component-expression">composite reference component expression<a class="self-link" href="#composite-reference-component-expression"></a></dfn>.
-In each case the originating variable of the result is defined as the originating variable of the
-original reference.</p>
+     <p>Use a <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="composite-reference-component-expression">composite reference component expression</dfn>.</p>
      <ul>
       <li data-md>
-       <p>Given a reference with a <a data-link-type="dfn" href="#vector" id="ref-for-vector⑧">vector</a> store type, appending a single-letter vector access phrase
+       <p>In each case the result is a <a data-link-type="dfn" href="#valid-reference" id="ref-for-valid-reference⑤">valid reference</a> when the original reference is valid and any index, if used,
+is at least zero and less than the element count of the vector, matrix, or array being indexed.
+Otherwise the result is an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference④">invalid memory reference</a>.</p>
+      <li data-md>
+       <p>When the result is <a data-link-type="dfn" href="#valid-reference" id="ref-for-valid-reference⑥">valid</a>, the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable⑥">originating variable</a> of the result is
+defined as the originating variable of the original reference.</p>
+      <li data-md>
+       <p>The cases are:</p>
+       <ul>
+        <li data-md>
+         <p>Given a reference with a <a data-link-type="dfn" href="#vector" id="ref-for-vector⑧">vector</a> store type, appending a single-letter vector access phrase
 results in a reference to the named component of the vector.
 See <a href="#component-reference-from-vector-reference">§ 7.5.1.3 Component Reference from Vector Reference</a>.</p>
-      <li data-md>
-       <p>Given a reference with a <a data-link-type="dfn" href="#vector" id="ref-for-vector⑨">vector</a> store type, appending an array index access phrase
+        <li data-md>
+         <p>Given a reference with a <a data-link-type="dfn" href="#vector" id="ref-for-vector⑨">vector</a> store type, appending an array index access phrase
 results in a reference to the indexed component of the vector.
 See <a href="#component-reference-from-vector-reference">§ 7.5.1.3 Component Reference from Vector Reference</a>.</p>
-      <li data-md>
-       <p>Given a reference with a <a data-link-type="dfn" href="#matrix" id="ref-for-matrix⑦">matrix</a> store type, appending an array index access phrase
+        <li data-md>
+         <p>Given a reference with a <a data-link-type="dfn" href="#matrix" id="ref-for-matrix⑦">matrix</a> store type, appending an array index access phrase
 results in a reference to the indexed column vector of the matrix.
 See <a href="#matrix-access-expr">§ 7.5.2 Matrix Access Expression</a>.</p>
-      <li data-md>
-       <p>Given a reference with an <a data-link-type="dfn" href="#array" id="ref-for-array③">array</a> store type, appending an array index access phrase
+        <li data-md>
+         <p>Given a reference with an <a data-link-type="dfn" href="#array" id="ref-for-array③">array</a> store type, appending an array index access phrase
 results in a reference to the indexed element of the array.
 See <a href="#array-access-expr">§ 7.5.3 Array Access Expression</a>.</p>
-      <li data-md>
-       <p>Given a reference with a <a data-link-type="dfn" href="#structure" id="ref-for-structure①③">structure</a> store type, appending a member access phrase
+        <li data-md>
+         <p>Given a reference with a <a data-link-type="dfn" href="#structure" id="ref-for-structure①③">structure</a> store type, appending a member access phrase
 results in a reference to the named member of the structure.
 See <a href="#struct-access-expr">§ 7.5.4 Structure Access Expression</a>.</p>
+       </ul>
      </ul>
    </ul>
    <p>In all cases, the <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode⑦">access mode</a> of the result is the same as the access mode of the original reference.</p>
@@ -5170,7 +5247,9 @@ See <a href="#struct-access-expr">§ 7.5.4 Structure Access Expression</a>.</p
      <p>Use the <a data-link-type="dfn" href="#address-of" id="ref-for-address-of②">address-of</a> (unary <code>&amp;</code>) operator on a reference.</p>
      <ul>
       <li data-md>
-       <p>The originating variable of the result is defined as the originating variable of the reference.</p>
+       <p>The result is a <a data-link-type="dfn" href="#valid-pointer" id="ref-for-valid-pointer③">valid pointer</a> if and only if the original reference is <a data-link-type="dfn" href="#valid-reference" id="ref-for-valid-reference⑦">valid</a>.</p>
+      <li data-md>
+       <p>The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable⑦">originating variable</a> of a valid result is defined as the originating variable of the reference.</p>
      </ul>
     <li data-md>
      <p>If a function <a data-link-type="dfn" href="#formal-parameter" id="ref-for-formal-parameter⑤">formal parameter</a> has pointer type, then when the function is invoked
@@ -5178,11 +5257,14 @@ at runtime the uses of the formal parameter denote the pointer value
 provided to the corresponding operand at the <a data-link-type="dfn" href="#call-site" id="ref-for-call-site②">call site</a> in the <a data-link-type="dfn" href="#calling-function" id="ref-for-calling-function①">calling function</a>.</p>
      <ul>
       <li data-md>
-       <p>The originating variable of the formal parameter (at runtime) is defined as
+       <p>The value denoted by the formal parameter (at runtime) is a <a data-link-type="dfn" href="#valid-pointer" id="ref-for-valid-pointer④">valid pointer</a> if and only if
+ the pointer value at the call site is <a data-link-type="dfn" href="#valid-pointer" id="ref-for-valid-pointer⑤">valid</a>.</p>
+      <li data-md>
+       <p>The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable⑧">originating variable</a> of a <a data-link-type="dfn" href="#valid-pointer" id="ref-for-valid-pointer⑥">valid pointer</a> formal parameter (at runtime) is defined as
 the originating variable of the pointer operand at the call site.</p>
      </ul>
    </ul>
-   <p>In all cases, the access mode of the result is the same as the access mode of the original pointer.</p>
+   <p>In all cases, the <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode⑧">access mode</a> of the result is the same as the access mode of the original pointer.</p>
    <div class="example wgsl no-marker" id="example-086bd2f6">
     <a class="self-link" href="#example-086bd2f6"></a>
     <div class="marker">EXAMPLE: Pointer from a variable</div>
@@ -5219,7 +5301,7 @@ the originating variable of the pointer operand at the call site.</p>
 <c- p>}</c->
 </pre>
    </div>
-   <h4 class="heading settled" data-level="5.4.8" id="pointers-other-languages"><span class="secno">5.4.8. </span><span class="content">Comparison with References and Pointers in Other Languages</span><a class="self-link" href="#pointers-other-languages"></a></h4>
+   <h4 class="heading settled" data-level="5.4.9" id="pointers-other-languages"><span class="secno">5.4.9. </span><span class="content">Comparison with References and Pointers in Other Languages</span><a class="self-link" href="#pointers-other-languages"></a></h4>
    <p>This section is informative, not normative.</p>
    <p>References and pointers in WGSL are more restricted than in other languages.
 In particular:</p>
@@ -5262,7 +5344,7 @@ The memory for a WGSL variable becomes inaccessible only when the variable goes 
    <p class="note" role="note"><span class="marker">Note:</span> From the above rules, it is not possible to form a "dangling" pointer,
 i.e. a pointer that does not reference the memory for a "live"
 originating variable.
-A <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view⑦">memory view</a> may be an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference">invalid memory reference</a>, but it <a data-link-type="dfn" href="#behavioral-requirements" id="ref-for-behavioral-requirements⑥">will never</a> access <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations⑧">memory locations</a> not associated with the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable⑤">originating variable</a> or buffer.</p>
+A <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view⑥">memory view</a> may be an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference⑤">invalid memory reference</a>, but it <a data-link-type="dfn" href="#behavioral-requirements" id="ref-for-behavioral-requirements⑥">will never</a> access <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations⑦">memory locations</a> not associated with the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable⑨">originating variable</a> or buffer.</p>
    <h3 class="heading settled" data-level="5.5" id="texture-sampler-types"><span class="secno">5.5. </span><span class="content">Texture and Sampler Types</span><a class="self-link" href="#texture-sampler-types"></a></h3>
    <p>A <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="texel">texel</dfn> is a scalar or vector used as the smallest independently accessible element of a <a data-link-type="dfn" href="#texture" id="ref-for-texture①">texture</a>.
 The word <em>texel</em> is short for <em>texture element</em>.</p>
@@ -5319,7 +5401,7 @@ Instead, access is mediated through an opaque handle:</p>
      <ul>
       <li data-md>
        <p>Declare a module-scope variable
-where the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①⓪">store type</a> is one of the texture types described in later sections.
+where the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①①">store type</a> is one of the texture types described in later sections.
 The variable stores an opaque handle to the underlying texture memory, and is
 automatically placed in the <a data-link-type="dfn" href="#address-spaces-handle" id="ref-for-address-spaces-handle">handle</a> address space.</p>
       <li data-md>
@@ -5855,9 +5937,9 @@ provide names for data values.</p>
 value is immutable once it has been declared.
 The four kinds of value declarations are <code>const</code>, <code>override</code>, <code>let</code>, and formal parameter declarations,
 further described below (see <a href="#value-decls">§ 6.2 Value Declarations</a>).</p>
-   <p>A <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="variable-declaration">variable declaration</dfn> creates a name for <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations⑨">memory locations</a> for storing a value; the value stored there may be updated, if the variable has
+   <p>A <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="variable-declaration">variable declaration</dfn> creates a name for <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations⑧">memory locations</a> for storing a value; the value stored there may be updated, if the variable has
 a <a data-link-type="dfn" href="#access-read_write" id="ref-for-access-read_write⑥">read_write</a> access mode.
-There is one kind of variable declaration, <code>var</code>, but it has options for <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces⑨">address space</a> and <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode⑧">access modes</a> in various combinations, described
+There is one kind of variable declaration, <code>var</code>, but it has options for <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces⑨">address space</a> and <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode⑨">access modes</a> in various combinations, described
 below (see <a href="#var-decls">§ 6.3 var Declarations</a>).</p>
    <p class="note" role="note"><span class="marker">Note:</span> A value declaration does not have associated memory locations. For
 example, no WGSL expression can form a pointer to the value.</p>
@@ -6031,7 +6113,7 @@ See WebGPU <code class="idl"><a data-link-type="idl" href="https://gpuweb.github
      <p><a data-link-type="dfn" href="#atomic-type" id="ref-for-atomic-type⑦">Atomic types</a> can only appear in mutable storage buffers or workgroup
 variables.</p>
     <li data-md>
-     <p>The data in <a href="#texture-storage">storage textures</a> with a <a data-link-type="dfn" href="#access-write" id="ref-for-access-write③">write</a> <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode⑨">access mode</a> is mutable, but can only be modified via <a href="#texturestore">textureStore</a> built-in function.
+     <p>The data in <a href="#texture-storage">storage textures</a> with a <a data-link-type="dfn" href="#access-write" id="ref-for-access-write③">write</a> <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①⓪">access mode</a> is mutable, but can only be modified via <a href="#texturestore">textureStore</a> built-in function.
 The variable itself cannot be modified.</p>
     <li data-md>
      <p>Variables in the <a data-link-type="dfn" href="#address-spaces-workgroup" id="ref-for-address-spaces-workgroup⑧">workgroup</a> address space can only be <a data-link-type="dfn" href="#statically-accessed" id="ref-for-statically-accessed②">statically accessed</a> in a <a data-link-type="dfn" href="#compute-shader-stage" id="ref-for-compute-shader-stage③">compute shader stage</a>.</p>
@@ -6043,11 +6125,11 @@ initialized</a>.</p>
    </ol>
    <h3 class="heading settled" data-level="6.1" id="var-vs-value"><span class="secno">6.1. </span><span class="content">Variables vs Values</span><a class="self-link" href="#var-vs-value"></a></h3>
    <p><a data-link-type="dfn" href="#variable-declaration" id="ref-for-variable-declaration③">Variable declarations</a> are the only mutable data in a WGSL program. <a data-link-type="dfn" href="#value-declaration" id="ref-for-value-declaration③">Value declarations</a> are always immutable.
-Variables can be the basis of <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type②">reference</a> and <a data-link-type="dfn" href="#pointer-type" id="ref-for-pointer-type②">pointer</a> values because variables have associated <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①⓪">memory locations</a>,
+Variables can be the basis of <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type③">reference</a> and <a data-link-type="dfn" href="#pointer-type" id="ref-for-pointer-type②">pointer</a> values because variables have associated <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations⑨">memory locations</a>,
 whereas a value declaration cannot be the basis of a pointer or reference
 value.</p>
    <p>Using variables is generally more expensive than using value declarations,
-because using a variable requires extra operations to <a data-link-type="dfn" href="#read-access" id="ref-for-read-access①">read</a> or <a data-link-type="dfn" href="#write-access" id="ref-for-write-access①">write</a> to the <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①①">memory locations</a> associated with the variable.</p>
+because using a variable requires extra operations to <a data-link-type="dfn" href="#read-access" id="ref-for-read-access①">read</a> or <a data-link-type="dfn" href="#write-access" id="ref-for-write-access①">write</a> to the <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①⓪">memory locations</a> associated with the variable.</p>
    <p>Generally speaking, an author should prefer using declarations in the following
 order, with the most preferred option listed first:</p>
    <ul>
@@ -6163,18 +6245,18 @@ The <a data-link-type="dfn" href="#effective-value-type" id="ref-for-effective-v
    <h3 class="heading settled" data-level="6.3" id="var-decls"><span class="secno">6.3. </span><span class="content"><code>var</code> Declarations</span><a class="self-link" href="#var-decls"></a></h3>
    <p>A <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="variable">variable</dfn> is a named reference to memory that can contain a value
 of a particular <a data-link-type="dfn" href="#storable" id="ref-for-storable⑤">storable</a> type.</p>
-   <p>Two types are associated with a variable: its <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①①">store type</a> (the type of value
-that may be placed in the referenced memory) and its <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type③">reference type</a> (the type
+   <p>Two types are associated with a variable: its <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①②">store type</a> (the type of value
+that may be placed in the referenced memory) and its <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type④">reference type</a> (the type
 of the variable itself).
-If a variable has store type <code>T</code>, <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces①⓪">address space</a> <code>AS</code>, and <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①⓪">access mode</a> <code>AM</code>, then its reference type is <code>ref&lt;AS,T,AM></code>.
+If a variable has store type <code>T</code>, <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces①⓪">address space</a> <code>AS</code>, and <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①①">access mode</a> <code>AM</code>, then its reference type is <code>ref&lt;AS,T,AM></code>.
 The store type of a variable is always <a data-link-type="dfn" href="#type-concrete" id="ref-for-type-concrete②③">concrete</a>.</p>
    <p>A variable declaration:</p>
    <ul>
     <li data-md>
      <p>Specifies the variable’s <a data-link-type="dfn" href="#name" id="ref-for-name①">name</a>.</p>
     <li data-md>
-     <p>Determines the variable’s <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces①①">address space</a>, <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①②">store type</a>, and <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①①">access mode</a>.
-Together these comprise the variable’s <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type④">reference type</a>.</p>
+     <p>Determines the variable’s <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces①①">address space</a>, <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①③">store type</a>, and <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①②">access mode</a>.
+Together these comprise the variable’s <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type⑤">reference type</a>.</p>
      <ul>
       <li data-md>
        <p>The store type is the <a data-link-type="dfn" href="#effective-value-type" id="ref-for-effective-value-type⑥">effective-value-type</a> of the variable’s declaration.</p>
@@ -6192,16 +6274,16 @@ Variables in address spaces other than <a data-link-type="dfn" href="#address-sp
 initializer.</p>
    </ul>
    <p>When an <a data-link-type="dfn" href="#identifier" id="ref-for-identifier⑦">identifier</a> <a data-link-type="dfn" href="#resolves" id="ref-for-resolves⑦">resolves</a> to a variable declaration, the identifier
-is an expression denoting the reference <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view⑧">memory view</a> for the variable’s memory,
-and its type is the variable’s <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type⑤">reference type</a>.
+is an expression denoting the reference <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view⑦">memory view</a> for the variable’s memory,
+and its type is the variable’s <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type⑥">reference type</a>.
 See <a href="#var-identifier-expr">§ 7.11 Variable Identifier Expression</a>.</p>
-   <p>If the <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces①②">address space</a> or <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①②">access mode</a> for a variable declaration are specified
+   <p>If the <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces①②">address space</a> or <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①③">access mode</a> for a variable declaration are specified
 in program source, they are written as a <a data-link-type="dfn" href="#template-list" id="ref-for-template-list⑥">template list</a> after the <code>var</code> keyword:</p>
    <ul>
     <li data-md>
      <p>The <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces①③">address space</a> is specified first, as one of the <a data-link-type="dfn" href="#predeclared" id="ref-for-predeclared①⓪">predeclared</a> address space <a data-link-type="dfn" href="#enumerant" id="ref-for-enumerant①⓪">enumerants</a>.</p>
     <li data-md>
-     <p>The <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①③">access mode</a> is specified second, if present, as one of the <a data-link-type="dfn" href="#predeclared" id="ref-for-predeclared①①">predeclared</a> address mode <a data-link-type="dfn" href="#enumerant" id="ref-for-enumerant①①">enumerants</a>.</p>
+     <p>The <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①④">access mode</a> is specified second, if present, as one of the <a data-link-type="dfn" href="#predeclared" id="ref-for-predeclared①①">predeclared</a> address mode <a data-link-type="dfn" href="#enumerant" id="ref-for-enumerant①①">enumerants</a>.</p>
      <ul>
       <li data-md>
        <p>The address space must be specified if the access mode is specified.</p>
@@ -6214,15 +6296,15 @@ The address space <a data-link-type="dfn" href="#shader-creation-error" id="ref-
 spaces except handle and function.
 The handle address space <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error⑨⑧">must not</a> be specified.
 Specifying the function address space is optional.</p>
-   <p>The <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①④">access mode</a> always has a default value, and except for variables in the <a data-link-type="dfn" href="#address-spaces-storage" id="ref-for-address-spaces-storage⑥">storage</a> address space, <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error⑨⑨">must not</a> be
+   <p>The <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①⑤">access mode</a> always has a default value, and except for variables in the <a data-link-type="dfn" href="#address-spaces-storage" id="ref-for-address-spaces-storage⑥">storage</a> address space, <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error⑨⑨">must not</a> be
 specified in the WGSL source.
 See <a href="#address-space">§ 13.3 Address Spaces</a>.</p>
    <p>A variable in the <a data-link-type="dfn" href="#address-spaces-uniform" id="ref-for-address-spaces-uniform③">uniform</a> address space is a <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="uniform-buffer">uniform buffer</dfn> variable.
-Its <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①③">store type</a> must be a <a data-link-type="dfn" href="#host-shareable" id="ref-for-host-shareable③">host-shareable</a> <a data-link-type="dfn" href="#constructible" id="ref-for-constructible①①">constructible</a> type, and
+Its <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①④">store type</a> must be a <a data-link-type="dfn" href="#host-shareable" id="ref-for-host-shareable③">host-shareable</a> <a data-link-type="dfn" href="#constructible" id="ref-for-constructible①①">constructible</a> type, and
 must satisfy the <a href="#address-space-layout-constraints">address space layout
 constraints</a>.</p>
    <p>A variable in the <a data-link-type="dfn" href="#address-spaces-storage" id="ref-for-address-spaces-storage⑦">storage</a> address space is a <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="storage-buffer">storage buffer</dfn> variable.
-Its <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①④">store type</a> must be a <a data-link-type="dfn" href="#host-shareable" id="ref-for-host-shareable④">host-shareable</a> type and must satisfy the <a href="#address-space-layout-constraints">address space layout constraints</a>.
+Its <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①⑤">store type</a> must be a <a data-link-type="dfn" href="#host-shareable" id="ref-for-host-shareable④">host-shareable</a> type and must satisfy the <a href="#address-space-layout-constraints">address space layout constraints</a>.
 The variable may be declared with a <a data-link-type="dfn" href="#access-read" id="ref-for-access-read③">read</a> or <a data-link-type="dfn" href="#access-read_write" id="ref-for-access-read_write⑦">read_write</a> access mode; the default is read.</p>
    <p>A <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="texture-resource">texture resource</dfn> is a variable whose <a data-link-type="dfn" href="#effective-value-type" id="ref-for-effective-value-type⑦">effective-value-type</a> is a <a data-link-type="dfn" href="#texture-types" id="ref-for-texture-types①">texture type</a>.
 It is declared at <a data-link-type="dfn" href="#module-scope" id="ref-for-module-scope②⓪">module scope</a>.
@@ -6237,7 +6319,7 @@ and is immutable.</p>
    <p>As described in <a href="#resource-interface">§ 10.3.2 Resource Interface</a>, uniform buffers, storage buffers,
 textures, and samplers form the <a data-link-type="dfn" href="#resource-interface-of-a-shader" id="ref-for-resource-interface-of-a-shader①">resource interface of a shader</a>.</p>
    <p>The <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="lifetime">lifetime</dfn> of a variable is the period during shader
-execution for which the <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①②">memory locations</a> are associated with the variable.
+execution for which the <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①①">memory locations</a> are associated with the variable.
 The lifetime of a <a data-link-type="dfn" href="#module-scope" id="ref-for-module-scope②②">module scope</a> variable is the entire execution of the
 shader stage.
 There is an independent version of a variable in the <a data-link-type="dfn" href="#address-spaces-private" id="ref-for-address-spaces-private⑦">private</a> and <a data-link-type="dfn" href="#address-spaces-function" id="ref-for-address-spaces-function⑥">function</a> address spaces for each invocation. <a data-link-type="dfn" href="#function-scope" id="ref-for-function-scope⑥">Function-scope</a> variables are a <a data-link-type="dfn" href="#dynamic-context" id="ref-for-dynamic-context②">dynamic context</a>.
@@ -6267,7 +6349,7 @@ The initial values are computed as follows:</p>
      <p>For variables in the function address space:</p>
      <ul>
       <li data-md>
-       <p>The <a data-link-type="dfn" href="#zero-value" id="ref-for-zero-value①">zero value</a> of the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①⑤">store type</a>, if the variable declaration did
+       <p>The <a data-link-type="dfn" href="#zero-value" id="ref-for-zero-value①">zero value</a> of the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①⑥">store type</a>, if the variable declaration did
 not specify an initializer.</p>
       <li data-md>
        <p>Otherwise it is the result of evaluating the <a data-link-type="dfn" href="#concretization-of-a-value" id="ref-for-concretization-of-a-value②">concretized</a> initializer expression at
@@ -6277,7 +6359,7 @@ that point in program execution.</p>
      <p>For variables in the private address space:</p>
      <ul>
       <li data-md>
-       <p>The <a data-link-type="dfn" href="#zero-value" id="ref-for-zero-value②">zero value</a> of the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①⑥">store type</a>, if the variable declaration did
+       <p>The <a data-link-type="dfn" href="#zero-value" id="ref-for-zero-value②">zero value</a> of the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①⑦">store type</a>, if the variable declaration did
 not specify an initializer.</p>
       <li data-md>
        <p>Otherwise it is the result of evaluating the <a data-link-type="dfn" href="#concretization-of-a-value" id="ref-for-concretization-of-a-value③">concretized</a> initializer expression.
@@ -6288,18 +6370,18 @@ fixed no later than <a data-link-type="dfn" href="#pipeline-creation" id="ref-fo
      <p>For variables in the workgroup address space:</p>
      <ul>
       <li data-md>
-       <p>When the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①⑦">store type</a> is <a data-link-type="dfn" href="#constructible" id="ref-for-constructible①②">constructible</a>, the <a data-link-type="dfn" href="#zero-value" id="ref-for-zero-value③">zero value</a> for the
+       <p>When the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①⑧">store type</a> is <a data-link-type="dfn" href="#constructible" id="ref-for-constructible①②">constructible</a>, the <a data-link-type="dfn" href="#zero-value" id="ref-for-zero-value③">zero value</a> for the
 store type.</p>
       <li data-md>
-       <p>If the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①⑧">store type</a> is an <a data-link-type="dfn" href="#atomic-type" id="ref-for-atomic-type⑧">atomic type</a>, the <a data-link-type="dfn" href="#zero-value" id="ref-for-zero-value④">zero value</a> is that
+       <p>If the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①⑨">store type</a> is an <a data-link-type="dfn" href="#atomic-type" id="ref-for-atomic-type⑧">atomic type</a>, the <a data-link-type="dfn" href="#zero-value" id="ref-for-zero-value④">zero value</a> is that
 of the underlying type (<a data-link-type="dfn" href="#type-concrete" id="ref-for-type-concrete②④">concrete</a> <a data-link-type="dfn" href="#integer-scalar" id="ref-for-integer-scalar⑤">integer scalar</a>).</p>
       <li data-md>
-       <p>Otherwise, if the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type①⑨">store type</a> is not <a data-link-type="dfn" href="#constructible" id="ref-for-constructible①③">constructible</a>, the <a data-link-type="dfn" href="#zero-value" id="ref-for-zero-value⑤">zero
-value</a> is determined by recursively applying these rules to each <a data-link-type="dfn" href="#components" id="ref-for-components">component</a> of the <a data-link-type="dfn" href="#composite" id="ref-for-composite③">composite</a> until a <a data-link-type="dfn" href="#constructible" id="ref-for-constructible①④">constructible</a> type is
+       <p>Otherwise, if the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②⓪">store type</a> is not <a data-link-type="dfn" href="#constructible" id="ref-for-constructible①③">constructible</a>, the <a data-link-type="dfn" href="#zero-value" id="ref-for-zero-value⑤">zero
+value</a> is determined by recursively applying these rules to each <a data-link-type="dfn" href="#components" id="ref-for-components">component</a> of the <a data-link-type="dfn" href="#composite" id="ref-for-composite②">composite</a> until a <a data-link-type="dfn" href="#constructible" id="ref-for-constructible①④">constructible</a> type is
 encountered.</p>
        <ul>
         <li data-md>
-         <p class="note" role="note"><span class="marker">Note:</span> This commonly occurs when using an <a data-link-type="dfn" href="#array" id="ref-for-array⑤">array</a> with a <a data-link-type="dfn" href="#pipeline-overridable" id="ref-for-pipeline-overridable③">pipeline-overridable</a> <a data-link-type="dfn" href="#element-count" id="ref-for-element-count③">element count</a> or a <a data-link-type="dfn" href="#composite" id="ref-for-composite④">composite</a> that
+         <p class="note" role="note"><span class="marker">Note:</span> This commonly occurs when using an <a data-link-type="dfn" href="#array" id="ref-for-array⑤">array</a> with a <a data-link-type="dfn" href="#pipeline-overridable" id="ref-for-pipeline-overridable③">pipeline-overridable</a> <a data-link-type="dfn" href="#element-count" id="ref-for-element-count③">element count</a> or a <a data-link-type="dfn" href="#composite" id="ref-for-composite③">composite</a> that
 contains an <a data-link-type="dfn" href="#atomic-type" id="ref-for-atomic-type⑨">atomic type</a>.</p>
        </ul>
      </ul>
@@ -6815,7 +6897,7 @@ That is, using convenience letters can only produce a valid vector type.</p>
       <td>Computes the four-component vector with first component <var>e</var>.<var>I</var>, second component <var>e</var>.<var>J</var>, third component <var>e</var>.<var>K</var>, and fourth component <var>e</var>.<var>L</var>.<br> Letter <code>b</code> is only valid when <var>N</var> is 3 or 4.<br> Letter <code>a</code> is only valid when <var>N</var> is 4. 
    </table>
    <h5 class="heading settled" data-level="7.5.1.3" id="component-reference-from-vector-reference"><span class="secno">7.5.1.3. </span><span class="content">Component Reference from Vector Reference</span><a class="self-link" href="#component-reference-from-vector-reference"></a></h5>
-   <p>A <a data-link-type="dfn" href="#write-access" id="ref-for-write-access②">write access</a> to component of a vector <strong>may</strong> access all of the <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①③">memory locations</a> associated with that vector.</p>
+   <p>A <a data-link-type="dfn" href="#write-access" id="ref-for-write-access②">write access</a> to component of a vector <strong>may</strong> access all of the <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①②">memory locations</a> associated with that vector.</p>
    <p class="note" role="note"><span class="marker">Note:</span> This means accesses to different components of a vector by different
 invocations must be synchronized if at least one access is a <a data-link-type="dfn" href="#write-access" id="ref-for-write-access③">write access</a>.
 See <a href="#sync-builtin-functions">§ 17.11 Synchronization Built-in Functions</a>.</p>
@@ -6830,22 +6912,22 @@ See <a href="#sync-builtin-functions">§ 17.11 Synchronization Built-in Functi
      <tr class="algorithm" data-algorithm="first vector component reference selection">
       <td><var>r</var>: ref&lt;<var>AS</var>,vec<var>N</var>&lt;<var>T</var>>,<var>AM</var>><br> 
       <td class="nowrap"> <var>r</var><code>.x</code>: ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>><br> <var>r</var><code>.r</code>: ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>><br> 
-      <td>Compute a reference to the first component of the vector referenced by the reference <var>r</var>.<br> The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable⑥">originating variable</a> of the resulting reference is
+      <td>Compute a reference to the first component of the vector referenced by the reference <var>r</var>.<br> The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①⓪">originating variable</a> of the resulting reference is
            the same as the originating variable of <var>r</var>. 
      <tr class="algorithm" data-algorithm="second vector component reference selection">
       <td><var>r</var>: ref&lt;<var>AS</var>,vec<var>N</var>&lt;<var>T</var>>,<var>AM</var>><br> 
       <td class="nowrap"> <var>r</var><code>.y</code>: ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>><br> <var>r</var><code>.g</code>: ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>><br> 
-      <td>Compute a reference to the second component of the vector referenced by the reference <var>r</var>.<br> The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable⑦">originating variable</a> of the resulting reference is
+      <td>Compute a reference to the second component of the vector referenced by the reference <var>r</var>.<br> The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①①">originating variable</a> of the resulting reference is
            the same as the originating variable of <var>r</var>. 
      <tr class="algorithm" data-algorithm="third vector component reference selection">
       <td><var>r</var>: ref&lt;<var>AS</var>,vec<var>N</var>&lt;<var>T</var>>,<var>AM</var>><br> <var>N</var> is 3 or 4 
       <td class="nowrap"> <var>r</var><code>.z</code>: ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>><br> <var>r</var><code>.b</code>: ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>><br> 
-      <td>Compute a reference to the third component of the vector referenced by the reference <var>r</var>.<br> The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable⑧">originating variable</a> of the resulting reference is
+      <td>Compute a reference to the third component of the vector referenced by the reference <var>r</var>.<br> The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①②">originating variable</a> of the resulting reference is
            the same as the originating variable of <var>r</var>. 
      <tr class="algorithm" data-algorithm="fourth vector component reference selection">
       <td><var>r</var>: ref&lt;<var>AS</var>,vec4&lt;<var>T</var>>,<var>AM</var>><br> 
       <td class="nowrap"> <var>r</var><code>.w</code>: ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>><br> <var>r</var><code>.a</code>: ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>><br> 
-      <td>Compute a reference to the fourth component of the vector referenced by the reference <var>r</var>.<br> The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable⑨">originating variable</a> of the resulting reference is
+      <td>Compute a reference to the fourth component of the vector referenced by the reference <var>r</var>.<br> The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①③">originating variable</a> of the resulting reference is
            the same as the originating variable of <var>r</var>. 
      <tr class="algorithm" data-algorithm="vector indexed component reference selection">
       <td><var>r</var>: ref&lt;<var>AS</var>,vec<var>N</var>&lt;<var>T</var>>,<var>AM</var>><br> <var>i</var>: i32 or u32 
@@ -6860,9 +6942,9 @@ See <a href="#sync-builtin-functions">§ 17.11 Synchronization Built-in Functi
         <li data-md>
          <p>It is a <a data-link-type="dfn" href="#pipeline-creation-error" id="ref-for-pipeline-creation-error⑧">pipeline-creation error</a> if <var>i</var> is an <a data-link-type="dfn" href="#override-expressions" id="ref-for-override-expressions①⑥">override-expression</a>.</p>
         <li data-md>
-         <p>Otherwise, the expression evaluates to an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference①">invalid memory reference</a>.</p>
+         <p>Otherwise, the expression evaluates to an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference⑥">invalid memory reference</a>.</p>
        </ul>
-       <p>The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①⓪">originating variable</a> of the resulting reference is
+       <p>The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①④">originating variable</a> of the resulting reference is
            the same as the originating variable of <var>r</var>.</p>
    </table>
    <h4 class="heading settled" data-level="7.5.2" id="matrix-access-expr"><span class="secno">7.5.2. </span><span class="content">Matrix Access Expression</span><a class="self-link" href="#matrix-access-expr"></a></h4>
@@ -6918,9 +7000,9 @@ See <a href="#sync-builtin-functions">§ 17.11 Synchronization Built-in Functi
         <li data-md>
          <p>It is a <a data-link-type="dfn" href="#pipeline-creation-error" id="ref-for-pipeline-creation-error①⓪">pipeline-creation error</a> if <var>i</var> is an <a data-link-type="dfn" href="#override-expressions" id="ref-for-override-expressions①⑧">override-expression</a>.</p>
         <li data-md>
-         <p>Otherwise, the expression evaluates to an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference②">invalid memory reference</a>.</p>
+         <p>Otherwise, the expression evaluates to an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference⑦">invalid memory reference</a>.</p>
        </ul>
-       <p>The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①①">originating variable</a> of the resulting reference is
+       <p>The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①⑤">originating variable</a> of the resulting reference is
            the same as the originating variable of <var>r</var>.</p>
    </table>
    <h4 class="heading settled" data-level="7.5.3" id="array-access-expr"><span class="secno">7.5.3. </span><span class="content">Array Access Expression</span><a class="self-link" href="#array-access-expr"></a></h4>
@@ -6976,9 +7058,9 @@ See <a href="#sync-builtin-functions">§ 17.11 Synchronization Built-in Functi
         <li data-md>
          <p>It is a <a data-link-type="dfn" href="#pipeline-creation-error" id="ref-for-pipeline-creation-error①②">pipeline-creation error</a> if <var>i</var> is an <a data-link-type="dfn" href="#override-expressions" id="ref-for-override-expressions②⓪">override-expression</a>.</p>
         <li data-md>
-         <p>Otherwise, the expression evaluates to an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference③">invalid memory reference</a>.</p>
+         <p>Otherwise, the expression evaluates to an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference⑧">invalid memory reference</a>.</p>
        </ul>
-       <p>The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①②">originating variable</a> of the resulting reference is
+       <p>The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①⑥">originating variable</a> of the resulting reference is
            the same as the originating variable of <var>r</var>.</p>
      <tr class="algorithm" data-algorithm="array indexed reference selection">
       <td><var>r</var>: ref&lt;<var>AS</var>,array&lt;<var>T</var>>,<var>AM</var>><br> <var>i</var>: i32 or u32 
@@ -6987,7 +7069,7 @@ See <a href="#sync-builtin-functions">§ 17.11 Synchronization Built-in Functi
        Compute a reference to the <var>i</var>’<sup>th</sup> element of the
            runtime-sized array referenced by the reference <var>r</var>. 
        <p>If at runtime the array has <var>N</var> elements, and <var>i</var> is outside the range
-           [0,<var>N</var>-1], then the expression evaluates to an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference④">invalid memory
+           [0,<var>N</var>-1], then the expression evaluates to an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference⑨">invalid memory
            reference</a>.</p>
        <p>If <var>i</var> is a signed integer, and <var>i</var> is less than 0:<br></p>
        <ul>
@@ -6996,7 +7078,7 @@ See <a href="#sync-builtin-functions">§ 17.11 Synchronization Built-in Functi
         <li data-md>
          <p>It is a <a data-link-type="dfn" href="#pipeline-creation-error" id="ref-for-pipeline-creation-error①③">pipeline-creation error</a> if <var>i</var> is an <a data-link-type="dfn" href="#override-expressions" id="ref-for-override-expressions②①">override-expression</a>.</p>
        </ul>
-       <p>The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①③">originating variable</a> of the resulting reference is
+       <p>The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①⑦">originating variable</a> of the resulting reference is
            the same as the originating variable of <var>r</var>.</p>
    </table>
    <h4 class="heading settled" data-level="7.5.4" id="struct-access-expr"><span class="secno">7.5.4. </span><span class="content">Structure Access Expression</span><a class="self-link" href="#struct-access-expr"></a></h4>
@@ -7024,7 +7106,7 @@ See <a href="#sync-builtin-functions">§ 17.11 Synchronization Built-in Functi
      <tr class="algorithm" data-algorithm="structure member reference selection">
       <td class="nowrap"> <var>S</var> is a structure type<br> <var>M</var> is the identifier name of a member of <var>S</var>, having type <var>T</var><br> <var>r</var>: ref&lt;<var>AS</var>,<var>S</var>,<var>AM</var>><br> 
       <td class="nowrap"> <var>r</var>.<var>M</var>: ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>> 
-      <td>Given a reference to a structure, the result is a reference to the structure member with identifier name <var>M</var>.<br> The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①④">originating variable</a> of the resulting reference is
+      <td>Given a reference to a structure, the result is a reference to the structure member with identifier name <var>M</var>.<br> The <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①⑧">originating variable</a> of the resulting reference is
            the same as the originating variable of <var>r</var>. 
    </table>
    <h3 class="heading settled" data-level="7.6" id="logical-expr"><span class="secno">7.6. </span><span class="content">Logical Expressions</span><a class="self-link" href="#logical-expr"></a></h3>
@@ -7463,7 +7545,7 @@ See <a href="#function-call-statement">§ 8.5 Function Call Statement</a>.</p>
     <tbody>
      <tr class="algorithm" data-algorithm="variable reference">
       <td> <var>v</var> is an <a data-link-type="dfn" href="#identifier" id="ref-for-identifier①⓪">identifier</a> <a data-link-type="dfn" href="#resolves" id="ref-for-resolves①①">resolving</a> to
-          an <a data-link-type="dfn" href="#in-scope" id="ref-for-in-scope⑥">in-scope</a> variable declared in <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces①④">address space</a> <var>AS</var> with <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②⓪">store type</a> <var>T</var> and <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①⑤">access mode</a> <var>AM</var> 
+          an <a data-link-type="dfn" href="#in-scope" id="ref-for-in-scope⑥">in-scope</a> variable declared in <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces①④">address space</a> <var>AS</var> with <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②①">store type</a> <var>T</var> and <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①⑥">access mode</a> <var>AM</var> 
       <td class="nowrap"> <var>v</var>: ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>> 
       <td>Result is a reference to the memory for the named variable <var>v</var>. 
    </table>
@@ -7497,8 +7579,8 @@ See <a href="#function-call-statement">§ 8.5 Function Call Statement</a>.</p>
       <td class="nowrap"> <code>&amp;</code><var>r</var>: ptr&lt;<var>AS</var>,<var>T</var>,<var>AM</var>> 
       <td>
        Result is the pointer value corresponding to the
-           same <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view⑨">memory view</a> as the reference value <var>r</var>. 
-       <p>If <var>r</var> is an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference⑤">invalid memory reference</a>, then the resulting
+           same <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view⑧">memory view</a> as the reference value <var>r</var>. 
+       <p>If <var>r</var> is an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference①⓪">invalid memory reference</a>, then the resulting
            pointer is also an invalid memory reference.</p>
        <p>It is a <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①②⑥">shader-creation error</a> if <var>AS</var> is the <a data-link-type="dfn" href="#address-spaces-handle" id="ref-for-address-spaces-handle④">handle</a> address space.</p>
        <p>It is a <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①②⑦">shader-creation error</a> if <var>r</var> is a <a href="#component-reference-from-vector-reference">reference to a vector component</a>.</p>
@@ -7518,8 +7600,8 @@ See <a href="#function-call-statement">§ 8.5 Function Call Statement</a>.</p>
       <td class="nowrap"> <code>*</code><var>p</var>: ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>> 
       <td>
        Result is the reference value corresponding to the
-           same <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①⓪">memory view</a> as the pointer value <var>p</var>. 
-       <p>If <var>p</var> is an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference⑥">invalid memory reference</a>, then the resulting
+           same <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view⑨">memory view</a> as the pointer value <var>p</var>. 
+       <p>If <var>p</var> is an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference①①">invalid memory reference</a>, then the resulting
            reference is also an invalid memory reference.</p>
    </table>
    <h3 class="heading settled" data-level="7.15" id="value-identifier-expr"><span class="secno">7.15. </span><span class="content">Identifier Expressions for Value Declarations</span><a class="self-link" href="#value-identifier-expr"></a></h3>
@@ -7912,17 +7994,17 @@ In this case the value of the <a data-link-type="dfn" href="#right-hand-side" id
       <th>Description 
     <tbody>
      <tr class="algorithm" data-algorithm="updating assignment">
-      <td><var>e</var>: <var>T</var>,<br> <var>T</var> is a <a data-link-type="dfn" href="#type-concrete" id="ref-for-type-concrete③④">concrete</a> <a data-link-type="dfn" href="#constructible" id="ref-for-constructible①⑥">constructible</a> type,<br> <var>r</var>: ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>>,<br> <var>AS</var> is a writable <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces①⑤">address space</a>,<br> <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①⑥">access mode</a> <var>AM</var> is <a data-link-type="dfn" href="#access-write" id="ref-for-access-write④">write</a> or <a data-link-type="dfn" href="#access-read_write" id="ref-for-access-read_write⑧">read_write</a><br> 
+      <td><var>e</var>: <var>T</var>,<br> <var>T</var> is a <a data-link-type="dfn" href="#type-concrete" id="ref-for-type-concrete③④">concrete</a> <a data-link-type="dfn" href="#constructible" id="ref-for-constructible①⑥">constructible</a> type,<br> <var>r</var>: ref&lt;<var>AS</var>,<var>T</var>,<var>AM</var>>,<br> <var>AS</var> is a writable <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces①⑤">address space</a>,<br> <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①⑦">access mode</a> <var>AM</var> is <a data-link-type="dfn" href="#access-write" id="ref-for-access-write④">write</a> or <a data-link-type="dfn" href="#access-read_write" id="ref-for-access-read_write⑧">read_write</a><br> 
       <td class="nowrap"><var>r</var> = <var>e</var> 
       <td>
        Evaluates <var>r</var>, then evaluates <var>e</var>, then writes the value computed for <var>e</var> into
-        the <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①④">memory locations</a> referenced by <var>r</var>. 
-       <p class="note" role="note"><span class="marker">Note:</span> If the reference is an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference⑦">invalid memory reference</a>, the write
+        the <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①③">memory locations</a> referenced by <var>r</var>. 
+       <p class="note" role="note"><span class="marker">Note:</span> If the reference is an <a data-link-type="dfn" href="#invalid-memory-reference" id="ref-for-invalid-memory-reference①②">invalid memory reference</a>, the write
         may not execute, or may write to a different memory location than
         expected.</p>
    </table>
    <p>In the simplest case, the left hand side is the name of a variable.
-See <a href="#forming-references-and-pointers">§ 5.4.7 Forming Reference and Pointer Values</a> for other cases.</p>
+See <a href="#forming-references-and-pointers">§ 5.4.8 Forming Reference and Pointer Values</a> for other cases.</p>
    <div class="example wgsl no-marker" id="example-9d7e5ed3">
     <a class="self-link" href="#example-9d7e5ed3"></a>
     <div class="marker">EXAMPLE: Assignments</div>
@@ -8039,7 +8121,7 @@ the compound assignment expands as in the following table, except that:</p>
     <li data-md>
      <p>the reference expression <var>e1</var> is evaluated only once, and</p>
     <li data-md>
-     <p>the <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type⑥">reference type</a> for <var>e1</var> <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①②⑧">must</a> have a <a data-link-type="dfn" href="#access-read_write" id="ref-for-access-read_write⑨">read_write</a> <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①⑦">access mode</a>.</p>
+     <p>the <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type⑦">reference type</a> for <var>e1</var> <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①②⑧">must</a> have a <a data-link-type="dfn" href="#access-read_write" id="ref-for-access-read_write⑨">read_write</a> <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①⑧">access mode</a>.</p>
    </ul>
    <table class="data">
     <thead>
@@ -8136,7 +8218,7 @@ A <dfn data-dfn-type="dfn" data-noexport id="decrement-statement">decrement stat
      <dfn class="dfn-paneled" data-dfn-for="syntax" data-dfn-type="dfn" data-noexport id="syntax-decrement_statement">decrement_statement</dfn> : 
     <p>| <a data-link-type="dfn" href="#syntax-lhs_expression" id="ref-for-syntax-lhs_expression⑤">lhs_expression</a> <a data-link-type="dfn" href="#syntax_sym-minus_minus" id="ref-for-syntax_sym-minus_minus"><code>'--'</code></a></p>
    </div>
-   <p>The expression <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①②⑨">must</a> evaluate to a reference with a <a data-link-type="dfn" href="#type-concrete" id="ref-for-type-concrete③⑤">concrete</a> <a data-link-type="dfn" href="#integer-scalar" id="ref-for-integer-scalar①④">integer scalar</a> <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②①">store type</a> and <a data-link-type="dfn" href="#access-read_write" id="ref-for-access-read_write①⓪">read_write</a> <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①⑧">access mode</a>.</p>
+   <p>The expression <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①②⑨">must</a> evaluate to a reference with a <a data-link-type="dfn" href="#type-concrete" id="ref-for-type-concrete③⑤">concrete</a> <a data-link-type="dfn" href="#integer-scalar" id="ref-for-integer-scalar①④">integer scalar</a> <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②②">store type</a> and <a data-link-type="dfn" href="#access-read_write" id="ref-for-access-read_write①⓪">read_write</a> <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①⑨">access mode</a>.</p>
    <table class="data">
     <thead>
      <tr>
@@ -9337,7 +9419,7 @@ function parameter.</p>
      <ul>
       <li data-md>
        <p>In particular, an argument that is a pointer <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①⑥⑨">must</a> agree with the formal parameter
-on <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces①⑥">address space</a>, <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②②">store type</a>, and <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode①⑨">access mode</a>.</p>
+on <a data-link-type="dfn" href="#address-spaces" id="ref-for-address-spaces①⑥">address space</a>, <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②③">store type</a>, and <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode②⓪">access mode</a>.</p>
      </ul>
     <li data-md>
      <p>For <a data-link-type="dfn" href="#user-defined-function" id="ref-for-user-defined-function⑥">user-defined functions</a>, a parameter of pointer type <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①⑦⓪">must</a> be in one of
@@ -9362,12 +9444,12 @@ the following address spaces:</p>
        <p><a data-link-type="dfn" href="#address-spaces-storage" id="ref-for-address-spaces-storage⑧">storage</a></p>
      </ul>
     <li data-md>
-     <p>Each argument of pointer type to a <a data-link-type="dfn" href="#user-defined-function" id="ref-for-user-defined-function⑦">user-defined function</a> <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①⑦②">must</a> have the same <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①①">memory view</a> as its <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier">root
+     <p>Each argument of pointer type to a <a data-link-type="dfn" href="#user-defined-function" id="ref-for-user-defined-function⑦">user-defined function</a> <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①⑦②">must</a> have the same <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①⓪">memory view</a> as its <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier">root
 identifier</a>.</p>
      <ul>
       <li data-md>
        <p class="note" role="note"><span class="marker">Note:</span> This means no <a href="#vector-access-expr">vector</a>, <a href="#matrix-access-expr">matrix</a>, <a href="#array-access-expr">array</a>, or <a href="#struct-access-expr">struct</a> access expressions can be applied to
-produce a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①②">memory view</a> into the root identifier when traced from the
+produce a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①①">memory view</a> into the root identifier when traced from the
 argument back through all the <a data-link-type="dfn" href="#let-declaration" id="ref-for-let-declaration⑦">let-declarations</a>.</p>
      </ul>
    </ul>
@@ -9427,12 +9509,12 @@ of declarations.</p>
    </div>
    <h4 class="heading settled" data-level="9.4.1" id="alias-analysis"><span class="secno">9.4.1. </span><span class="content">Alias Analysis</span><a class="self-link" href="#alias-analysis"></a></h4>
    <h5 class="heading settled" data-level="9.4.1.1" id="root-ident-sec"><span class="secno">9.4.1.1. </span><span class="content">Root Identifier</span><a class="self-link" href="#root-ident-sec"></a></h5>
-   <p><a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①⑤">Memory locations</a> can be accessed during the execution of a function using <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①③">memory views</a>.
-Within a function, each <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①④">memory view</a> has a particular <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="root-identifier">root identifier</dfn>, which names
+   <p><a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①④">Memory locations</a> can be accessed during the execution of a function using <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①②">memory views</a>.
+Within a function, each <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①③">memory view</a> has a particular <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="root-identifier">root identifier</dfn>, which names
 the variable or formal parameter that first provides access to that memory in that function.</p>
-   <p>Locally derived expressions of <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type⑦">reference</a> or <a data-link-type="dfn" href="#pointer-type" id="ref-for-pointer-type⑤">pointer</a> type may introduce new names for a particular root identifier,
+   <p>Locally derived expressions of <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type⑧">reference</a> or <a data-link-type="dfn" href="#pointer-type" id="ref-for-pointer-type⑤">pointer</a> type may introduce new names for a particular root identifier,
 but each expression has a statically determinable root identifier.</p>
-   <p class="algorithm" data-algorithm="finding a root identifier"> Given an expression <var>E</var> of <a data-link-type="dfn" href="#pointer-type" id="ref-for-pointer-type⑥">pointer</a> or <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type⑧">reference type</a>, the <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier①">root identifier</a> is the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①⑤">originating variable</a> or <a data-link-type="dfn" href="#formal-parameter" id="ref-for-formal-parameter①②">formal parameter</a> of <a data-link-type="dfn" href="#pointer-type" id="ref-for-pointer-type⑦">pointer type</a> found as follows: </p>
+   <p class="algorithm" data-algorithm="finding a root identifier"> Given an expression <var>E</var> of <a data-link-type="dfn" href="#pointer-type" id="ref-for-pointer-type⑥">pointer</a> or <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type⑨">reference type</a>, the <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier①">root identifier</a> is the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①⑨">originating variable</a> or <a data-link-type="dfn" href="#formal-parameter" id="ref-for-formal-parameter①②">formal parameter</a> of <a data-link-type="dfn" href="#pointer-type" id="ref-for-pointer-type⑦">pointer type</a> found as follows: </p>
    <ul>
     <li data-md>
      <p>If <var>E</var> is an identifier <a data-link-type="dfn" href="#resolves" id="ref-for-resolves②①">resolving</a> to a variable, then the root identifier is that variable.</p>
@@ -9449,11 +9531,11 @@ but each expression has a statically determinable root identifier.</p>
      <p></p>
    </ul>
    <h5 class="heading settled" data-level="9.4.1.2" id="aliasing"><span class="secno">9.4.1.2. </span><span class="content">Aliasing</span><a class="self-link" href="#aliasing"></a></h5>
-   <p>While the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①⑥">originating variable</a> of a <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier②">root identifier</a> is a dynamic concept that
+   <p>While the <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable②⓪">originating variable</a> of a <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier②">root identifier</a> is a dynamic concept that
 depends on the <a data-link-type="dfn" href="#call-site" id="ref-for-call-site⑥">call sites</a> for the function, WGSL programs can be
-statically analyzed to determine the set of all possible <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①⑦">originating
+statically analyzed to determine the set of all possible <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable②①">originating
 variables</a> for each root identifier.</p>
-   <p>Two <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier③">root identifiers</a> <dfn data-dfn-type="dfn" data-noexport id="alias">alias<a class="self-link" href="#alias"></a></dfn> when they have the same <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①⑧">originating variable</a>.
+   <p>Two <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier③">root identifiers</a> <dfn data-dfn-type="dfn" data-noexport id="alias">alias<a class="self-link" href="#alias"></a></dfn> when they have the same <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable②②">originating variable</a>.
 Execution of a WGSL function <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①⑦③">must not</a> potentially
 access memory through aliased root identifiers, where one access is a write and
 the other is a read or a write.
@@ -9553,7 +9635,7 @@ corresponding parameter is in the written parameter set.</p>
 the work for a particular <a data-link-type="dfn" href="#shader-stages" id="ref-for-shader-stages④">shader stage</a>.</p>
    <h3 class="heading settled" data-level="10.1" id="shader-stages-sec"><span class="secno">10.1. </span><span class="content">Shader Stages</span><a class="self-link" href="#shader-stages-sec"></a></h3>
    <p>WebGPU issues work to the GPU in the form of <a data-link-type="dfn" href="#draw-command" id="ref-for-draw-command②">draw</a> or <a data-link-type="dfn" href="#dispatch-command" id="ref-for-dispatch-command②">dispatch commands</a>.
-These commands execute a pipeline in the context of a set of shader stage <a data-link-type="dfn" href="#shader-stage-input" id="ref-for-shader-stage-input②">inputs</a>, <a data-link-type="dfn" href="#shader-stage-output" id="ref-for-shader-stage-output①">outputs</a>, and attached <a data-link-type="dfn" href="#resource" id="ref-for-resource⑧">resources</a>.</p>
+These commands execute a pipeline in the context of a set of shader stage <a data-link-type="dfn" href="#shader-stage-input" id="ref-for-shader-stage-input②">inputs</a>, <a data-link-type="dfn" href="#shader-stage-output" id="ref-for-shader-stage-output②">outputs</a>, and attached <a data-link-type="dfn" href="#resource" id="ref-for-resource⑧">resources</a>.</p>
    <p>A <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="pipeline">pipeline</dfn> describes the work to be performed on the GPU, as a sequence
 of stages, some of which are programmable.
 In WebGPU, a pipeline is created before scheduling a draw or dispatch command for execution.
@@ -9595,7 +9677,7 @@ programmable parts of pipelines:</p>
 the entry point’s function name maps to the <code>entryPoint</code> attribute of the
 WebGPU <code class="idl"><a data-link-type="idl" href="https://gpuweb.github.io/gpuweb/#gpuprogrammablestage" id="ref-for-gpuprogrammablestage①">GPUProgrammableStage</a></code> object.</p>
    <p>The entry point’s <a data-link-type="dfn" href="#formal-parameter" id="ref-for-formal-parameter①③">formal parameters</a> denote the stage’s <a data-link-type="dfn" href="#shader-stage-input" id="ref-for-shader-stage-input③">shader stage inputs</a>.
-The entry point’s <a data-link-type="dfn" href="#return-value" id="ref-for-return-value③">return value</a>, if specified, denotes the stage’s <a data-link-type="dfn" href="#shader-stage-output" id="ref-for-shader-stage-output②">shader stage outputs</a>.</p>
+The entry point’s <a data-link-type="dfn" href="#return-value" id="ref-for-return-value③">return value</a>, if specified, denotes the stage’s <a data-link-type="dfn" href="#shader-stage-output" id="ref-for-shader-stage-output③">shader stage outputs</a>.</p>
    <p>The type of each formal parameter, and the entry point’s return type, <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①⑦⑤">must</a> be one of:</p>
    <ul>
     <li data-md>
@@ -9675,7 +9757,7 @@ The interface includes:</p>
     <li data-md>
      <p><a data-link-type="dfn" href="#shader-stage-input" id="ref-for-shader-stage-input④">Shader stage inputs</a></p>
     <li data-md>
-     <p><a data-link-type="dfn" href="#shader-stage-output" id="ref-for-shader-stage-output③">Shader stage outputs</a></p>
+     <p><a data-link-type="dfn" href="#shader-stage-output" id="ref-for-shader-stage-output④">Shader stage outputs</a></p>
     <li data-md>
      <p><a data-link-type="dfn" href="#override-declaration" id="ref-for-override-declaration①①">Override-declarations</a></p>
     <li data-md>
@@ -9737,7 +9819,7 @@ when that variable itself is statically accessed.</p>
 Each datum is either a <a data-link-type="dfn" href="#built-in-input-value" id="ref-for-built-in-input-value②">built-in input value</a>, or a <a data-link-type="dfn" href="#user-defined-input-datum" id="ref-for-user-defined-input-datum①">user-defined input</a>.</p>
    <p>A <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="shader-stage-output">shader stage output</dfn> is a datum the shader provides for further processing downstream in the pipeline.
 Each datum is either a <a data-link-type="dfn" href="#built-in-output-value" id="ref-for-built-in-output-value③">built-in output value</a>, or a <a data-link-type="dfn" href="#user-defined-output-datum" id="ref-for-user-defined-output-datum①">user-defined output</a>.</p>
-   <p><a data-link-type="dfn" href="#io-attributes" id="ref-for-io-attributes②">IO attributes</a> are used to establish an object as a <a data-link-type="dfn" href="#shader-stage-input" id="ref-for-shader-stage-input⑤">shader stage input</a> or a <a data-link-type="dfn" href="#shader-stage-output" id="ref-for-shader-stage-output④">shader stage output</a>,
+   <p><a data-link-type="dfn" href="#io-attributes" id="ref-for-io-attributes②">IO attributes</a> are used to establish an object as a <a data-link-type="dfn" href="#shader-stage-input" id="ref-for-shader-stage-input⑤">shader stage input</a> or a <a data-link-type="dfn" href="#shader-stage-output" id="ref-for-shader-stage-output⑤">shader stage output</a>,
 or to further describe the properties of an input or output.
 The <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="io-attributes">IO attributes</dfn> are:</p>
    <ul>
@@ -10042,7 +10124,7 @@ is determined from the size of the corresponding <code class="idl"><a data-link-
    <blockquote class="algorithm" data-algorithm="element count of runtime-sized array">
     <ul>
      <li data-md>
-      <p>Let <var>T</var> be the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②③">store type</a> for a <a data-link-type="dfn" href="#storage-buffer" id="ref-for-storage-buffer①⑧">storage buffer</a> variable,
+      <p>Let <var>T</var> be the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②④">store type</a> for a <a data-link-type="dfn" href="#storage-buffer" id="ref-for-storage-buffer①⑧">storage buffer</a> variable,
 where <var>T</var> is a <a data-link-type="dfn" href="#runtime-sized" id="ref-for-runtime-sized⑥">runtime-sized</a> array type or contains a runtime-sized array type.</p>
      <li data-md>
       <p>Let <var>EBS</var> be the <a data-link-type="dfn" href="https://gpuweb.github.io/gpuweb/#abstract-opdef-effective-buffer-binding-size" id="ref-for-abstract-opdef-effective-buffer-binding-size">effective buffer binding size</a> for the <code class="idl"><a data-link-type="idl" href="https://gpuweb.github.io/gpuweb/#dictdef-gpubufferbinding" id="ref-for-dictdef-gpubufferbinding②">GPUBufferBinding</a></code> bound to the pipeline binding address corresponding to the storage buffer variable.</p>
@@ -10359,7 +10441,7 @@ shader that goes beyond the specified limits.</p>
       <td>Maximum number of members in a <a data-link-type="dfn" href="#structure" id="ref-for-structure①⑧">structure</a> type
       <td>16383 
      <tr>
-      <td>Maximum <a data-link-type="dfn" href="#nesting-depth" id="ref-for-nesting-depth">nesting depth</a> of a <a data-link-type="dfn" href="#composite" id="ref-for-composite⑤">composite</a> type
+      <td>Maximum <a data-link-type="dfn" href="#nesting-depth" id="ref-for-nesting-depth">nesting depth</a> of a <a data-link-type="dfn" href="#composite" id="ref-for-composite④">composite</a> type
       <td>255 
      <tr>
       <td>Maximum nesting depth of brace-enclosed statements in a function
@@ -10393,12 +10475,12 @@ See <a href="#memory-views">§ 5.4 Memory Views</a> for the types of values th
    <p>Memory consists of a set of distinct <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="memory-locations">memory locations</dfn>.
 Each memory location is 8-bits in size.
 An operation affecting memory interacts with a set of one or more memory locations.
-Memory operations on <a data-link-type="dfn" href="#composite" id="ref-for-composite⑥">composites</a> <a data-link-type="dfn" href="#behavioral-requirements" id="ref-for-behavioral-requirements①⑥">will not</a> access padding memory locations.
+Memory operations on <a data-link-type="dfn" href="#composite" id="ref-for-composite⑤">composites</a> <a data-link-type="dfn" href="#behavioral-requirements" id="ref-for-behavioral-requirements①⑥">will not</a> access padding memory locations.
 Therefore, the set of memory locations accessed by an operation may not be contiguous.</p>
    <p>Two sets of memory locations <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="overlap">overlap</dfn> if the intersection of
 their sets of memory locations is non-empty.</p>
    <h3 class="heading settled" data-level="13.2" id="memory-access-mode"><span class="secno">13.2. </span><span class="content">Memory Access Mode</span><a class="self-link" href="#memory-access-mode"></a></h3>
-   <p>A <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="memory-access">memory access</dfn> is an operation that acts on <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①⑥">memory locations</a>.</p>
+   <p>A <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="memory-access">memory access</dfn> is an operation that acts on <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①⑤">memory locations</a>.</p>
    <ul>
     <li data-md>
      <p>A <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="read-access">read access</dfn> observes the contents of memory locations.</p>
@@ -10432,7 +10514,7 @@ Each address space has unique properties determining
 mutability, visibility, the values it may contain,
 and how to use variables with it.
 See <a href="#var-and-value">§ 6 Variable and Value Declarations</a> for more details.</p>
-   <p>The access mode of a given <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①⑤">memory view</a> is often determined by context:</p>
+   <p>The access mode of a given <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①④">memory view</a> is often determined by context:</p>
    <p>The <a data-link-type="dfn" href="#address-spaces-storage" id="ref-for-address-spaces-storage⑨">storage</a> address spaces supports both <a data-link-type="dfn" href="#access-read" id="ref-for-access-read⑤">read</a> and <a data-link-type="dfn" href="#access-read_write" id="ref-for-access-read_write①④">read_write</a> access modes.
 Each other address space supports only one access mode.
 The default access mode for each address space is described in the following
@@ -10481,7 +10563,7 @@ table.</p>
    <p><a data-link-type="dfn" href="#variable" id="ref-for-variable①③">Variables</a> in the <a data-link-type="dfn" href="#address-spaces-workgroup" id="ref-for-address-spaces-workgroup①④">workgroup</a> address space <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①⑨⑤">must</a> only be <a data-link-type="dfn" href="#statically-accessed" id="ref-for-statically-accessed①①">statically accessed</a> in a <a data-link-type="dfn" href="#compute-shader-stage" id="ref-for-compute-shader-stage⑤">compute
 shader stage</a>.</p>
    <p><a data-link-type="dfn" href="#variable" id="ref-for-variable①④">Variables</a> in the <a data-link-type="dfn" href="#address-spaces-storage" id="ref-for-address-spaces-storage①⓪">storage</a> address space (<a data-link-type="dfn" href="#storage-buffer" id="ref-for-storage-buffer②②">storage
-buffers</a>) and variables whose <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②④">store type</a> is a <a data-link-type="dfn" href="#storage-texture" id="ref-for-storage-texture②">storage texture</a> cannot be <a data-link-type="dfn" href="#statically-accessed" id="ref-for-statically-accessed①②">statically accessed</a> by a <a data-link-type="dfn" href="#vertex-shader-stage" id="ref-for-vertex-shader-stage②">vertex shader stage</a>.
+buffers</a>) and variables whose <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②⑤">store type</a> is a <a data-link-type="dfn" href="#storage-texture" id="ref-for-storage-texture②">storage texture</a> cannot be <a data-link-type="dfn" href="#statically-accessed" id="ref-for-statically-accessed①②">statically accessed</a> by a <a data-link-type="dfn" href="#vertex-shader-stage" id="ref-for-vertex-shader-stage②">vertex shader stage</a>.
 See WebGPU <code class="idl"><a data-link-type="idl" href="https://gpuweb.github.io/gpuweb/#dom-gpudevice-createbindgrouplayout" id="ref-for-dom-gpudevice-createbindgrouplayout①">createBindGroupLayout()</a></code>.</p>
    <p class="note" role="note"><span class="marker">Note:</span> Each address space may have different performance characteristics.</p>
    <p>When writing a <a data-link-type="dfn" href="#variable-declaration" id="ref-for-variable-declaration⑧">variable declaration</a> or a <a data-link-type="dfn" href="#pointer-type" id="ref-for-pointer-type⑧">pointer type</a> in WGSL source:</p>
@@ -10500,9 +10582,9 @@ Buffers are shared between the CPU and the GPU, or between different shader stag
 in a pipeline, or between different pipelines.</p>
    <p>Because buffer data are shared without reformatting or translation, it is a <a data-link-type="dfn" href="#dynamic-error" id="ref-for-dynamic-error②">dynamic error</a> if buffer producers and consumers do not agree on the <dfn data-dfn-type="dfn" data-noexport id="memory-layout">memory layout<a class="self-link" href="#memory-layout"></a></dfn>, which is the description of how the bytes in a
 buffer are organized into typed WGSL values.
-These bytes are <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①⑦">memory locations</a> of a value relative to a common base
+These bytes are <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①⑥">memory locations</a> of a value relative to a common base
 location.</p>
-   <p>The <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②⑤">store type</a> of a buffer variable <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①⑨⑦">must</a> be <a data-link-type="dfn" href="#host-shareable" id="ref-for-host-shareable⑤">host-shareable</a>, with fully elaborated memory layout, as described below.</p>
+   <p>The <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②⑥">store type</a> of a buffer variable <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①⑨⑦">must</a> be <a data-link-type="dfn" href="#host-shareable" id="ref-for-host-shareable⑤">host-shareable</a>, with fully elaborated memory layout, as described below.</p>
    <p>Each buffer variable <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①⑨⑧">must</a> be declared in either the <a data-link-type="dfn" href="#address-spaces-uniform" id="ref-for-address-spaces-uniform④">uniform</a> or <a data-link-type="dfn" href="#address-spaces-storage" id="ref-for-address-spaces-storage①②">storage</a> address spaces.</p>
    <p>The memory layout of a type is significant only when evaluating an expression with:</p>
    <ul>
@@ -10536,7 +10618,7 @@ It equals the size of the array’s element type, rounded up to the alignment of
    <p>The <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="alignment">alignment</dfn> of a type is a constraint on where values of that type
 may be placed in memory, expressed as an integer:
 a type’s alignment <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error①⑨⑨">must</a> evenly divide
-the byte address of the starting <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①⑧">memory location</a> of a value of that type.
+the byte address of the starting <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①⑦">memory location</a> of a value of that type.
 Alignments enable use of more efficient hardware instructions for accessing the values,
 or satisfy more restrictive hardware requirements on certain
 address spaces. (See <a href="#address-space-layout-constraints">address space layout constraints</a>).</p>
@@ -11062,7 +11144,7 @@ the Vulkan Memory Model.</p>
 memory operation that is both a <a data-link-type="dfn" href="#read-access" id="ref-for-read-access⑦">read access</a> and a <a data-link-type="dfn" href="#write-access" id="ref-for-write-access⑨">write access</a>.</p>
    <p>Read and write accesses do not occur under any other circumstances.
 Read and write accesses are collectively known as <a data-link-type="dfn" href="https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html#memory-model-memory-operation" id="ref-for-memory-model-memory-operation">memory operations</a> in the Vulkan Memory Model.</p>
-   <p>A memory operation accesses exactly the set of <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①⑨">locations</a> associated with the particular <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①⑥">memory view</a> used in the operation.  For
+   <p>A memory operation accesses exactly the set of <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①⑧">locations</a> associated with the particular <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①⑤">memory view</a> used in the operation.  For
 example, a memory read that accesses a <a data-link-type="dfn" href="#u32" id="ref-for-u32②②">u32</a> from a struct containing
 multiple members, only reads the memory locations associated with that u32
 member.</p>
@@ -11570,10 +11652,10 @@ and, potentially, its initial value.</p>
     <li data-md>
      <p>The variable’s <a data-link-type="dfn" href="#effective-value-type" id="ref-for-effective-value-type①⓪">effective-value-type</a> is a <a data-link-type="dfn" href="#scalar" id="ref-for-scalar①⑤">scalar</a> type, or</p>
     <li data-md>
-     <p>the variable’s <a data-link-type="dfn" href="#effective-value-type" id="ref-for-effective-value-type①①">effective-value-type</a> is a <a data-link-type="dfn" href="#composite" id="ref-for-composite⑦">composite</a> type and each <a data-link-type="dfn" href="#components" id="ref-for-components①">component</a> of the composite is assigned a value.</p>
+     <p>the variable’s <a data-link-type="dfn" href="#effective-value-type" id="ref-for-effective-value-type①①">effective-value-type</a> is a <a data-link-type="dfn" href="#composite" id="ref-for-composite⑥">composite</a> type and each <a data-link-type="dfn" href="#components" id="ref-for-components①">component</a> of the composite is assigned a value.</p>
    </ul>
    <p>Otherwise, an assignment is a <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="partial-assignment">partial assignment</dfn>.</p>
-   <p>A <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="full-reference">full reference</dfn> is an expression of <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type⑨">reference type</a> that is one of:</p>
+   <p>A <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="full-reference">full reference</dfn> is an expression of <a data-link-type="dfn" href="#reference-type" id="ref-for-reference-type①⓪">reference type</a> that is one of:</p>
    <ul>
     <li data-md>
      <p>an identifier <em>x</em> that <a data-link-type="dfn" href="#resolves" id="ref-for-resolves③①">resolves</a> to a variable, or</p>
@@ -11593,16 +11675,16 @@ and, potentially, its initial value.</p>
    </ul>
    <p class="note" role="note"><span class="marker">Note:</span> For the purposes of this analysis, we don’t need the case where
 a formal parameter of pointer type may be a full pointer.</p>
-   <p>A <a data-link-type="dfn" href="#full-reference" id="ref-for-full-reference②">full reference</a>, and similarly a <a data-link-type="dfn" href="#full-pointer" id="ref-for-full-pointer③">full pointer</a>, is a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①⑦">memory view</a> for <em>all</em> the memory locations for the corresponding <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable①⑨">originating variable</a> <em>x</em>.</p>
+   <p>A <a data-link-type="dfn" href="#full-reference" id="ref-for-full-reference②">full reference</a>, and similarly a <a data-link-type="dfn" href="#full-pointer" id="ref-for-full-pointer③">full pointer</a>, is a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①⑥">memory view</a> for <em>all</em> the memory locations for the corresponding <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable②③">originating variable</a> <em>x</em>.</p>
    <p>A reference that is not a <a data-link-type="dfn" href="#full-reference" id="ref-for-full-reference③">full reference</a> is a <dfn class="dfn-paneled" data-dfn-type="dfn" data-noexport id="partial-reference">partial reference</dfn>.
 As such, a partial reference is either:</p>
    <ul>
     <li data-md>
      <p>a memory view for a strict subset of the memory locations
-for the corresponding <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable②⓪">originating variable</a>, or</p>
+for the corresponding <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable②④">originating variable</a>, or</p>
     <li data-md>
      <p>a memory view the with same set of locations as the corresponding
-originating variable, but with a different <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②⑥">store type</a>.</p>
+originating variable, but with a different <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②⑦">store type</a>.</p>
    </ul>
    <div class="note" role="note">
      <span class="marker">Note:</span> A <a data-link-type="dfn" href="#partial-reference" id="ref-for-partial-reference">partial reference</a> can still cover all the same memory locations
@@ -11627,7 +11709,7 @@ locations, but the store type for <code>v</code> is <code>S</code> and the store
 Their memory views cover the same memory
 locations, but the store type for <code>arr</code> is <code>array&lt;i32,1></code> and the store type of <code>arr[0]</code> is <code>i32</code>.</p>
     <p>To simplify analysis, an assignment via <em>any</em> kind of <a data-link-type="dfn" href="#partial-reference" id="ref-for-partial-reference①">partial reference</a> is treated as if
-it does <em>not</em> modify every memory location in the associated <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable②①">originating variable</a>.
+it does <em>not</em> modify every memory location in the associated <a data-link-type="dfn" href="#originating-variable" id="ref-for-originating-variable②⑤">originating variable</a>.
 This causes the analysis to be conservative, potentially triggering a <a data-link-type="dfn" href="#uniformity-failure" id="ref-for-uniformity-failure⑤">uniformity failure</a> for
 more programs than strictly necessary.</p>
    </div>
@@ -11691,7 +11773,7 @@ notations:</p>
        <p class="note" role="note"><span class="marker">Note:</span> This is a <a data-link-type="dfn" href="#partial-assignment" id="ref-for-partial-assignment①">partial assignment</a> to <em>x</em>.</p>
        <p class="note" role="note"><span class="marker">Note:</span> Partial assignments include the previous value.
           The assignment either writes only a subset of the stored components,
-          or the type of the written value differs from the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②⑦">store type</a> of the <a data-link-type="dfn" href="https://drafts.csswg.org/css-tables-3/#originate" id="ref-for-originate">originating</a> variable.</p>
+          or the type of the written value differs from the <a data-link-type="dfn" href="#store-type" id="ref-for-store-type②⑧">store type</a> of the <a data-link-type="dfn" href="https://drafts.csswg.org/css-tables-3/#originate" id="ref-for-originate">originating</a> variable.</p>
      <tr>
       <td>
        <em>s1</em> <em>s2</em><br> where <em>Next</em> is in behavior of <em>s1</em>. 
@@ -12029,7 +12111,7 @@ after the function call.</p>
       <td>
      <tr>
       <td>identifier <a data-link-type="dfn" href="#resolves" id="ref-for-resolves③③">resolving</a> to function-scope variable "x",
-      where the identifier appears as the <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier⑥">root identifier</a> of a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①⑧">memory view</a> expression, <em>MVE</em>, and the <a data-link-type="dfn" href="#load-rule" id="ref-for-load-rule④">load rule</a> is invoked on <em>MVE</em> during <a data-link-type="dfn" href="#type-checking" id="ref-for-type-checking⑤">type checking</a> 
+      where the identifier appears as the <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier⑥">root identifier</a> of a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①⑦">memory view</a> expression, <em>MVE</em>, and the <a data-link-type="dfn" href="#load-rule" id="ref-for-load-rule④">load rule</a> is invoked on <em>MVE</em> during <a data-link-type="dfn" href="#type-checking" id="ref-for-type-checking⑤">type checking</a> 
       <td><em>Result</em> 
       <td class><em>X</em> is the node corresponding to the value of "x" at the input to the statement containing this expression 
       <td class="nowrap"><em>CF</em>, <em>Result</em> 
@@ -12039,14 +12121,14 @@ after the function call.</p>
      <tr>
       <td>identifier <a data-link-type="dfn" href="#resolves" id="ref-for-resolves③④">resolving</a> to function-scope variable "x",
       where "x" is the desugared pointer parameter <em>i</em>, and
-      where the identifier appears as the <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier⑦">root identifier</a> of a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①⑨">memory view</a> expression, <em>MVE</em>, and the <a data-link-type="dfn" href="#load-rule" id="ref-for-load-rule⑤">load rule</a> is not invoked on <em>MVE</em> during <a data-link-type="dfn" href="#type-checking" id="ref-for-type-checking⑥">type checking</a> 
+      where the identifier appears as the <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier⑦">root identifier</a> of a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①⑧">memory view</a> expression, <em>MVE</em>, and the <a data-link-type="dfn" href="#load-rule" id="ref-for-load-rule⑤">load rule</a> is not invoked on <em>MVE</em> during <a data-link-type="dfn" href="#type-checking" id="ref-for-type-checking⑥">type checking</a> 
       <td>
       <td class>
       <td class="nowrap"><em>CF</em>, <a data-link-type="dfn" href="#param_i" id="ref-for-param_i⑤">param_i</a> 
       <td class>
      <tr>
       <td>identifier <a data-link-type="dfn" href="#resolves" id="ref-for-resolves③⑤">resolving</a> to function-scope variable "x",
-      where the identifier appears as the <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier⑧">root identifier</a> of a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view②⓪">memory view</a> expression, <em>MVE</em>, and the <a data-link-type="dfn" href="#load-rule" id="ref-for-load-rule⑥">load rule</a> is not invoked on <em>MVE</em> during <a data-link-type="dfn" href="#type-checking" id="ref-for-type-checking⑦">type checking</a> 
+      where the identifier appears as the <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier⑧">root identifier</a> of a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view①⑨">memory view</a> expression, <em>MVE</em>, and the <a data-link-type="dfn" href="#load-rule" id="ref-for-load-rule⑥">load rule</a> is not invoked on <em>MVE</em> during <a data-link-type="dfn" href="#type-checking" id="ref-for-type-checking⑦">type checking</a> 
       <td>
       <td class>
       <td class="nowrap"><em>CF</em>, <em>CF</em> 
@@ -12077,14 +12159,14 @@ after the function call.</p>
       <td>
      <tr>
       <td>identifier <a data-link-type="dfn" href="#resolves" id="ref-for-resolves④⓪">resolving</a> to non-read-only module-scope
-      variable "x" where the identifier appears as the <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier⑨">root identifier</a> of a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view②①">memory view</a> expression, <em>MVE</em>, and the <a data-link-type="dfn" href="#load-rule" id="ref-for-load-rule⑦">load rule</a> is invoked on <em>MVE</em> during <a data-link-type="dfn" href="#type-checking" id="ref-for-type-checking⑧">type checking</a> 
+      variable "x" where the identifier appears as the <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier⑨">root identifier</a> of a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view②⓪">memory view</a> expression, <em>MVE</em>, and the <a data-link-type="dfn" href="#load-rule" id="ref-for-load-rule⑦">load rule</a> is invoked on <em>MVE</em> during <a data-link-type="dfn" href="#type-checking" id="ref-for-type-checking⑧">type checking</a> 
       <td>
       <td>
       <td class="nowrap"><em>CF</em>,<br> <a data-link-type="dfn" href="#maybenonuniform" id="ref-for-maybenonuniform①④">MayBeNonUniform</a> 
       <td>
      <tr>
       <td>identifier <a data-link-type="dfn" href="#resolves" id="ref-for-resolves④①">resolving</a> to non-read-only module-scope
-      variable "x" where the identifier appears as the <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier①⓪">root identifier</a> of a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view②②">memory view</a> expression, <em>MVE</em>, and the <a data-link-type="dfn" href="#load-rule" id="ref-for-load-rule⑧">load rule</a> is not invoked on <em>MVE</em> during <a data-link-type="dfn" href="#type-checking" id="ref-for-type-checking⑨">type checking</a> 
+      variable "x" where the identifier appears as the <a data-link-type="dfn" href="#root-identifier" id="ref-for-root-identifier①⓪">root identifier</a> of a <a data-link-type="dfn" href="#memory-view" id="ref-for-memory-view②①">memory view</a> expression, <em>MVE</em>, and the <a data-link-type="dfn" href="#load-rule" id="ref-for-load-rule⑧">load rule</a> is not invoked on <em>MVE</em> during <a data-link-type="dfn" href="#type-checking" id="ref-for-type-checking⑨">type checking</a> 
       <td>
       <td>
       <td class="nowrap"><em>CF</em>,<em>CF</em> 
@@ -12115,7 +12197,7 @@ after the function call.</p>
    </ul>
    <p>All other ones (see <a href="#builtin-values">§ 16 Built-in Values</a>) are considered non-uniform.</p>
    <p class="note" role="note"><span class="marker">Note:</span> An author should avoid grouping the uniform built-in values together with
-other non-uniform inputs because the analysis does not analyze the <a data-link-type="dfn" href="#components" id="ref-for-components②">components</a> of a <a data-link-type="dfn" href="#composite" id="ref-for-composite⑧">composite</a> type separately.</p>
+other non-uniform inputs because the analysis does not analyze the <a data-link-type="dfn" href="#components" id="ref-for-components②">components</a> of a <a data-link-type="dfn" href="#composite" id="ref-for-composite⑦">composite</a> type separately.</p>
    <table class="data">
     <caption>Uniformity rules for expressions in lvalue positions</caption>
     <thead>
@@ -12268,7 +12350,7 @@ if statement.</p>
    </div>
    <p class="note" role="note"><span class="marker">Note:</span> The subgraphs are only included in the example for ease of understanding.</p>
    <h5 class="heading settled" data-level="14.2.10.3" id="uniformity-example3"><span class="secno">14.2.10.3. </span><span class="content">Composite Value Analysis Limitations</span><a class="self-link" href="#uniformity-example3"></a></h5>
-   <p>One limitation of the uniformity analysis is that it does not track the <a data-link-type="dfn" href="#components" id="ref-for-components③">components</a> of a <a data-link-type="dfn" href="#composite" id="ref-for-composite⑨">composite</a> value independently.
+   <p>One limitation of the uniformity analysis is that it does not track the <a data-link-type="dfn" href="#components" id="ref-for-components③">components</a> of a <a data-link-type="dfn" href="#composite" id="ref-for-composite⑧">composite</a> value independently.
 That is, any non-uniform component value <a data-link-type="dfn" href="#behavioral-requirements" id="ref-for-behavioral-requirements②①">will</a> cause
 the analysis to treat the entire composite value as non-uniform.
 This example illustrates this issue and a potential workaround that shader
@@ -14707,7 +14789,7 @@ a value in one type as a value in another type.</p>
 </pre>
      <tr>
       <td style="width:10%">Parameterization 
-      <td><code>E</code> is an element type for a <a data-link-type="dfn" href="#runtime-sized" id="ref-for-runtime-sized⑧">runtime-sized</a> array,<br> <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode②⓪">access mode</a> <code>AM</code> is <a data-link-type="dfn" href="#access-read" id="ref-for-access-read①⓪">read</a> or <a data-link-type="dfn" href="#access-read_write" id="ref-for-access-read_write①⑧">read_write</a> 
+      <td><code>E</code> is an element type for a <a data-link-type="dfn" href="#runtime-sized" id="ref-for-runtime-sized⑧">runtime-sized</a> array,<br> <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode②①">access mode</a> <code>AM</code> is <a data-link-type="dfn" href="#access-read" id="ref-for-access-read①⓪">read</a> or <a data-link-type="dfn" href="#access-read_write" id="ref-for-access-read_write①⑧">read_write</a> 
      <tr>
       <td>Description 
       <td>
@@ -16499,7 +16581,7 @@ but a value may infer the type.</p>
       <th>Overload 
     <tbody>
      <tr class="algorithm" data-algorithm="textureDimensions 1d">
-      <td><var>ST</var> is <a data-link-type="dfn" href="#i32" id="ref-for-i32④⓪">i32</a>, <a data-link-type="dfn" href="#u32" id="ref-for-u32③③">u32</a>, or <a data-link-type="dfn" href="#f32" id="ref-for-f32⑥⑦">f32</a><br> <var>F</var> is a <a data-link-type="dfn" href="#texel-format" id="ref-for-texel-format②">texel format</a><br> <var>A</var> is an <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode②①">access mode</a><br><br> <var>T</var> is <code>texture_1d&lt;ST></code> or <code>texture_storage_1d&lt;F,A></code> 
+      <td><var>ST</var> is <a data-link-type="dfn" href="#i32" id="ref-for-i32④⓪">i32</a>, <a data-link-type="dfn" href="#u32" id="ref-for-u32③③">u32</a>, or <a data-link-type="dfn" href="#f32" id="ref-for-f32⑥⑦">f32</a><br> <var>F</var> is a <a data-link-type="dfn" href="#texel-format" id="ref-for-texel-format②">texel format</a><br> <var>A</var> is an <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode②②">access mode</a><br><br> <var>T</var> is <code>texture_1d&lt;ST></code> or <code>texture_storage_1d&lt;F,A></code> 
       <td>
 <pre class="highlight"><c- k>fn</c-> <c- nf>textureDimensions</c-><c- p>(</c-><c- n>t</c->: <c- nc>T</c-><c- p>)</c-> -> <c- b>u32</c-></pre>
      <tr class="algorithm" data-algorithm="textureDimensions 1d level">
@@ -16511,7 +16593,7 @@ but a value may infer the type.</p>
                                <c- n>level</c->: <c- nc>L</c-><c- p>)</c-> -> <c- b>u32</c->
 </pre>
      <tr class="algorithm" data-algorithm="textureDimensions 2d">
-      <td><var>ST</var> is <a data-link-type="dfn" href="#i32" id="ref-for-i32④③">i32</a>, <a data-link-type="dfn" href="#u32" id="ref-for-u32③⑥">u32</a>, or <a data-link-type="dfn" href="#f32" id="ref-for-f32⑥⑨">f32</a><br> <var>F</var> is a <a data-link-type="dfn" href="#texel-format" id="ref-for-texel-format③">texel format</a><br> <var>A</var> is an <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode②②">access mode</a><br><br> <var>T</var> is <code>texture_2d&lt;ST></code>, <code>texture_2d_array&lt;ST></code>, <code>texture_cube&lt;ST></code>, <code>texture_cube_array&lt;ST></code>, <code>texture_multisampled_2d&lt;ST></code>, <code>texture_depth_2d</code>, <code>texture_depth_2d_array</code>, <code>texture_depth_cube</code>, <code>texture_depth_cube_array</code>, <code>texture_depth_multisampled_2d</code>, <code>texture_storage_2d&lt;F,A></code>, <code>texture_storage_2d_array&lt;F,A></code>,
+      <td><var>ST</var> is <a data-link-type="dfn" href="#i32" id="ref-for-i32④③">i32</a>, <a data-link-type="dfn" href="#u32" id="ref-for-u32③⑥">u32</a>, or <a data-link-type="dfn" href="#f32" id="ref-for-f32⑥⑨">f32</a><br> <var>F</var> is a <a data-link-type="dfn" href="#texel-format" id="ref-for-texel-format③">texel format</a><br> <var>A</var> is an <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode②③">access mode</a><br><br> <var>T</var> is <code>texture_2d&lt;ST></code>, <code>texture_2d_array&lt;ST></code>, <code>texture_cube&lt;ST></code>, <code>texture_cube_array&lt;ST></code>, <code>texture_multisampled_2d&lt;ST></code>, <code>texture_depth_2d</code>, <code>texture_depth_2d_array</code>, <code>texture_depth_cube</code>, <code>texture_depth_cube_array</code>, <code>texture_depth_multisampled_2d</code>, <code>texture_storage_2d&lt;F,A></code>, <code>texture_storage_2d_array&lt;F,A></code>,
                or <code>texture_external</code> 
       <td>
 <pre class="highlight"><c- k>fn</c-> <c- nf>textureDimensions</c-><c- p>(</c-><c- n>t</c->: <c- nc>T</c-><c- p>)</c-> -> <c- nc>vec2</c-><c- o>&lt;</c-><c- b>u32</c-><c- o>></c-></pre>
@@ -16524,7 +16606,7 @@ but a value may infer the type.</p>
                                <c- n>level</c->: <c- nc>L</c-><c- p>)</c-> -> <c- nc>vec2</c-><c- o>&lt;</c-><c- b>u32</c-><c- o>></c->
 </pre>
      <tr class="algorithm" data-algorithm="textureDimensions 3d">
-      <td><var>ST</var> is <a data-link-type="dfn" href="#i32" id="ref-for-i32④⑥">i32</a>, <a data-link-type="dfn" href="#u32" id="ref-for-u32③⑨">u32</a>, or <a data-link-type="dfn" href="#f32" id="ref-for-f32⑦①">f32</a><br> <var>F</var> is a <a data-link-type="dfn" href="#texel-format" id="ref-for-texel-format④">texel format</a><br> <var>A</var> is an <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode②③">access mode</a><br><br> <var>T</var> is <code>texture_3d&lt;ST></code> or <code>texture_storage_3d&lt;F,A></code> 
+      <td><var>ST</var> is <a data-link-type="dfn" href="#i32" id="ref-for-i32④⑥">i32</a>, <a data-link-type="dfn" href="#u32" id="ref-for-u32③⑨">u32</a>, or <a data-link-type="dfn" href="#f32" id="ref-for-f32⑦①">f32</a><br> <var>F</var> is a <a data-link-type="dfn" href="#texel-format" id="ref-for-texel-format④">texel format</a><br> <var>A</var> is an <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode②④">access mode</a><br><br> <var>T</var> is <code>texture_3d&lt;ST></code> or <code>texture_storage_3d&lt;F,A></code> 
       <td>
 <pre class="highlight"><c- k>fn</c-> <c- nf>textureDimensions</c-><c- p>(</c-><c- n>t</c->: <c- nc>T</c-><c- p>)</c-> -> <c- nc>vec3</c-><c- o>&lt;</c-><c- b>u32</c-><c- o>></c-></pre>
      <tr class="algorithm" data-algorithm="textureDimensions 3d level">
@@ -17013,7 +17095,7 @@ yielding a 0.0 or 1.0 value, as controlled by the comparison sampler parameters.
    </table>
    <p><strong>Returns:</strong></p>
    <p>The unfiltered texel data.</p>
-   <p>An <a data-link-type="dfn" href="#out-of-bounds-access" id="ref-for-out-of-bounds-access">out of bounds access</a> occurs if:</p>
+   <p>An <a data-link-type="dfn" href="#out-of-bounds-access" id="ref-for-out-of-bounds-access①">out of bounds access</a> occurs if:</p>
    <ul>
     <li data-md>
      <p>any element of <code>coords</code> is outside the range <code>[0, textureDimensions(t, level))</code> for the corresponding element, or</p>
@@ -17024,7 +17106,7 @@ yielding a 0.0 or 1.0 value, as controlled by the comparison sampler parameters.
     <li data-md>
      <p><code>sample_index</code> is outside the range <code>[0, textureNumSamples(s))</code></p>
    </ul>
-   <p>If an <a data-link-type="dfn" href="#out-of-bounds-access" id="ref-for-out-of-bounds-access①">out of bounds access</a> occurs, the built-in function returns one of:</p>
+   <p>If an <a data-link-type="dfn" href="#out-of-bounds-access" id="ref-for-out-of-bounds-access②">out of bounds access</a> occurs, the built-in function returns one of:</p>
    <ul>
     <li data-md>
      <p>The data for some texel within bounds of the texture</p>
@@ -17042,7 +17124,7 @@ yielding a 0.0 or 1.0 value, as controlled by the comparison sampler parameters.
       <th>Overload 
     <tbody>
      <tr class="algorithm" data-algorithm="texturenumlayers">
-      <td><var>F</var> is a <a data-link-type="dfn" href="#texel-format" id="ref-for-texel-format⑤">texel format</a><br> <var>A</var> is an <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode②④">access mode</a><br> <var>ST</var> is <a data-link-type="dfn" href="#i32" id="ref-for-i32⑨④">i32</a>, <a data-link-type="dfn" href="#u32" id="ref-for-u32⑧⑦">u32</a>, or <a data-link-type="dfn" href="#f32" id="ref-for-f32⑧④">f32</a><br><br> <var>T</var> is <code>texture_2d_array&lt;ST></code>, <code>texture_cube_array&lt;ST></code>, <code>texture_depth_2d_array</code>, <code>texture_depth_cube_array</code>,
+      <td><var>F</var> is a <a data-link-type="dfn" href="#texel-format" id="ref-for-texel-format⑤">texel format</a><br> <var>A</var> is an <a data-link-type="dfn" href="#access-mode" id="ref-for-access-mode②⑤">access mode</a><br> <var>ST</var> is <a data-link-type="dfn" href="#i32" id="ref-for-i32⑨④">i32</a>, <a data-link-type="dfn" href="#u32" id="ref-for-u32⑧⑦">u32</a>, or <a data-link-type="dfn" href="#f32" id="ref-for-f32⑧④">f32</a><br><br> <var>T</var> is <code>texture_2d_array&lt;ST></code>, <code>texture_cube_array&lt;ST></code>, <code>texture_depth_2d_array</code>, <code>texture_depth_cube_array</code>,
                                or <code>texture_storage_2d_array&lt;F,A></code> 
       <td>
 <pre class="highlight"><c- o>@</c-><c- n>must_use</c-> <c- k>fn</c-> <c- nf>textureNumLayers</c-><c- p>(</c-><c- n>t</c->: <c- nc>T</c-><c- p>)</c-> -> <c- b>u32</c->
@@ -17937,7 +18019,7 @@ with texture coordinates clamped to the edge as described below.</p>
 objects. They are the only operations allowed on <a href="#atomic-types">§ 5.2.8 Atomic Types</a>.</p>
    <p>All atomic built-in functions use a <code>relaxed</code> <a href="#memory-semantics">memory
 ordering</a>.  This means synchronization and ordering guarantees only apply among
-atomic operations acting on the same <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations②⓪">memory locations</a>.  No synchronization
+atomic operations acting on the same <a data-link-type="dfn" href="#memory-locations" id="ref-for-memory-locations①⑨">memory locations</a>.  No synchronization
 or ordering guarantees apply between atomic and non-atomic memory accesses, or
 between atomic accesses acting on different memory locations.</p>
    <p>Atomic built-in functions <a data-link-type="dfn" href="#shader-creation-error" id="ref-for-shader-creation-error②⑤④">must not</a> be used in a <a data-link-type="dfn" href="#vertex" id="ref-for-vertex④">vertex</a> shader stage.</p>
@@ -18813,7 +18895,7 @@ registrations, it matches widespread industry conventions.</p>
    <li><a href="#component-type">component type</a><span>, in § 5.2.6</span>
    <li><a href="#component-wise">component-wise</a><span>, in § 5.2.6</span>
    <li><a href="#composite">composite</a><span>, in § 5.2.11</span>
-   <li><a href="#composite-reference-component-expression">composite reference component expression</a><span>, in § 5.4.7</span>
+   <li><a href="#composite-reference-component-expression">composite reference component expression</a><span>, in § 5.4.8</span>
    <li><a href="#compound-assignment">compound assignment</a><span>, in § 8.2.3</span>
    <li>
     compound_assignment_operator
@@ -19108,7 +19190,10 @@ registrations, it matches widespread industry conventions.</p>
      <li><a href="#recursive-descent-syntax-int_literal">dfn for recursive descent syntax</a><span>, in § 18</span>
      <li><a href="#syntax-int_literal">dfn for syntax</a><span>, in § 3.5.2</span>
     </ul>
-   <li><a href="#invalid-memory-reference">invalid memory reference</a><span>, in § 5.4.5</span>
+   <li><a href="#invalid-load">Invalid Load</a><span>, in § 5.4.6</span>
+   <li><a href="#invalid-memory-reference">invalid memory reference</a><span>, in § 5.4.4</span>
+   <li><a href="#invalid-pointer">invalid pointer</a><span>, in § 5.4.4</span>
+   <li><a href="#invalid-store">Invalid Store</a><span>, in § 5.4.6</span>
    <li><a href="#attribute-invariant">invariant</a><span>, in § 3.11</span>
    <li><a href="#invocations">invocations</a><span>, in § 1.1</span>
    <li><a href="#io-attributes">IO attributes</a><span>, in § 10.3.1</span>
@@ -19137,7 +19222,7 @@ registrations, it matches widespread industry conventions.</p>
      <li><a href="#recursive-descent-syntax-literal">dfn for recursive descent syntax</a><span>, in § 18</span>
      <li><a href="#syntax-literal">dfn for syntax</a><span>, in § 3.5</span>
     </ul>
-   <li><a href="#load-rule">Load Rule</a><span>, in § 5.4.6</span>
+   <li><a href="#load-rule">Load Rule</a><span>, in § 5.4.7</span>
    <li><a href="#local-invocation-id">local invocation ID</a><span>, in § 14.3</span>
    <li><a href="#built-in-values-local_invocation_id">local_invocation_id</a><span>, in § 16</span>
    <li><a href="#local-invocation-index">local invocation index</a><span>, in § 14.3</span>
@@ -19221,9 +19306,9 @@ registrations, it matches widespread industry conventions.</p>
     </ul>
    <li><a href="#syntax_sym-or">or</a><span>, in § 15.3</span>
    <li><a href="#syntax_sym-or_equal">or_equal</a><span>, in § 15.3</span>
-   <li><a href="#originating-variable">originating variable</a><span>, in § 5.4.4</span>
+   <li><a href="#originating-variable">originating variable</a><span>, in § 5.4.5</span>
    <li><a href="#syntax_sym-or_or">or_or</a><span>, in § 15.3</span>
-   <li><a href="#out-of-bounds-access">out of bounds access</a><span>, in § 5.4.5</span>
+   <li><a href="#out-of-bounds-access">out of bounds access</a><span>, in § 5.4.6</span>
    <li><a href="#overlap">overlap</a><span>, in § 13.1</span>
    <li><a href="#overload">overload</a><span>, in § 5.1</span>
    <li><a href="#overload-candidates">overload candidates</a><span>, in § 5.1.3</span>
@@ -19473,6 +19558,7 @@ registrations, it matches widespread industry conventions.</p>
      <li><a href="#syntax-translation_unit">dfn for syntax</a><span>, in § 12</span>
     </ul>
    <li><a href="#transpose">transpose</a><span>, in § 1.3</span>
+   <li><a href="#trap">Trap</a><span>, in § 5.4.6</span>
    <li><a href="#triggered">triggered</a><span>, in § 2.2</span>
    <li><a href="#diagnostic-triggering-location">triggering location</a><span>, in § 2.2</span>
    <li><a href="#diagnostic-triggering-rule">triggering rule</a><span>, in § 2.2</span>
@@ -19517,6 +19603,8 @@ registrations, it matches widespread industry conventions.</p>
    <li><a href="#user-defined-function">user-defined function</a><span>, in § 9</span>
    <li><a href="#user-defined-input-datum">user-defined input datum</a><span>, in § 10.3.1.2</span>
    <li><a href="#user-defined-output-datum">user-defined output datum</a><span>, in § 10.3.1.2</span>
+   <li><a href="#valid-pointer">valid pointer</a><span>, in § 5.4.4</span>
+   <li><a href="#valid-reference">valid reference</a><span>, in § 5.4.4</span>
    <li><a href="#value-constructor">value constructor</a><span>, in § 17.1</span>
    <li><a href="#value-declaration">value declaration</a><span>, in § 6</span>
    <li><a href="#value_return">Value_return</a><span>, in § 14.2.3</span>
@@ -19762,7 +19850,7 @@ registrations, it matches widespread industry conventions.</p>
   <aside class="dfn-panel" data-for="term-for-gpubuffer">
    <a href="https://gpuweb.github.io/gpuweb/#gpubuffer">https://gpuweb.github.io/gpuweb/#gpubuffer</a><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-gpubuffer">5.4.5. Invalid Memory Reference</a> <a href="#ref-for-gpubuffer①">(2)</a>
+    <li><a href="#ref-for-gpubuffer">5.4.6. Out of Bounds Access</a> <a href="#ref-for-gpubuffer①">(2)</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="term-for-dictdef-gpubufferbinding">
@@ -20165,7 +20253,7 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-behavioral-requirements③">2.2.1. Filterable Triggering Rules</a>
     <li><a href="#ref-for-behavioral-requirements④">3.10. Template Lists</a>
     <li><a href="#ref-for-behavioral-requirements⑤">5.1. Type Checking</a>
-    <li><a href="#ref-for-behavioral-requirements⑥">5.4.8. Comparison with References and Pointers in Other Languages</a>
+    <li><a href="#ref-for-behavioral-requirements⑥">5.4.9. Comparison with References and Pointers in Other Languages</a>
     <li><a href="#ref-for-behavioral-requirements⑦">6.3. var Declarations</a> <a href="#ref-for-behavioral-requirements⑧">(2)</a>
     <li><a href="#ref-for-behavioral-requirements⑨">7.1.1. const Expressions</a> <a href="#ref-for-behavioral-requirements①⓪">(2)</a>
     <li><a href="#ref-for-behavioral-requirements①①">7.1.2. override Expressions</a> <a href="#ref-for-behavioral-requirements①②">(2)</a>
@@ -20299,8 +20387,8 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-shader-creation-error⑦⑨">5.4.1. Storable Types</a>
     <li><a href="#ref-for-shader-creation-error⑧⓪">5.4.2. Host-shareable Types</a>
     <li><a href="#ref-for-shader-creation-error⑧①">5.4.3. Reference and Pointer Types</a> <a href="#ref-for-shader-creation-error⑧②">(2)</a>
-    <li><a href="#ref-for-shader-creation-error⑧③">5.4.6. Use Cases for References and Pointers</a> <a href="#ref-for-shader-creation-error⑧④">(2)</a> <a href="#ref-for-shader-creation-error⑧⑤">(3)</a>
-    <li><a href="#ref-for-shader-creation-error⑧⑥">5.4.8. Comparison with References and Pointers in Other Languages</a>
+    <li><a href="#ref-for-shader-creation-error⑧③">5.4.7. Use Cases for References and Pointers</a> <a href="#ref-for-shader-creation-error⑧④">(2)</a> <a href="#ref-for-shader-creation-error⑧⑤">(3)</a>
+    <li><a href="#ref-for-shader-creation-error⑧⑥">5.4.9. Comparison with References and Pointers in Other Languages</a>
     <li><a href="#ref-for-shader-creation-error⑧⑦">5.5. Texture and Sampler Types</a>
     <li><a href="#ref-for-shader-creation-error⑧⑧">5.5.2. Sampled Texture Types</a>
     <li><a href="#ref-for-shader-creation-error⑧⑨">5.5.3. Multisampled Texture Types</a>
@@ -20411,7 +20499,7 @@ registrations, it matches widespread industry conventions.</p>
   <aside class="dfn-panel" data-for="dynamic-error">
    <b><a href="#dynamic-error">#dynamic-error</a></b><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-dynamic-error">5.4.5. Invalid Memory Reference</a>
+    <li><a href="#ref-for-dynamic-error">5.4.6. Out of Bounds Access</a>
     <li><a href="#ref-for-dynamic-error①">6.3. var Declarations</a>
     <li><a href="#ref-for-dynamic-error②">13.4. Memory Layout</a>
    </ul>
@@ -20735,7 +20823,7 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-identifier②">3.9. Diagnostic Rule Names</a>
     <li><a href="#ref-for-identifier③">4. Declaration and Scope</a>
     <li><a href="#ref-for-identifier④">5.2.10. Structure Types</a>
-    <li><a href="#ref-for-identifier⑤">5.4.7. Forming Reference and Pointer Values</a>
+    <li><a href="#ref-for-identifier⑤">5.4.8. Forming Reference and Pointer Values</a>
     <li><a href="#ref-for-identifier⑥">6.2. Value Declarations</a>
     <li><a href="#ref-for-identifier⑦">6.3. var Declarations</a>
     <li><a href="#ref-for-identifier⑧">7.1.1. const Expressions</a>
@@ -21111,7 +21199,7 @@ registrations, it matches widespread industry conventions.</p>
    <b><a href="#in-scope">#in-scope</a></b><b>Referenced in:</b>
    <ul>
     <li><a href="#ref-for-in-scope">4. Declaration and Scope</a> <a href="#ref-for-in-scope①">(2)</a> <a href="#ref-for-in-scope②">(3)</a>
-    <li><a href="#ref-for-in-scope③">5.4.7. Forming Reference and Pointer Values</a>
+    <li><a href="#ref-for-in-scope③">5.4.8. Forming Reference and Pointer Values</a>
     <li><a href="#ref-for-in-scope④">6. Variable and Value Declarations</a>
     <li><a href="#ref-for-in-scope⑤">6.3. var Declarations</a>
     <li><a href="#ref-for-in-scope⑥">7.11. Variable Identifier Expression</a>
@@ -21130,7 +21218,7 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-resolves①">3.9. Diagnostic Rule Names</a>
     <li><a href="#ref-for-resolves②">4. Declaration and Scope</a> <a href="#ref-for-resolves③">(2)</a>
     <li><a href="#ref-for-resolves④">5.2.9. Array Types</a>
-    <li><a href="#ref-for-resolves⑤">5.4.7. Forming Reference and Pointer Values</a>
+    <li><a href="#ref-for-resolves⑤">5.4.8. Forming Reference and Pointer Values</a>
     <li><a href="#ref-for-resolves⑥">6.2. Value Declarations</a>
     <li><a href="#ref-for-resolves⑦">6.3. var Declarations</a>
     <li><a href="#ref-for-resolves⑧">7.1.1. const Expressions</a>
@@ -21705,7 +21793,7 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-vector⑤">5.2.12. Constructible Types</a>
     <li><a href="#ref-for-vector⑥">5.2.13. Fixed-Footprint Types</a>
     <li><a href="#ref-for-vector⑦">5.4.1. Storable Types</a>
-    <li><a href="#ref-for-vector⑧">5.4.7. Forming Reference and Pointer Values</a> <a href="#ref-for-vector⑨">(2)</a>
+    <li><a href="#ref-for-vector⑧">5.4.8. Forming Reference and Pointer Values</a> <a href="#ref-for-vector⑨">(2)</a>
     <li><a href="#ref-for-vector①⓪">7.1.2. override Expressions</a>
     <li><a href="#ref-for-vector①①">7.17. Type Expressions</a>
     <li><a href="#ref-for-vector①②">13.4.1. Alignment and Size</a>
@@ -21801,7 +21889,7 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-matrix④">5.2.13. Fixed-Footprint Types</a>
     <li><a href="#ref-for-matrix⑤">5.4.1. Storable Types</a>
     <li><a href="#ref-for-matrix⑥">5.4.2. Host-shareable Types</a>
-    <li><a href="#ref-for-matrix⑦">5.4.7. Forming Reference and Pointer Values</a>
+    <li><a href="#ref-for-matrix⑦">5.4.8. Forming Reference and Pointer Values</a>
     <li><a href="#ref-for-matrix⑧">13.4.1. Alignment and Size</a>
     <li><a href="#ref-for-matrix⑨">13.5. Internal Layout of Values</a>
     <li><a href="#ref-for-matrix①⓪">13.5.1. Address Space Layout Constraints</a>
@@ -21846,7 +21934,7 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-array">5.2.9. Array Types</a>
     <li><a href="#ref-for-array①">5.2.11. Composite Types</a>
     <li><a href="#ref-for-array②">5.4.1. Storable Types</a>
-    <li><a href="#ref-for-array③">5.4.7. Forming Reference and Pointer Values</a>
+    <li><a href="#ref-for-array③">5.4.8. Forming Reference and Pointer Values</a>
     <li><a href="#ref-for-array④">6. Variable and Value Declarations</a>
     <li><a href="#ref-for-array⑤">6.3. var Declarations</a>
     <li><a href="#ref-for-array⑥">7. Expressions</a>
@@ -21903,7 +21991,7 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-structure①⓪">5.2.13. Fixed-Footprint Types</a>
     <li><a href="#ref-for-structure①①">5.4.1. Storable Types</a>
     <li><a href="#ref-for-structure①②">5.4.2. Host-shareable Types</a>
-    <li><a href="#ref-for-structure①③">5.4.7. Forming Reference and Pointer Values</a>
+    <li><a href="#ref-for-structure①③">5.4.8. Forming Reference and Pointer Values</a>
     <li><a href="#ref-for-structure①④">7.1.1. const Expressions</a>
     <li><a href="#ref-for-structure①⑤">7.1.2. override Expressions</a>
     <li><a href="#ref-for-structure①⑥">7.17. Type Expressions</a>
@@ -21947,13 +22035,12 @@ registrations, it matches widespread industry conventions.</p>
    <ul>
     <li><a href="#ref-for-composite">1.1. Technical Overview</a>
     <li><a href="#ref-for-composite①">5.2. Plain Types</a>
-    <li><a href="#ref-for-composite②">5.4.5. Invalid Memory Reference</a>
-    <li><a href="#ref-for-composite③">6.3. var Declarations</a> <a href="#ref-for-composite④">(2)</a>
-    <li><a href="#ref-for-composite⑤">12.1. Limits</a>
-    <li><a href="#ref-for-composite⑥">13.1. Memory Locations</a>
-    <li><a href="#ref-for-composite⑦">14.2.5. Function-scope Variable Value Analysis</a>
-    <li><a href="#ref-for-composite⑧">14.2.8. Uniformity Rules for Expressions</a>
-    <li><a href="#ref-for-composite⑨">14.2.10.3. Composite Value Analysis Limitations</a>
+    <li><a href="#ref-for-composite②">6.3. var Declarations</a> <a href="#ref-for-composite③">(2)</a>
+    <li><a href="#ref-for-composite④">12.1. Limits</a>
+    <li><a href="#ref-for-composite⑤">13.1. Memory Locations</a>
+    <li><a href="#ref-for-composite⑥">14.2.5. Function-scope Variable Value Analysis</a>
+    <li><a href="#ref-for-composite⑦">14.2.8. Uniformity Rules for Expressions</a>
+    <li><a href="#ref-for-composite⑧">14.2.10.3. Composite Value Analysis Limitations</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="components">
@@ -22048,17 +22135,16 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-memory-view①">5.2.13. Fixed-Footprint Types</a>
     <li><a href="#ref-for-memory-view②">5.4. Memory Views</a>
     <li><a href="#ref-for-memory-view③">5.4.3. Reference and Pointer Types</a> <a href="#ref-for-memory-view④">(2)</a> <a href="#ref-for-memory-view⑤">(3)</a>
-    <li><a href="#ref-for-memory-view⑥">5.4.5. Invalid Memory Reference</a>
-    <li><a href="#ref-for-memory-view⑦">5.4.8. Comparison with References and Pointers in Other Languages</a>
-    <li><a href="#ref-for-memory-view⑧">6.3. var Declarations</a>
-    <li><a href="#ref-for-memory-view⑨">7.13. Address-Of Expression</a>
-    <li><a href="#ref-for-memory-view①⓪">7.14. Indirection Expression</a>
-    <li><a href="#ref-for-memory-view①①">9.4. Restrictions on Functions</a> <a href="#ref-for-memory-view①②">(2)</a>
-    <li><a href="#ref-for-memory-view①③">9.4.1.1. Root Identifier</a> <a href="#ref-for-memory-view①④">(2)</a>
-    <li><a href="#ref-for-memory-view①⑤">13.3. Address Spaces</a>
-    <li><a href="#ref-for-memory-view①⑥">13.6.1. Memory Operation</a>
-    <li><a href="#ref-for-memory-view①⑦">14.2.5. Function-scope Variable Value Analysis</a>
-    <li><a href="#ref-for-memory-view①⑧">14.2.8. Uniformity Rules for Expressions</a> <a href="#ref-for-memory-view①⑨">(2)</a> <a href="#ref-for-memory-view②⓪">(3)</a> <a href="#ref-for-memory-view②①">(4)</a> <a href="#ref-for-memory-view②②">(5)</a>
+    <li><a href="#ref-for-memory-view⑥">5.4.9. Comparison with References and Pointers in Other Languages</a>
+    <li><a href="#ref-for-memory-view⑦">6.3. var Declarations</a>
+    <li><a href="#ref-for-memory-view⑧">7.13. Address-Of Expression</a>
+    <li><a href="#ref-for-memory-view⑨">7.14. Indirection Expression</a>
+    <li><a href="#ref-for-memory-view①⓪">9.4. Restrictions on Functions</a> <a href="#ref-for-memory-view①①">(2)</a>
+    <li><a href="#ref-for-memory-view①②">9.4.1.1. Root Identifier</a> <a href="#ref-for-memory-view①③">(2)</a>
+    <li><a href="#ref-for-memory-view①④">13.3. Address Spaces</a>
+    <li><a href="#ref-for-memory-view①⑤">13.6.1. Memory Operation</a>
+    <li><a href="#ref-for-memory-view①⑥">14.2.5. Function-scope Variable Value Analysis</a>
+    <li><a href="#ref-for-memory-view①⑦">14.2.8. Uniformity Rules for Expressions</a> <a href="#ref-for-memory-view①⑧">(2)</a> <a href="#ref-for-memory-view①⑨">(3)</a> <a href="#ref-for-memory-view②⓪">(4)</a> <a href="#ref-for-memory-view②①">(5)</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="store-type">
@@ -22070,15 +22156,16 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-store-type④">5.3. Enumeration Types</a>
     <li><a href="#ref-for-store-type⑤">5.4.2. Host-shareable Types</a>
     <li><a href="#ref-for-store-type⑥">5.4.3. Reference and Pointer Types</a> <a href="#ref-for-store-type⑦">(2)</a> <a href="#ref-for-store-type⑧">(3)</a> <a href="#ref-for-store-type⑨">(4)</a>
-    <li><a href="#ref-for-store-type①⓪">5.5. Texture and Sampler Types</a>
-    <li><a href="#ref-for-store-type①①">6.3. var Declarations</a> <a href="#ref-for-store-type①②">(2)</a> <a href="#ref-for-store-type①③">(3)</a> <a href="#ref-for-store-type①④">(4)</a> <a href="#ref-for-store-type①⑤">(5)</a> <a href="#ref-for-store-type①⑥">(6)</a> <a href="#ref-for-store-type①⑦">(7)</a> <a href="#ref-for-store-type①⑧">(8)</a> <a href="#ref-for-store-type①⑨">(9)</a>
-    <li><a href="#ref-for-store-type②⓪">7.11. Variable Identifier Expression</a>
-    <li><a href="#ref-for-store-type②①">8.3. Increment and Decrement Statements</a>
-    <li><a href="#ref-for-store-type②②">9.4. Restrictions on Functions</a>
-    <li><a href="#ref-for-store-type②③">10.3.4. Buffer Binding Determines Runtime-Sized Array Element Count</a>
-    <li><a href="#ref-for-store-type②④">13.3. Address Spaces</a>
-    <li><a href="#ref-for-store-type②⑤">13.4. Memory Layout</a>
-    <li><a href="#ref-for-store-type②⑥">14.2.5. Function-scope Variable Value Analysis</a> <a href="#ref-for-store-type②⑦">(2)</a>
+    <li><a href="#ref-for-store-type①⓪">5.4.6. Out of Bounds Access</a>
+    <li><a href="#ref-for-store-type①①">5.5. Texture and Sampler Types</a>
+    <li><a href="#ref-for-store-type①②">6.3. var Declarations</a> <a href="#ref-for-store-type①③">(2)</a> <a href="#ref-for-store-type①④">(3)</a> <a href="#ref-for-store-type①⑤">(4)</a> <a href="#ref-for-store-type①⑥">(5)</a> <a href="#ref-for-store-type①⑦">(6)</a> <a href="#ref-for-store-type①⑧">(7)</a> <a href="#ref-for-store-type①⑨">(8)</a> <a href="#ref-for-store-type②⓪">(9)</a>
+    <li><a href="#ref-for-store-type②①">7.11. Variable Identifier Expression</a>
+    <li><a href="#ref-for-store-type②②">8.3. Increment and Decrement Statements</a>
+    <li><a href="#ref-for-store-type②③">9.4. Restrictions on Functions</a>
+    <li><a href="#ref-for-store-type②④">10.3.4. Buffer Binding Determines Runtime-Sized Array Element Count</a>
+    <li><a href="#ref-for-store-type②⑤">13.3. Address Spaces</a>
+    <li><a href="#ref-for-store-type②⑥">13.4. Memory Layout</a>
+    <li><a href="#ref-for-store-type②⑦">14.2.5. Function-scope Variable Value Analysis</a> <a href="#ref-for-store-type②⑧">(2)</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="storable">
@@ -22087,7 +22174,7 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-storable">5.2.13. Fixed-Footprint Types</a>
     <li><a href="#ref-for-storable①">5.4.1. Storable Types</a>
     <li><a href="#ref-for-storable②">5.4.3. Reference and Pointer Types</a> <a href="#ref-for-storable③">(2)</a>
-    <li><a href="#ref-for-storable④">5.4.8. Comparison with References and Pointers in Other Languages</a>
+    <li><a href="#ref-for-storable④">5.4.9. Comparison with References and Pointers in Other Languages</a>
     <li><a href="#ref-for-storable⑤">6.3. var Declarations</a>
     <li><a href="#ref-for-storable⑥">13. Memory</a>
    </ul>
@@ -22106,11 +22193,12 @@ registrations, it matches widespread industry conventions.</p>
    <ul>
     <li><a href="#ref-for-reference-type">5. Types</a>
     <li><a href="#ref-for-reference-type①">5.4.3. Reference and Pointer Types</a>
-    <li><a href="#ref-for-reference-type②">6.1. Variables vs Values</a>
-    <li><a href="#ref-for-reference-type③">6.3. var Declarations</a> <a href="#ref-for-reference-type④">(2)</a> <a href="#ref-for-reference-type⑤">(3)</a>
-    <li><a href="#ref-for-reference-type⑥">8.2.3. Compound Assignment</a>
-    <li><a href="#ref-for-reference-type⑦">9.4.1.1. Root Identifier</a> <a href="#ref-for-reference-type⑧">(2)</a>
-    <li><a href="#ref-for-reference-type⑨">14.2.5. Function-scope Variable Value Analysis</a>
+    <li><a href="#ref-for-reference-type②">5.4.4. Valid and Invalid Memory References</a>
+    <li><a href="#ref-for-reference-type③">6.1. Variables vs Values</a>
+    <li><a href="#ref-for-reference-type④">6.3. var Declarations</a> <a href="#ref-for-reference-type⑤">(2)</a> <a href="#ref-for-reference-type⑥">(3)</a>
+    <li><a href="#ref-for-reference-type⑦">8.2.3. Compound Assignment</a>
+    <li><a href="#ref-for-reference-type⑧">9.4.1.1. Root Identifier</a> <a href="#ref-for-reference-type⑨">(2)</a>
+    <li><a href="#ref-for-reference-type①⓪">14.2.5. Function-scope Variable Value Analysis</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="pointer-type">
@@ -22127,47 +22215,81 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-pointer-type①①">14.2.5. Function-scope Variable Value Analysis</a>
    </ul>
   </aside>
-  <aside class="dfn-panel" data-for="originating-variable">
-   <b><a href="#originating-variable">#originating-variable</a></b><b>Referenced in:</b>
+  <aside class="dfn-panel" data-for="valid-reference">
+   <b><a href="#valid-reference">#valid-reference</a></b><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-originating-variable">5.4.5. Invalid Memory Reference</a> <a href="#ref-for-originating-variable①">(2)</a> <a href="#ref-for-originating-variable②">(3)</a> <a href="#ref-for-originating-variable③">(4)</a>
-    <li><a href="#ref-for-originating-variable④">5.4.7. Forming Reference and Pointer Values</a>
-    <li><a href="#ref-for-originating-variable⑤">5.4.8. Comparison with References and Pointers in Other Languages</a>
-    <li><a href="#ref-for-originating-variable⑥">7.5.1.3. Component Reference from Vector Reference</a> <a href="#ref-for-originating-variable⑦">(2)</a> <a href="#ref-for-originating-variable⑧">(3)</a> <a href="#ref-for-originating-variable⑨">(4)</a> <a href="#ref-for-originating-variable①⓪">(5)</a>
-    <li><a href="#ref-for-originating-variable①①">7.5.2. Matrix Access Expression</a>
-    <li><a href="#ref-for-originating-variable①②">7.5.3. Array Access Expression</a> <a href="#ref-for-originating-variable①③">(2)</a>
-    <li><a href="#ref-for-originating-variable①④">7.5.4. Structure Access Expression</a>
-    <li><a href="#ref-for-originating-variable①⑤">9.4.1.1. Root Identifier</a>
-    <li><a href="#ref-for-originating-variable①⑥">9.4.1.2. Aliasing</a> <a href="#ref-for-originating-variable①⑦">(2)</a> <a href="#ref-for-originating-variable①⑧">(3)</a>
-    <li><a href="#ref-for-originating-variable①⑨">14.2.5. Function-scope Variable Value Analysis</a> <a href="#ref-for-originating-variable②⓪">(2)</a> <a href="#ref-for-originating-variable②①">(3)</a>
-   </ul>
-  </aside>
-  <aside class="dfn-panel" data-for="out-of-bounds-access">
-   <b><a href="#out-of-bounds-access">#out-of-bounds-access</a></b><b>Referenced in:</b>
-   <ul>
-    <li><a href="#ref-for-out-of-bounds-access">17.7.4. textureLoad</a> <a href="#ref-for-out-of-bounds-access①">(2)</a>
+    <li><a href="#ref-for-valid-reference">5.4.4. Valid and Invalid Memory References</a> <a href="#ref-for-valid-reference①">(2)</a>
+    <li><a href="#ref-for-valid-reference②">5.4.5. Originating Variable</a>
+    <li><a href="#ref-for-valid-reference③">5.4.8. Forming Reference and Pointer Values</a> <a href="#ref-for-valid-reference④">(2)</a> <a href="#ref-for-valid-reference⑤">(3)</a> <a href="#ref-for-valid-reference⑥">(4)</a> <a href="#ref-for-valid-reference⑦">(5)</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="invalid-memory-reference">
    <b><a href="#invalid-memory-reference">#invalid-memory-reference</a></b><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-invalid-memory-reference">5.4.8. Comparison with References and Pointers in Other Languages</a>
-    <li><a href="#ref-for-invalid-memory-reference①">7.5.1.3. Component Reference from Vector Reference</a>
-    <li><a href="#ref-for-invalid-memory-reference②">7.5.2. Matrix Access Expression</a>
-    <li><a href="#ref-for-invalid-memory-reference③">7.5.3. Array Access Expression</a> <a href="#ref-for-invalid-memory-reference④">(2)</a>
-    <li><a href="#ref-for-invalid-memory-reference⑤">7.13. Address-Of Expression</a>
-    <li><a href="#ref-for-invalid-memory-reference⑥">7.14. Indirection Expression</a>
-    <li><a href="#ref-for-invalid-memory-reference⑦">8.2.1. Simple Assignment</a>
+    <li><a href="#ref-for-invalid-memory-reference">5.4.4. Valid and Invalid Memory References</a> <a href="#ref-for-invalid-memory-reference①">(2)</a>
+    <li><a href="#ref-for-invalid-memory-reference②">5.4.5. Originating Variable</a>
+    <li><a href="#ref-for-invalid-memory-reference③">5.4.6. Out of Bounds Access</a>
+    <li><a href="#ref-for-invalid-memory-reference④">5.4.8. Forming Reference and Pointer Values</a>
+    <li><a href="#ref-for-invalid-memory-reference⑤">5.4.9. Comparison with References and Pointers in Other Languages</a>
+    <li><a href="#ref-for-invalid-memory-reference⑥">7.5.1.3. Component Reference from Vector Reference</a>
+    <li><a href="#ref-for-invalid-memory-reference⑦">7.5.2. Matrix Access Expression</a>
+    <li><a href="#ref-for-invalid-memory-reference⑧">7.5.3. Array Access Expression</a> <a href="#ref-for-invalid-memory-reference⑨">(2)</a>
+    <li><a href="#ref-for-invalid-memory-reference①⓪">7.13. Address-Of Expression</a>
+    <li><a href="#ref-for-invalid-memory-reference①①">7.14. Indirection Expression</a>
+    <li><a href="#ref-for-invalid-memory-reference①②">8.2.1. Simple Assignment</a>
+   </ul>
+  </aside>
+  <aside class="dfn-panel" data-for="valid-pointer">
+   <b><a href="#valid-pointer">#valid-pointer</a></b><b>Referenced in:</b>
+   <ul>
+    <li><a href="#ref-for-valid-pointer">5.4.4. Valid and Invalid Memory References</a>
+    <li><a href="#ref-for-valid-pointer①">5.4.5. Originating Variable</a>
+    <li><a href="#ref-for-valid-pointer②">5.4.8. Forming Reference and Pointer Values</a> <a href="#ref-for-valid-pointer③">(2)</a> <a href="#ref-for-valid-pointer④">(3)</a> <a href="#ref-for-valid-pointer⑤">(4)</a> <a href="#ref-for-valid-pointer⑥">(5)</a>
+   </ul>
+  </aside>
+  <aside class="dfn-panel" data-for="invalid-pointer">
+   <b><a href="#invalid-pointer">#invalid-pointer</a></b><b>Referenced in:</b>
+   <ul>
+    <li><a href="#ref-for-invalid-pointer">5.4.4. Valid and Invalid Memory References</a>
+   </ul>
+  </aside>
+  <aside class="dfn-panel" data-for="originating-variable">
+   <b><a href="#originating-variable">#originating-variable</a></b><b>Referenced in:</b>
+   <ul>
+    <li><a href="#ref-for-originating-variable">5.4.5. Originating Variable</a>
+    <li><a href="#ref-for-originating-variable①">5.4.6. Out of Bounds Access</a> <a href="#ref-for-originating-variable②">(2)</a> <a href="#ref-for-originating-variable③">(3)</a> <a href="#ref-for-originating-variable④">(4)</a>
+    <li><a href="#ref-for-originating-variable⑤">5.4.8. Forming Reference and Pointer Values</a> <a href="#ref-for-originating-variable⑥">(2)</a> <a href="#ref-for-originating-variable⑦">(3)</a> <a href="#ref-for-originating-variable⑧">(4)</a>
+    <li><a href="#ref-for-originating-variable⑨">5.4.9. Comparison with References and Pointers in Other Languages</a>
+    <li><a href="#ref-for-originating-variable①⓪">7.5.1.3. Component Reference from Vector Reference</a> <a href="#ref-for-originating-variable①①">(2)</a> <a href="#ref-for-originating-variable①②">(3)</a> <a href="#ref-for-originating-variable①③">(4)</a> <a href="#ref-for-originating-variable①④">(5)</a>
+    <li><a href="#ref-for-originating-variable①⑤">7.5.2. Matrix Access Expression</a>
+    <li><a href="#ref-for-originating-variable①⑥">7.5.3. Array Access Expression</a> <a href="#ref-for-originating-variable①⑦">(2)</a>
+    <li><a href="#ref-for-originating-variable①⑧">7.5.4. Structure Access Expression</a>
+    <li><a href="#ref-for-originating-variable①⑨">9.4.1.1. Root Identifier</a>
+    <li><a href="#ref-for-originating-variable②⓪">9.4.1.2. Aliasing</a> <a href="#ref-for-originating-variable②①">(2)</a> <a href="#ref-for-originating-variable②②">(3)</a>
+    <li><a href="#ref-for-originating-variable②③">14.2.5. Function-scope Variable Value Analysis</a> <a href="#ref-for-originating-variable②④">(2)</a> <a href="#ref-for-originating-variable②⑤">(3)</a>
+   </ul>
+  </aside>
+  <aside class="dfn-panel" data-for="out-of-bounds-access">
+   <b><a href="#out-of-bounds-access">#out-of-bounds-access</a></b><b>Referenced in:</b>
+   <ul>
+    <li><a href="#ref-for-out-of-bounds-access">5.4.6. Out of Bounds Access</a>
+    <li><a href="#ref-for-out-of-bounds-access①">17.7.4. textureLoad</a> <a href="#ref-for-out-of-bounds-access②">(2)</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="load-rule">
    <b><a href="#load-rule">#load-rule</a></b><b>Referenced in:</b>
    <ul>
     <li><a href="#ref-for-load-rule">5.1.2. Conversion Rank</a>
-    <li><a href="#ref-for-load-rule①">5.4.5. Invalid Memory Reference</a>
+    <li><a href="#ref-for-load-rule①">5.4.6. Out of Bounds Access</a>
     <li><a href="#ref-for-load-rule②">13.6.1. Memory Operation</a>
     <li><a href="#ref-for-load-rule③">14.2.4. Pointer Desugaring</a>
     <li><a href="#ref-for-load-rule④">14.2.8. Uniformity Rules for Expressions</a> <a href="#ref-for-load-rule⑤">(2)</a> <a href="#ref-for-load-rule⑥">(3)</a> <a href="#ref-for-load-rule⑦">(4)</a> <a href="#ref-for-load-rule⑧">(5)</a>
+   </ul>
+  </aside>
+  <aside class="dfn-panel" data-for="composite-reference-component-expression">
+   <b><a href="#composite-reference-component-expression">#composite-reference-component-expression</a></b><b>Referenced in:</b>
+   <ul>
+    <li><a href="#ref-for-composite-reference-component-expression">5.4.4. Valid and Invalid Memory References</a> <a href="#ref-for-composite-reference-component-expression①">(2)</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="texel">
@@ -22437,7 +22559,7 @@ registrations, it matches widespread industry conventions.</p>
    <b><a href="#variable-declaration">#variable-declaration</a></b><b>Referenced in:</b>
    <ul>
     <li><a href="#ref-for-variable-declaration">5.4.3. Reference and Pointer Types</a>
-    <li><a href="#ref-for-variable-declaration①">5.4.8. Comparison with References and Pointers in Other Languages</a>
+    <li><a href="#ref-for-variable-declaration①">5.4.9. Comparison with References and Pointers in Other Languages</a>
     <li><a href="#ref-for-variable-declaration②">6. Variable and Value Declarations</a>
     <li><a href="#ref-for-variable-declaration③">6.1. Variables vs Values</a> <a href="#ref-for-variable-declaration④">(2)</a>
     <li><a href="#ref-for-variable-declaration⑤">7. Expressions</a>
@@ -22520,7 +22642,7 @@ registrations, it matches widespread industry conventions.</p>
   <aside class="dfn-panel" data-for="let-declaration">
    <b><a href="#let-declaration">#let-declaration</a></b><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-let-declaration">5.4.6. Use Cases for References and Pointers</a>
+    <li><a href="#ref-for-let-declaration">5.4.7. Use Cases for References and Pointers</a>
     <li><a href="#ref-for-let-declaration①">6. Variable and Value Declarations</a>
     <li><a href="#ref-for-let-declaration②">6.1. Variables vs Values</a>
     <li><a href="#ref-for-let-declaration③">6.2. Value Declarations</a>
@@ -22538,7 +22660,7 @@ registrations, it matches widespread industry conventions.</p>
    <ul>
     <li><a href="#ref-for-variable">4. Declaration and Scope</a>
     <li><a href="#ref-for-variable①">5.4.1. Storable Types</a>
-    <li><a href="#ref-for-variable②">5.4.6. Use Cases for References and Pointers</a>
+    <li><a href="#ref-for-variable②">5.4.7. Use Cases for References and Pointers</a>
     <li><a href="#ref-for-variable③">6. Variable and Value Declarations</a> <a href="#ref-for-variable④">(2)</a> <a href="#ref-for-variable⑤">(3)</a> <a href="#ref-for-variable⑥">(4)</a> <a href="#ref-for-variable⑦">(5)</a> <a href="#ref-for-variable⑧">(6)</a> <a href="#ref-for-variable⑨">(7)</a> <a href="#ref-for-variable①⓪">(8)</a> <a href="#ref-for-variable①①">(9)</a> <a href="#ref-for-variable①②">(10)</a>
     <li><a href="#ref-for-variable①③">13.3. Address Spaces</a> <a href="#ref-for-variable①④">(2)</a>
     <li><a href="#ref-for-variable①⑤">14.2. Uniformity</a>
@@ -22550,7 +22672,7 @@ registrations, it matches widespread industry conventions.</p>
    <ul>
     <li><a href="#ref-for-uniform-buffer">5.2.10. Structure Types</a>
     <li><a href="#ref-for-uniform-buffer①">5.4.2. Host-shareable Types</a> <a href="#ref-for-uniform-buffer②">(2)</a>
-    <li><a href="#ref-for-uniform-buffer③">5.4.5. Invalid Memory Reference</a> <a href="#ref-for-uniform-buffer④">(2)</a> <a href="#ref-for-uniform-buffer⑤">(3)</a>
+    <li><a href="#ref-for-uniform-buffer③">5.4.6. Out of Bounds Access</a> <a href="#ref-for-uniform-buffer④">(2)</a> <a href="#ref-for-uniform-buffer⑤">(3)</a>
     <li><a href="#ref-for-uniform-buffer⑥">6. Variable and Value Declarations</a>
     <li><a href="#ref-for-uniform-buffer⑦">10.3. Shader Interface</a> <a href="#ref-for-uniform-buffer⑧">(2)</a>
     <li><a href="#ref-for-uniform-buffer⑨">10.3.2. Resource Interface</a>
@@ -22567,7 +22689,7 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-storage-buffer①">5.2.9. Array Types</a>
     <li><a href="#ref-for-storage-buffer②">5.2.10. Structure Types</a>
     <li><a href="#ref-for-storage-buffer③">5.4.2. Host-shareable Types</a> <a href="#ref-for-storage-buffer④">(2)</a>
-    <li><a href="#ref-for-storage-buffer⑤">5.4.5. Invalid Memory Reference</a> <a href="#ref-for-storage-buffer⑥">(2)</a> <a href="#ref-for-storage-buffer⑦">(3)</a> <a href="#ref-for-storage-buffer⑧">(4)</a>
+    <li><a href="#ref-for-storage-buffer⑤">5.4.6. Out of Bounds Access</a> <a href="#ref-for-storage-buffer⑥">(2)</a> <a href="#ref-for-storage-buffer⑦">(3)</a> <a href="#ref-for-storage-buffer⑧">(4)</a>
     <li><a href="#ref-for-storage-buffer⑨">6. Variable and Value Declarations</a> <a href="#ref-for-storage-buffer①⓪">(2)</a> <a href="#ref-for-storage-buffer①①">(3)</a>
     <li><a href="#ref-for-storage-buffer①②">10.3. Shader Interface</a> <a href="#ref-for-storage-buffer①③">(2)</a>
     <li><a href="#ref-for-storage-buffer①④">10.3.2. Resource Interface</a>
@@ -22760,15 +22882,16 @@ registrations, it matches widespread industry conventions.</p>
   <aside class="dfn-panel" data-for="address-of">
    <b><a href="#address-of">#address-of</a></b><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-address-of">5.4.6. Use Cases for References and Pointers</a> <a href="#ref-for-address-of①">(2)</a>
-    <li><a href="#ref-for-address-of②">5.4.7. Forming Reference and Pointer Values</a>
+    <li><a href="#ref-for-address-of">5.4.7. Use Cases for References and Pointers</a> <a href="#ref-for-address-of①">(2)</a>
+    <li><a href="#ref-for-address-of②">5.4.8. Forming Reference and Pointer Values</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="indirection">
    <b><a href="#indirection">#indirection</a></b><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-indirection">5.4.6. Use Cases for References and Pointers</a>
-    <li><a href="#ref-for-indirection①">5.4.7. Forming Reference and Pointer Values</a>
+    <li><a href="#ref-for-indirection">5.4.4. Valid and Invalid Memory References</a>
+    <li><a href="#ref-for-indirection①">5.4.7. Use Cases for References and Pointers</a>
+    <li><a href="#ref-for-indirection②">5.4.8. Forming Reference and Pointer Values</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="syntax-primary_expression">
@@ -22980,7 +23103,7 @@ registrations, it matches widespread industry conventions.</p>
    <b><a href="#statement-assignment">#statement-assignment</a></b><b>Referenced in:</b>
    <ul>
     <li><a href="#ref-for-statement-assignment">3.10. Template Lists</a>
-    <li><a href="#ref-for-statement-assignment①">5.4.5. Invalid Memory Reference</a>
+    <li><a href="#ref-for-statement-assignment①">5.4.6. Out of Bounds Access</a>
     <li><a href="#ref-for-statement-assignment②">8.2.1. Simple Assignment</a>
     <li><a href="#ref-for-statement-assignment③">8.2.2. Phony Assignment</a>
     <li><a href="#ref-for-statement-assignment④">8.2.3. Compound Assignment</a>
@@ -22996,7 +23119,7 @@ registrations, it matches widespread industry conventions.</p>
   <aside class="dfn-panel" data-for="left-hand-side">
    <b><a href="#left-hand-side">#left-hand-side</a></b><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-left-hand-side">5.4.6. Use Cases for References and Pointers</a>
+    <li><a href="#ref-for-left-hand-side">5.4.7. Use Cases for References and Pointers</a>
     <li><a href="#ref-for-left-hand-side①">8.2.1. Simple Assignment</a>
     <li><a href="#ref-for-left-hand-side②">8.2.2. Phony Assignment</a>
     <li><a href="#ref-for-left-hand-side③">8.2.3. Compound Assignment</a>
@@ -23006,7 +23129,7 @@ registrations, it matches widespread industry conventions.</p>
   <aside class="dfn-panel" data-for="right-hand-side">
    <b><a href="#right-hand-side">#right-hand-side</a></b><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-right-hand-side">5.4.6. Use Cases for References and Pointers</a>
+    <li><a href="#ref-for-right-hand-side">5.4.7. Use Cases for References and Pointers</a>
     <li><a href="#ref-for-right-hand-side①">8.2.1. Simple Assignment</a>
     <li><a href="#ref-for-right-hand-side②">8.2.2. Phony Assignment</a>
    </ul>
@@ -23014,7 +23137,7 @@ registrations, it matches widespread industry conventions.</p>
   <aside class="dfn-panel" data-for="simple-assignment">
    <b><a href="#simple-assignment">#simple-assignment</a></b><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-simple-assignment">5.4.6. Use Cases for References and Pointers</a>
+    <li><a href="#ref-for-simple-assignment">5.4.7. Use Cases for References and Pointers</a>
     <li><a href="#ref-for-simple-assignment①">8.2.3. Compound Assignment</a>
     <li><a href="#ref-for-simple-assignment②">13.6.1. Memory Operation</a>
    </ul>
@@ -23450,8 +23573,8 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-formal-parameter">4. Declaration and Scope</a> <a href="#ref-for-formal-parameter①">(2)</a>
     <li><a href="#ref-for-formal-parameter②">5.2.10. Structure Types</a>
     <li><a href="#ref-for-formal-parameter③">5.4.3. Reference and Pointer Types</a>
-    <li><a href="#ref-for-formal-parameter④">5.4.6. Use Cases for References and Pointers</a>
-    <li><a href="#ref-for-formal-parameter⑤">5.4.7. Forming Reference and Pointer Values</a>
+    <li><a href="#ref-for-formal-parameter④">5.4.7. Use Cases for References and Pointers</a>
+    <li><a href="#ref-for-formal-parameter⑤">5.4.8. Forming Reference and Pointer Values</a>
     <li><a href="#ref-for-formal-parameter⑥">5.5. Texture and Sampler Types</a>
     <li><a href="#ref-for-formal-parameter⑦">6.2. Value Declarations</a> <a href="#ref-for-formal-parameter⑧">(2)</a>
     <li><a href="#ref-for-formal-parameter⑨">9.1. Declaring a User-defined Function</a>
@@ -23509,8 +23632,8 @@ registrations, it matches widespread industry conventions.</p>
   <aside class="dfn-panel" data-for="calling-function">
    <b><a href="#calling-function">#calling-function</a></b><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-calling-function">5.4.6. Use Cases for References and Pointers</a>
-    <li><a href="#ref-for-calling-function①">5.4.7. Forming Reference and Pointer Values</a>
+    <li><a href="#ref-for-calling-function">5.4.7. Use Cases for References and Pointers</a>
+    <li><a href="#ref-for-calling-function①">5.4.8. Forming Reference and Pointer Values</a>
     <li><a href="#ref-for-calling-function②">9.2. Function Calls</a> <a href="#ref-for-calling-function③">(2)</a> <a href="#ref-for-calling-function④">(3)</a>
    </ul>
   </aside>
@@ -23530,8 +23653,8 @@ registrations, it matches widespread industry conventions.</p>
    <b><a href="#call-site">#call-site</a></b><b>Referenced in:</b>
    <ul>
     <li><a href="#ref-for-call-site">2.2.1. Filterable Triggering Rules</a>
-    <li><a href="#ref-for-call-site①">5.4.4. Originating Variable</a>
-    <li><a href="#ref-for-call-site②">5.4.7. Forming Reference and Pointer Values</a>
+    <li><a href="#ref-for-call-site①">5.4.5. Originating Variable</a>
+    <li><a href="#ref-for-call-site②">5.4.8. Forming Reference and Pointer Values</a>
     <li><a href="#ref-for-call-site③">7.12. Formal Parameter Expression</a>
     <li><a href="#ref-for-call-site④">8.4.10. Return Statement</a>
     <li><a href="#ref-for-call-site⑤">9.2. Function Calls</a>
@@ -23707,10 +23830,11 @@ registrations, it matches widespread industry conventions.</p>
    <b><a href="#shader-stage-output">#shader-stage-output</a></b><b>Referenced in:</b>
    <ul>
     <li><a href="#ref-for-shader-stage-output">1.1. Technical Overview</a>
-    <li><a href="#ref-for-shader-stage-output①">10.1. Shader Stages</a>
-    <li><a href="#ref-for-shader-stage-output②">10.2. Entry Point Declaration</a>
-    <li><a href="#ref-for-shader-stage-output③">10.3. Shader Interface</a>
-    <li><a href="#ref-for-shader-stage-output④">10.3.1. Inter-stage Input and Output Interface</a>
+    <li><a href="#ref-for-shader-stage-output①">5.4.6. Out of Bounds Access</a>
+    <li><a href="#ref-for-shader-stage-output②">10.1. Shader Stages</a>
+    <li><a href="#ref-for-shader-stage-output③">10.2. Entry Point Declaration</a>
+    <li><a href="#ref-for-shader-stage-output④">10.3. Shader Interface</a>
+    <li><a href="#ref-for-shader-stage-output⑤">10.3.1. Inter-stage Input and Output Interface</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="io-attributes">
@@ -23930,19 +24054,19 @@ registrations, it matches widespread industry conventions.</p>
    <ul>
     <li><a href="#ref-for-memory-locations">5.2.13. Fixed-Footprint Types</a>
     <li><a href="#ref-for-memory-locations①">5.4. Memory Views</a>
-    <li><a href="#ref-for-memory-locations②">5.4.5. Invalid Memory Reference</a> <a href="#ref-for-memory-locations③">(2)</a> <a href="#ref-for-memory-locations④">(3)</a> <a href="#ref-for-memory-locations⑤">(4)</a> <a href="#ref-for-memory-locations⑥">(5)</a> <a href="#ref-for-memory-locations⑦">(6)</a>
-    <li><a href="#ref-for-memory-locations⑧">5.4.8. Comparison with References and Pointers in Other Languages</a>
-    <li><a href="#ref-for-memory-locations⑨">6. Variable and Value Declarations</a>
-    <li><a href="#ref-for-memory-locations①⓪">6.1. Variables vs Values</a> <a href="#ref-for-memory-locations①①">(2)</a>
-    <li><a href="#ref-for-memory-locations①②">6.3. var Declarations</a>
-    <li><a href="#ref-for-memory-locations①③">7.5.1.3. Component Reference from Vector Reference</a>
-    <li><a href="#ref-for-memory-locations①④">8.2.1. Simple Assignment</a>
-    <li><a href="#ref-for-memory-locations①⑤">9.4.1.1. Root Identifier</a>
-    <li><a href="#ref-for-memory-locations①⑥">13.2. Memory Access Mode</a>
-    <li><a href="#ref-for-memory-locations①⑦">13.4. Memory Layout</a>
-    <li><a href="#ref-for-memory-locations①⑧">13.4.1. Alignment and Size</a>
-    <li><a href="#ref-for-memory-locations①⑨">13.6.1. Memory Operation</a>
-    <li><a href="#ref-for-memory-locations②⓪">17.8. Atomic Built-in Functions</a>
+    <li><a href="#ref-for-memory-locations②">5.4.6. Out of Bounds Access</a> <a href="#ref-for-memory-locations③">(2)</a> <a href="#ref-for-memory-locations④">(3)</a> <a href="#ref-for-memory-locations⑤">(4)</a> <a href="#ref-for-memory-locations⑥">(5)</a>
+    <li><a href="#ref-for-memory-locations⑦">5.4.9. Comparison with References and Pointers in Other Languages</a>
+    <li><a href="#ref-for-memory-locations⑧">6. Variable and Value Declarations</a>
+    <li><a href="#ref-for-memory-locations⑨">6.1. Variables vs Values</a> <a href="#ref-for-memory-locations①⓪">(2)</a>
+    <li><a href="#ref-for-memory-locations①①">6.3. var Declarations</a>
+    <li><a href="#ref-for-memory-locations①②">7.5.1.3. Component Reference from Vector Reference</a>
+    <li><a href="#ref-for-memory-locations①③">8.2.1. Simple Assignment</a>
+    <li><a href="#ref-for-memory-locations①④">9.4.1.1. Root Identifier</a>
+    <li><a href="#ref-for-memory-locations①⑤">13.2. Memory Access Mode</a>
+    <li><a href="#ref-for-memory-locations①⑥">13.4. Memory Layout</a>
+    <li><a href="#ref-for-memory-locations①⑦">13.4.1. Alignment and Size</a>
+    <li><a href="#ref-for-memory-locations①⑧">13.6.1. Memory Operation</a>
+    <li><a href="#ref-for-memory-locations①⑨">17.8. Atomic Built-in Functions</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="overlap">
@@ -23955,12 +24079,13 @@ registrations, it matches widespread industry conventions.</p>
    <b><a href="#memory-access">#memory-access</a></b><b>Referenced in:</b>
    <ul>
     <li><a href="#ref-for-memory-access">5.4. Memory Views</a>
+    <li><a href="#ref-for-memory-access①">5.4.6. Out of Bounds Access</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="read-access">
    <b><a href="#read-access">#read-access</a></b><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-read-access">5.4.6. Use Cases for References and Pointers</a>
+    <li><a href="#ref-for-read-access">5.4.7. Use Cases for References and Pointers</a>
     <li><a href="#ref-for-read-access①">6.1. Variables vs Values</a>
     <li><a href="#ref-for-read-access②">8.2.3. Compound Assignment</a>
     <li><a href="#ref-for-read-access③">9.4.1.2. Aliasing</a> <a href="#ref-for-read-access④">(2)</a>
@@ -23971,7 +24096,7 @@ registrations, it matches widespread industry conventions.</p>
   <aside class="dfn-panel" data-for="write-access">
    <b><a href="#write-access">#write-access</a></b><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-write-access">5.4.6. Use Cases for References and Pointers</a>
+    <li><a href="#ref-for-write-access">5.4.7. Use Cases for References and Pointers</a>
     <li><a href="#ref-for-write-access①">6.1. Variables vs Values</a>
     <li><a href="#ref-for-write-access②">7.5.1.3. Component Reference from Vector Reference</a> <a href="#ref-for-write-access③">(2)</a>
     <li><a href="#ref-for-write-access④">8.2.3. Compound Assignment</a>
@@ -23988,17 +24113,17 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-access-mode①">5.3.1. Predeclared enumerants</a>
     <li><a href="#ref-for-access-mode②">5.4. Memory Views</a>
     <li><a href="#ref-for-access-mode③">5.4.3. Reference and Pointer Types</a> <a href="#ref-for-access-mode④">(2)</a> <a href="#ref-for-access-mode⑤">(3)</a> <a href="#ref-for-access-mode⑥">(4)</a>
-    <li><a href="#ref-for-access-mode⑦">5.4.7. Forming Reference and Pointer Values</a>
-    <li><a href="#ref-for-access-mode⑧">6. Variable and Value Declarations</a> <a href="#ref-for-access-mode⑨">(2)</a>
-    <li><a href="#ref-for-access-mode①⓪">6.3. var Declarations</a> <a href="#ref-for-access-mode①①">(2)</a> <a href="#ref-for-access-mode①②">(3)</a> <a href="#ref-for-access-mode①③">(4)</a> <a href="#ref-for-access-mode①④">(5)</a>
-    <li><a href="#ref-for-access-mode①⑤">7.11. Variable Identifier Expression</a>
-    <li><a href="#ref-for-access-mode①⑥">8.2.1. Simple Assignment</a>
-    <li><a href="#ref-for-access-mode①⑦">8.2.3. Compound Assignment</a>
-    <li><a href="#ref-for-access-mode①⑧">8.3. Increment and Decrement Statements</a>
-    <li><a href="#ref-for-access-mode①⑨">9.4. Restrictions on Functions</a>
-    <li><a href="#ref-for-access-mode②⓪">17.4.1. arrayLength</a>
-    <li><a href="#ref-for-access-mode②①">17.7.1. textureDimensions</a> <a href="#ref-for-access-mode②②">(2)</a> <a href="#ref-for-access-mode②③">(3)</a>
-    <li><a href="#ref-for-access-mode②④">17.7.5. textureNumLayers</a>
+    <li><a href="#ref-for-access-mode⑦">5.4.8. Forming Reference and Pointer Values</a> <a href="#ref-for-access-mode⑧">(2)</a>
+    <li><a href="#ref-for-access-mode⑨">6. Variable and Value Declarations</a> <a href="#ref-for-access-mode①⓪">(2)</a>
+    <li><a href="#ref-for-access-mode①①">6.3. var Declarations</a> <a href="#ref-for-access-mode①②">(2)</a> <a href="#ref-for-access-mode①③">(3)</a> <a href="#ref-for-access-mode①④">(4)</a> <a href="#ref-for-access-mode①⑤">(5)</a>
+    <li><a href="#ref-for-access-mode①⑥">7.11. Variable Identifier Expression</a>
+    <li><a href="#ref-for-access-mode①⑦">8.2.1. Simple Assignment</a>
+    <li><a href="#ref-for-access-mode①⑧">8.2.3. Compound Assignment</a>
+    <li><a href="#ref-for-access-mode①⑨">8.3. Increment and Decrement Statements</a>
+    <li><a href="#ref-for-access-mode②⓪">9.4. Restrictions on Functions</a>
+    <li><a href="#ref-for-access-mode②①">17.4.1. arrayLength</a>
+    <li><a href="#ref-for-access-mode②②">17.7.1. textureDimensions</a> <a href="#ref-for-access-mode②③">(2)</a> <a href="#ref-for-access-mode②④">(3)</a>
+    <li><a href="#ref-for-access-mode②⑤">17.7.5. textureNumLayers</a>
    </ul>
   </aside>
   <aside class="dfn-panel" data-for="access-read">
@@ -24006,7 +24131,7 @@ registrations, it matches widespread industry conventions.</p>
    <ul>
     <li><a href="#ref-for-access-read">5.1.2. Conversion Rank</a>
     <li><a href="#ref-for-access-read①">5.3.1. Predeclared enumerants</a>
-    <li><a href="#ref-for-access-read②">5.4.6. Use Cases for References and Pointers</a>
+    <li><a href="#ref-for-access-read②">5.4.7. Use Cases for References and Pointers</a>
     <li><a href="#ref-for-access-read③">6.3. var Declarations</a>
     <li><a href="#ref-for-access-read④">10.3.3. Resource Layout Compatibility</a>
     <li><a href="#ref-for-access-read⑤">13.3. Address Spaces</a> <a href="#ref-for-access-read⑥">(2)</a> <a href="#ref-for-access-read⑦">(3)</a> <a href="#ref-for-access-read⑧">(4)</a> <a href="#ref-for-access-read⑨">(5)</a>
@@ -24017,7 +24142,7 @@ registrations, it matches widespread industry conventions.</p>
    <b><a href="#access-write">#access-write</a></b><b>Referenced in:</b>
    <ul>
     <li><a href="#ref-for-access-write">5.3.1. Predeclared enumerants</a>
-    <li><a href="#ref-for-access-write①">5.4.6. Use Cases for References and Pointers</a>
+    <li><a href="#ref-for-access-write①">5.4.7. Use Cases for References and Pointers</a>
     <li><a href="#ref-for-access-write②">5.5.5. Storage Texture Types</a>
     <li><a href="#ref-for-access-write③">6. Variable and Value Declarations</a>
     <li><a href="#ref-for-access-write④">8.2.1. Simple Assignment</a>
@@ -24030,7 +24155,7 @@ registrations, it matches widespread industry conventions.</p>
     <li><a href="#ref-for-access-read_write①">5.1.2. Conversion Rank</a>
     <li><a href="#ref-for-access-read_write②">5.2.8. Atomic Types</a>
     <li><a href="#ref-for-access-read_write③">5.3.1. Predeclared enumerants</a>
-    <li><a href="#ref-for-access-read_write④">5.4.6. Use Cases for References and Pointers</a> <a href="#ref-for-access-read_write⑤">(2)</a>
+    <li><a href="#ref-for-access-read_write④">5.4.7. Use Cases for References and Pointers</a> <a href="#ref-for-access-read_write⑤">(2)</a>
     <li><a href="#ref-for-access-read_write⑥">6. Variable and Value Declarations</a>
     <li><a href="#ref-for-access-read_write⑦">6.3. var Declarations</a>
     <li><a href="#ref-for-access-read_write⑧">8.2.1. Simple Assignment</a>
@@ -25311,7 +25436,7 @@ registrations, it matches widespread industry conventions.</p>
   <aside class="dfn-panel" data-for="zero-value">
    <b><a href="#zero-value">#zero-value</a></b><b>Referenced in:</b>
    <ul>
-    <li><a href="#ref-for-zero-value">5.4.5. Invalid Memory Reference</a>
+    <li><a href="#ref-for-zero-value">5.4.6. Out of Bounds Access</a>
     <li><a href="#ref-for-zero-value①">6.3. var Declarations</a> <a href="#ref-for-zero-value②">(2)</a> <a href="#ref-for-zero-value③">(3)</a> <a href="#ref-for-zero-value④">(4)</a> <a href="#ref-for-zero-value⑤">(5)</a>
     <li><a href="#ref-for-zero-value⑥">17.1.1. Zero Value Built-in Functions</a>
     <li><a href="#ref-for-zero-value⑦">17.1.2.2. bool</a>
