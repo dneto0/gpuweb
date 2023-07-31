@@ -2498,7 +2498,7 @@ Each has a corresponding negative value.
 <table class='data'>
   <caption>Extreme values for floating point types</caption>
   <thead>
-    <tr><th>Type<th>Smallest positive denormal<th>Smallest positive normal<th>Largest positive finite<th>Largest finite power of 2
+    <tr><th>Type<th>Smallest positive subnormal<th>Smallest positive normal<th>Largest positive finite<th>Largest finite power of 2
   </thead>
     <tr><td rowspan=2>f32<td>1.40129846432481707092e-45f<td>1.17549435082228750797e-38f<td>3.40282346638528859812e+38f<td rowspan=2>0x1p+127f
     <tr><td>0x1p-149f<td>0x1p-126f<td>0x1.fffffep+127f
@@ -11443,12 +11443,12 @@ the following differences:
         of NaNs and infinities.
 * Implementations may ignore the sign of a zero.
     That is, a zero with a positive sign may behave like a zero a with a negative sign, and vice versa.
-* To <dfn noexport title="flushed to zero">flush to zero</dfn> is to replace a denormalized value for a floating point type
+* To <dfn noexport title="flushed to zero">flush to zero</dfn> is to replace a subnormal value for a floating point type
     with a zero value of that type.
     * Any inputs or outputs of operations listed in [[#floating-point-accuracy]] may be flushed to zero.
     * Additionally, intermediate values of operations listed in
         [[#pack-builtin-functions]] or [[#unpack-builtin-functions]] may be flushed to zero.
-    * Other operations are required to preserve denormalized numbers.
+    * Other operations are required to preserve subnormal numbers.
 * The accuracy of operations is given in [[#floating-point-accuracy]].
 
 ### Floating Point Overflow ### {#floating-point-overflow}
@@ -11587,8 +11587,8 @@ the rules in [[#floating-point-overflow]] apply.
     The infinitely precise result is computed as either `min(max(x,low),high)`, or with a median-of-3-values formulation.
     These may differ when `low > high`.
 
-    If `x` and either `low` or `high` are denormalized, the result may be any of the denormalized values.
-    This follows from the possible results from the `min` and `max` functions on denormalized inputs.
+    If `x` and either `low` or `high` are subnormal, the result may be any of the subnormal values.
+    This follows from the possible results from the `min` and `max` functions on subnormal inputs.
   <tr><td>`cos(x)`
       <td>Absolute error at most 2<sup>-11</sup> when `x` is in the interval [-&pi;, &pi;]
       <td>Absolute error at most 2<sup>-7</sup> when `x` is in the interval [-&pi;, &pi;]
@@ -11638,9 +11638,9 @@ the rules in [[#floating-point-overflow]] apply.
       <td>Absolute error at most 2<sup>-7</sup> when `x` is in the interval [0.5, 2.0].<br>
           3 ULP when `x` is outside the interval [0.5, 2.0].<br>
   <tr><td>`max(x, y)`<td colspan=2 style="text-align:left;">Correctly rounded
-  <p>If both `x` and `y` are denormalized, the result may be either input.
+  <p>If both `x` and `y` are subnormal, the result may be either input.
   <tr><td>`min(x, y)`<td colspan=2 style="text-align:left;">Correctly rounded.
-  <p>If both `x` and `y` are denormalized, the result may be either input.
+  <p>If both `x` and `y` are subnormal, the result may be either input.
   <tr><td>`mix(x, y, z)`<td colspan=2 style="text-align:left;">Inherited from `x * (1.0 - z) + y * z`
   <tr><td>`modf(x)`<td colspan=2 style="text-align:left;">Correctly rounded
   <tr><td>`normalize(x)`<td colspan=2 style="text-align:left;">Inherited from `x / length(x)`
@@ -13799,7 +13799,7 @@ For example, if `e` is a very small negative number, then `fract(e)` may be 1.0.
     * When `e` is zero, the fraction is zero.
     * When `e` is non-zero and normal, `e` &equals; `fraction * 2`<sup>`exponent`</sup>, where
         the fraction is in the range [0.5, 1.0) or (-1.0, -0.5].
-    * Otherwise, `e` is denormalized, NaN, or infinite. The result fraction and exponent are [=indeterminate values=].
+    * Otherwise, `e` is subnormal, NaN, or infinite. The result fraction and exponent are [=indeterminate values=].
 
     Returns the `__frexp_result_f32` built-in structure, defined as follows:
     ```wgsl
@@ -13847,7 +13847,7 @@ but a value may infer the type.
     * When `e` is zero, the fraction is zero.
     * When `e` is non-zero and normal, `e` &equals; `fraction * 2`<sup>`exponent`</sup>, where
         the fraction is in the range [0.5, 1.0) or (-1.0, -0.5].
-    * Otherwise, `e` is denormalized, NaN, or infinite. The result fraction and exponent are [=indeterminate values=].
+    * Otherwise, `e` is subnormal, NaN, or infinite. The result fraction and exponent are [=indeterminate values=].
 
     Returns the `__frexp_result_f16` built-in structure, defined as if as follows:
     ```wgsl
@@ -13884,7 +13884,7 @@ but a value may infer the type.
     * When `e` is zero, the fraction is zero.
     * When `e` is non-zero and normal, `e` &equals; `fraction * 2`<sup>`exponent`</sup>, where
         the fraction is in the range [0.5, 1.0) or (-1.0, -0.5].
-    * When `e` is denormalized, the fraction and exponent are have unbounded error.
+    * When `e` is subnormal, the fraction and exponent are have unbounded error.
         The fraction may be any AbstractFloat value, and the exponent may be any AbstractInt value.
 
     Note: AbstractFloat expressions resulting in infinity or NaN cause a [=shader-creation error=].
@@ -14009,7 +14009,7 @@ but a value may infer the type.
     * When `ei` is zero, the fraction is zero.
     * When `ei` is non-zero and normal, `ei` &equals; `fraction * 2`<sup>`exponent`</sup>, where
         the fraction is in the range [0.5, 1.0) or (-1.0, -0.5].
-    * When `ei` is denormalized, the fraction and exponent are have unbounded error.
+    * When `ei` is subnormal, the fraction and exponent are have unbounded error.
         The fraction may be any AbstractFloat value, and the exponent may be any AbstractInt value.
 
     Note: AbstractFloat expressions resulting in infinity or NaN cause a [=shader-creation error=].
@@ -14214,7 +14214,7 @@ Note: The result is not mathematically meaningful if `e` &lt; 0.
     [=Component-wise=] when `T` is a vector.
 
     If `e1` and `e2` are floating-point values, then:
-    * If both `e1` and `e2` are denormalized, then the result may be *either* value.
+    * If both `e1` and `e2` are subnormal, then the result may be *either* value.
     * If one operand is a NaN, the other is returned.
     * If both operands are NaNs, a NaN is returned.
 </table>
@@ -14237,7 +14237,7 @@ Note: The result is not mathematically meaningful if `e` &lt; 0.
     [=Component-wise=] when `T` is a vector.
 
     If `e1` and `e2` are floating-point values, then:
-    * If both `e1` and `e2` are denormalized, then the result may be *either* value.
+    * If both `e1` and `e2` are subnormal, then the result may be *either* value.
     * If one operand is a NaN, the other is returned.
     * If both operands are NaNs, a NaN is returned.
 </table>
@@ -14560,7 +14560,7 @@ but a value may infer the type.
         * Otherwise the result is an [=indeterminate value=] for `T`.
 
         The intermediate binary16 value may be [=flushed to zero=], i.e. the final
-        result may be zero if the intermediate binary16 value is denormalized.
+        result may be zero if the intermediate binary16 value is subnormal.
 
         See [[#floating-point-conversion]].
 
