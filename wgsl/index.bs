@@ -2150,12 +2150,14 @@ Similarly, we also say the identifier [=resolves=] to the declared object.
 It is a [=shader-creation error=] if any [=module scope=] declaration is recursive.
 That is, no cycles can exist among the declarations:
 
-> Consider the directed graph where:
-> * Each node corresponds to a declaration |D|.
-> * There is an edge from declaration |D| to declaration |T| when the definition
->      for |D| mentions an identifier which [=resolves=] to |T|.
->
-> This graph must not have a cycle.
+<blockquote>
+Consider the directed graph where:
+* Each node corresponds to a declaration |D|.
+* There is an edge from declaration |D| to declaration |T| when the definition
+    for |D| mentions an identifier which [=resolves=] to |T|.
+
+This graph must not have a cycle.
+</blockquote>
 
 Note: The [=function body=] is part of the [=function declaration=], thus
 functions must not be recursive, either directly or indirectly.
@@ -2305,7 +2307,9 @@ only on the expression's [=static context=].
 A <dfn noexport>type assertion</dfn> is a mapping from some WGSL source expression to a WGSL type.
 The notation
 
-> *e* : *T*
+<blockquote>
+*e* : *T*
+</blockquote>
 
 is a type assertion meaning *T* is the static type of WGSL expression *e*.
 
@@ -7804,7 +7808,9 @@ The <dfn dfn-for="statement">for</dfn> statement is syntactic sugar over a [=com
 containing a [=statement/loop=] statement.
 In general, the `for` statement takes the form
 
-  > `for (` *initializer* `;` *condition* `;` *update_part* `) {` *body* `}`
+<blockquote>
+`for (` *initializer* `;` *condition* `;` *update_part* `) {` *body* `}`
+</blockquote>
 
 When the condition expression is present, the `for` statement desugars to a loop of the form:
 
@@ -11695,11 +11701,13 @@ or not at the same time, as a result of non-uniform control dependencies.
 Non-uniform control dependencies arise from [[#control-flow|control flow]]
 statements whose behavior depends on [=uniform value|non-uniform values=].
 
-> For example, a non-uniform control dependency arises when different invocations compute
-    different values for the condition of an
-    [=statement/if=], [=statement/break-if=], [=statement/while=], or [=statement/for=],
-    different values for the selector of a [=statement/switch=],
-    or the left-hand operand of a short-circuiting binary operator (`&&` or `||`).
+<blockquote>
+For example, a non-uniform control dependency arises when different invocations compute
+different values for the condition of an
+[=statement/if=], [=statement/break-if=], [=statement/while=], or [=statement/for=],
+different values for the selector of a [=statement/switch=],
+or the left-hand operand of a short-circuiting binary operator (`&&` or `||`).
+</blockquote>
 
 These non-uniform values can often be traced back to certain sources that are not
 statically proven to be uniform.
@@ -18940,11 +18948,15 @@ with texture coordinates clamped to the edge as described below.
 
   Before sampling, the given coordinates [=behavioral requirement|will=] be clamped to the rectangle
 
-  > [ *half_texel*, 1 - *half_texel* ]
+  <blockquote>
+  [ *half_texel*, 1 - *half_texel* ]
+  </blockquote>
 
   where
 
-  >  *half_texel* = vec2(0.5) / vec2&lt;f32&gt;(textureDimensions(t))
+  <blockquote>
+  *half_texel* = vec2(0.5) / vec2&lt;f32&gt;(textureDimensions(t))
+  </blockquote>
 
   Note: The half-texel adjustment ensures that,
   independent of the sampler's {{GPUAddressMode|addressing}}
