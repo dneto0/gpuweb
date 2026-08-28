@@ -6176,13 +6176,9 @@ There are two ways of forming such expressions:
 : <dfn noexport>indexing expression</dfn>
 :: The expression for the base is followed by `'['` (U+005B), then the expression for an index then `']'` (U+005D).
     * The base may be a [=vector=], [=matrix=], or [=fixed-size array=] type,
-        or a memory view to a vector, matrix, fixed-size array, or [=runtime-sized=] array type.
+        or a [=memory view=] to a vector, matrix, fixed-size array, or [=runtime-sized=] array type.
+        The base may also be a [=swizzle view=], as a special case of a memory view.
     * The index expression [=shader-creation error|must=] be of [=integer scalar=] type.
-
-Note: Swizzle views do not directly support indexing expressions.
-When an indexing expression clause appears after a swizzle view,
-the [=Swizzle View Load Rule=] is applied first to yield a vector value, and then
-the indexing expression is applied to that vector value.
 
 Syntactically, these two forms are embodied by uses of the [=syntax/component_or_swizzle_specifier=] grammar rule.
 
