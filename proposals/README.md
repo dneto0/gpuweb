@@ -46,6 +46,7 @@ Always refer to the specifications as the source of truth.
 * [transient-attachments](transient-attachments.md)
 * [subgroup-size-control](subgroup-size-control.md)
 * [atomic-64-min-max](atomic-64-min-max.md)
+* [subgroup-id](subgroup-id.md)
 
 ### Status: Draft
 
@@ -61,7 +62,6 @@ draft implementation, for developers who want to test this proposal.
 <!-- SECTION status-draft -->
 * [texel-buffers](texel-buffers.md)
 * [sized-binding-arrays](sized-binding-arrays.md)
-* [subgroup-id](subgroup-id.md)
 * [subgroup-matrix](subgroup-matrix.md)
 * [fragment-depth](fragment-depth.md)
 * [bindless](bindless.md)
